@@ -15,7 +15,7 @@ from src.extractor import RCTExtractor
 from src.exporter import ExcelTrialExporter
 
 
-def process_pdf(pdf_file):
+def process_pdf(pdf_file, api_key=""):
     if pdf_file is None:
         return None, "⚠️ Please upload a clinical trial PDF file.", None, None
 
@@ -24,8 +24,8 @@ def process_pdf(pdf_file):
     output_filename = f"outputs/{base_name}_extracted.xlsx"
     os.makedirs("outputs", exist_ok=True)
 
-    # 1. Run extraction
-    extractor = RCTExtractor(pdf_path)
+    # 1. Run extraction (Deep AI if api_key provided, else Smart Local Engine)
+    extractor = RCTExtractor(pdf_path, api_key=api_key.strip() if api_key else None)
     data = extractor.extract_all()
 
     # 2. Export to Excel
@@ -108,6 +108,11 @@ def build_app():
                     file_types=[".pdf"],
                     type="filepath"
                 )
+                api_key_input = gr.Textbox(
+                    label="🔑 AI API Key (Optional: Google Gemini or OpenAI)",
+                    type="password",
+                    placeholder="Enter GEMINI_API_KEY or OPENAI_API_KEY (Leave blank for Smart Local Engine)"
+                )
                 extract_btn = gr.Button("🚀 Extract Trial Data", variant="primary")
                 
                 gr.Markdown("### 📥 Download Output")
@@ -124,7 +129,7 @@ def build_app():
 
         extract_btn.click(
             fn=process_pdf,
-            inputs=[pdf_input],
+            inputs=[pdf_input, api_key_input],
             outputs=[excel_output, summary_output, matrix_table, outcomes_table]
         )
 
