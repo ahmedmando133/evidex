@@ -63,7 +63,8 @@ def main():
         trials = [
             ("data/raw/Orlistat.pdf", "outputs/orlistat_structured_extracted.xlsx"),
             ("data/raw/metformin clinical trial.pdf", "outputs/metformin_structured_extracted.xlsx"),
-            ("data/raw/semaglutide trial.pdf", "outputs/semaglutide_structured_extracted.xlsx")
+            ("data/raw/semaglutide trial.pdf", "outputs/semaglutide_structured_extracted.xlsx"),
+            ("data/raw/Dabagliflozin.pdf", "outputs/dapagliflozin_structured_extracted.xlsx")
         ]
         for pdf, out in trials:
             process_single_trial(pdf, out)

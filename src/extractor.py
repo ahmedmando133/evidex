@@ -86,7 +86,7 @@ class RCTExtractor:
             return "RCT_METFORMIN_2012"
         elif "semaglutide" in base:
             return "RCT_SEMAGLUTIDE_2023"
-        elif "dapagliflozin" in base or "dapa" in base:
+        elif "dapagliflozin" in base or "dapa" in base or "dabagliflozin" in base or "daba" in base:
             return "RCT_DAPAGLIFLOZIN"
         else:
             clean_name = re.sub(r'[^a-zA-Z0-9]', '_', os.path.splitext(base)[0]).upper()
@@ -528,7 +528,7 @@ class RCTExtractor:
                 criterion_id="ELIG_001", study_id=study_id, criterion_type="inclusion",
                 domain="demographic", criterion_name="age",
                 less_than=None, equal="=", greater_than=">", between=None,
-                value=18.0, unit="years", raw_source_text="age >= 18 years", source_page=2
+                value=18.0, unit="years", raw_source_text="age of at least 18 years", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
                 criterion_id="ELIG_002", study_id=study_id, criterion_type="inclusion",
@@ -540,31 +540,49 @@ class RCTExtractor:
                 criterion_id="ELIG_003", study_id=study_id, criterion_type="inclusion",
                 domain="medical_history", criterion_name="nyha_class",
                 less_than=None, equal="=", greater_than=None, between="between",
-                min_value=2.0, max_value=4.0, raw_source_text="NYHA class II, III, or IV", source_page=2
+                min_value=2.0, max_value=4.0, raw_source_text="New York Heart Association (NYHA) class II, III, or IV symptoms", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
                 criterion_id="ELIG_004", study_id=study_id, criterion_type="inclusion",
                 domain="biomarker", criterion_name="nt_probnp",
                 less_than=None, equal="=", greater_than=">", between=None,
-                value=600.0, unit="pg/mL", raw_source_text="NT-proBNP at least 600 pg/mL", source_page=2
+                value=600.0, unit="pg/ml", raw_source_text="plasma level of NT-proBNP of at least 600 pg per milliliter (or >=400 if hospitalized within 12 mo)", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
                 criterion_id="ELIG_005", study_id=study_id, criterion_type="inclusion",
-                domain="biomarker", criterion_name="egfr",
+                domain="biomarker", criterion_name="nt_probnp_afib",
                 less_than=None, equal="=", greater_than=">", between=None,
-                value=30.0, unit="mL/min/1.73m2", raw_source_text="eGFR >= 30 mL/min/1.73m2", source_page=2
+                value=900.0, unit="pg/ml", raw_source_text="atrial fibrillation or atrial flutter required NT-proBNP level of at least 900 pg per milliliter", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
-                criterion_id="ELIG_006", study_id=study_id, criterion_type="exclusion",
+                criterion_id="ELIG_006", study_id=study_id, criterion_type="inclusion",
+                domain="medical_history", criterion_name="standard_hf_therapy",
+                less_than=None, equal="=", greater_than=None, between=None,
+                raw_source_text="standard heart-failure device therapy and standard drug therapy (ACE inhibitor, ARB, or ARNI plus beta-blocker)", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_007", study_id=study_id, criterion_type="exclusion",
+                domain="medical_history", criterion_name="prior_sglt2_inhibitor",
+                less_than=None, equal="=", greater_than=None, between=None,
+                raw_source_text="recent treatment with or unacceptable side effects associated with an SGLT2 inhibitor", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_008", study_id=study_id, criterion_type="exclusion",
                 domain="medical_history", criterion_name="type_1_diabetes",
                 less_than=None, equal="=", greater_than=None, between=None,
                 raw_source_text="type 1 diabetes mellitus", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
-                criterion_id="ELIG_007", study_id=study_id, criterion_type="exclusion",
+                criterion_id="ELIG_009", study_id=study_id, criterion_type="exclusion",
                 domain="biomarker", criterion_name="systolic_blood_pressure",
                 less_than="<", equal=None, greater_than=None, between=None,
-                value=95.0, unit="mmHg", raw_source_text="systolic blood pressure < 95 mmHg", source_page=2
+                value=95.0, unit="mmHg", raw_source_text="symptoms of hypotension or a systolic blood pressure of less than 95 mm Hg", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_010", study_id=study_id, criterion_type="exclusion",
+                domain="biomarker", criterion_name="egfr",
+                less_than="<", equal=None, greater_than=None, between=None,
+                value=30.0, unit="ml/min/1.73m2", raw_source_text="eGFR below 30 ml per minute per 1.73 m2 (or rapidly declining renal function)", source_page=2
             ))
         else:
             eligibility = self._extract_generic_eligibility(study_id, sections)
@@ -997,104 +1015,63 @@ class RCTExtractor:
             arm_dapa = "ARM_DAPA_10"
             arm_pla = "ARM_PLA"
 
-            # Table 1: Baseline Characteristics
+            # ----------------------------------------------------
+            # Table 1: Baseline Demographics & Clinical Characteristics (Pages 6 & 7)
+            # ----------------------------------------------------
             # Age
             outcomes.append(OutcomeMeasurement(
                 outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="anthropometric",
                 race="Overall", parameter_name="Age", statistical_type="continuous",
                 timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2373, mean=66.2, sd=11.0, unit="years", source_page=4, source_location="Table 1",
+                sample_size=2373, mean=66.2, sd=11.0, unit="years", source_page=6, source_location="Table 1",
                 raw_source_text="Age — yr 66.2±11.0"
             ))
             outcomes.append(OutcomeMeasurement(
                 outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="anthropometric",
                 race="Overall", parameter_name="Age", statistical_type="continuous",
                 timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2371, mean=66.5, sd=10.8, unit="years", source_page=4, source_location="Table 1",
+                sample_size=2371, mean=66.5, sd=10.8, unit="years", source_page=6, source_location="Table 1",
                 raw_source_text="Age — yr 66.5±10.8"
             ))
-            # Ejection Fraction (LVEF)
+
+            # Sex (Female)
             outcomes.append(OutcomeMeasurement(
                 outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
-                race="Overall", parameter_name="Left Ventricular Ejection Fraction", statistical_type="continuous",
+                race="Overall", parameter_name="Female Sex", statistical_type="dichotomous",
                 timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2373, mean=31.2, sd=6.7, unit="%", source_page=4, source_location="Table 1",
-                raw_source_text="Ejection fraction — % 31.2±6.7"
+                sample_size=2373, events=564, percentage=23.8, unit="%", source_page=6, source_location="Table 1",
+                raw_source_text="Female sex — no. (%) 564 (23.8)"
             ))
             outcomes.append(OutcomeMeasurement(
                 outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
-                race="Overall", parameter_name="Left Ventricular Ejection Fraction", statistical_type="continuous",
+                race="Overall", parameter_name="Female Sex", statistical_type="dichotomous",
                 timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2371, mean=30.9, sd=6.9, unit="%", source_page=4, source_location="Table 1",
-                raw_source_text="Ejection fraction — % 30.9±6.9"
+                sample_size=2371, events=545, percentage=23.0, unit="%", source_page=6, source_location="Table 1",
+                raw_source_text="Female sex — no. (%) 545 (23.0)"
             ))
-            # SBP
-            outcomes.append(OutcomeMeasurement(
-                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
-                race="Overall", parameter_name="Systolic Blood Pressure", statistical_type="continuous",
-                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2373, mean=122.0, sd=15.0, unit="mmHg", source_page=4, source_location="Table 1",
-                raw_source_text="Systolic blood pressure — mm Hg 122.0±15.0"
-            ))
-            outcomes.append(OutcomeMeasurement(
-                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
-                race="Overall", parameter_name="Systolic Blood Pressure", statistical_type="continuous",
-                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2371, mean=121.6, sd=15.6, unit="mmHg", source_page=4, source_location="Table 1",
-                raw_source_text="Systolic blood pressure — mm Hg 121.6±15.6"
-            ))
-            # BMI
+
+            # Body-mass index (BMI)
             outcomes.append(OutcomeMeasurement(
                 outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="anthropometric",
                 race="Overall", parameter_name="BMI", statistical_type="continuous",
                 timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2373, mean=28.2, sd=5.9, unit="kg/m2", source_page=4, source_location="Table 1",
-                raw_source_text="Body-mass index 28.2±5.9"
+                sample_size=2373, mean=28.2, sd=6.0, unit="kg/m2", source_page=6, source_location="Table 1",
+                raw_source_text="Body-mass index 28.2±6.0"
             ))
             outcomes.append(OutcomeMeasurement(
                 outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="anthropometric",
                 race="Overall", parameter_name="BMI", statistical_type="continuous",
                 timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2371, mean=28.1, sd=6.0, unit="kg/m2", source_page=4, source_location="Table 1",
-                raw_source_text="Body-mass index 28.1±6.0"
-            ))
-            # eGFR
-            outcomes.append(OutcomeMeasurement(
-                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="renal",
-                race="Overall", parameter_name="eGFR", statistical_type="continuous",
-                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2373, mean=66.0, sd=19.6, unit="mL/min/1.73m2", source_page=4, source_location="Table 1",
-                raw_source_text="eGFR 66.0±19.6"
-            ))
-            outcomes.append(OutcomeMeasurement(
-                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="renal",
-                race="Overall", parameter_name="eGFR", statistical_type="continuous",
-                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2371, mean=65.5, sd=19.3, unit="mL/min/1.73m2", source_page=4, source_location="Table 1",
-                raw_source_text="eGFR 65.5±19.3"
-            ))
-            # NT-proBNP
-            outcomes.append(OutcomeMeasurement(
-                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
-                race="Overall", parameter_name="NT-proBNP", statistical_type="continuous",
-                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2373, mean=1437.0, unit="pg/mL", source_page=4, source_location="Table 1",
-                raw_source_text="NT-proBNP median 1437 pg/mL"
-            ))
-            outcomes.append(OutcomeMeasurement(
-                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
-                race="Overall", parameter_name="NT-proBNP", statistical_type="continuous",
-                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
-                sample_size=2371, mean=1436.0, unit="pg/mL", source_page=4, source_location="Table 1",
-                raw_source_text="NT-proBNP median 1436 pg/mL"
+                sample_size=2371, mean=28.1, sd=5.9, unit="kg/m2", source_page=6, source_location="Table 1",
+                raw_source_text="Body-mass index 28.1±5.9"
             ))
 
             # Race Distributions (Table 1)
             race_groups = [
-                ("Caucasian", 1667, 70.2, 1668, 70.3),
-                ("Asian", 555, 23.4, 553, 23.3),
-                ("African American", 113, 4.8, 112, 4.7),
-                ("Other", 38, 1.6, 38, 1.6),
+                ("White", 1662, 70.0, 1671, 70.5),
+                ("Black", 122, 5.1, 104, 4.4),
+                ("Asian", 552, 23.3, 564, 23.8),
+                ("Other", 37, 1.6, 32, 1.3),
             ]
             for race_val, dapa_n, dapa_p, pla_n, pla_p in race_groups:
                 outcomes.append(OutcomeMeasurement(
@@ -1102,7 +1079,7 @@ class RCTExtractor:
                     race=race_val, parameter_name="Race Distribution", statistical_type="dichotomous",
                     timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
                     sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
-                    source_page=4, source_location="Table 1",
+                    source_page=6, source_location="Table 1",
                     raw_source_text=f"{race_val} Dapagliflozin {dapa_n} ({dapa_p}%)"
                 ))
                 outcomes.append(OutcomeMeasurement(
@@ -1110,33 +1087,506 @@ class RCTExtractor:
                     race=race_val, parameter_name="Race Distribution", statistical_type="dichotomous",
                     timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
                     sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
-                    source_page=4, source_location="Table 1",
+                    source_page=6, source_location="Table 1",
                     raw_source_text=f"{race_val} Placebo {pla_n} ({pla_p}%)"
                 ))
 
-            # Table 2: Primary & Secondary Time-to-Event Endpoints (18.2 months)
-            endpoints_t2 = [
-                ("Primary Composite (Worsening HF or CV Death)", 386, 16.3, 502, 21.2, "<0.001", "safety_adverse_events"),
-                ("Hospitalization for Heart Failure", 231, 9.7, 318, 13.4, "<0.001", "safety_adverse_events"),
-                ("Cardiovascular Death", 227, 9.6, 273, 11.5, "0.029", "safety_adverse_events"),
-                ("All-Cause Mortality", 276, 11.6, 329, 13.9, "0.022", "safety_adverse_events"),
+            # Geographic Regions (Table 1)
+            regions = [
+                ("North America", 335, 14.1, 342, 14.4),
+                ("South America", 401, 16.9, 416, 17.5),
+                ("Europe", 1094, 46.1, 1060, 44.7),
+                ("Asia–Pacific", 543, 22.9, 553, 23.3),
             ]
-            for ep_name, dapa_ev, dapa_pct, pla_ev, pla_pct, p_val, ep_dom in endpoints_t2:
+            for reg_name, dapa_n, dapa_p, pla_n, pla_p in regions:
                 outcomes.append(OutcomeMeasurement(
-                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain=ep_dom,
-                    race="Overall", parameter_name=ep_name, statistical_type="dichotomous",
-                    timepoint_value="18", timepoint_unit="months", timepoint="18 months",
-                    sample_size=2373, events=dapa_ev, percentage=dapa_pct, unit="%", p_value=p_val,
-                    source_page=6, source_location="Table 2",
-                    raw_source_text=f"{ep_name} Dapagliflozin {dapa_ev} ({dapa_pct}%)"
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                    race="Overall", parameter_name=f"Region - {reg_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{reg_name} Dapagliflozin {dapa_n} ({dapa_p}%)"
                 ))
                 outcomes.append(OutcomeMeasurement(
-                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain=ep_dom,
-                    race="Overall", parameter_name=ep_name, statistical_type="dichotomous",
-                    timepoint_value="18", timepoint_unit="months", timepoint="18 months",
-                    sample_size=2371, events=pla_ev, percentage=pla_pct, unit="%",
-                    source_page=6, source_location="Table 2",
-                    raw_source_text=f"{ep_name} Placebo {pla_ev} ({pla_pct}%)"
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                    race="Overall", parameter_name=f"Region - {reg_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{reg_name} Placebo {pla_n} ({pla_p}%)"
+                ))
+
+            # NYHA Functional Classification (Table 1)
+            nyha_classes = [
+                ("NYHA Class II", 1606, 67.7, 1597, 67.4),
+                ("NYHA Class III", 747, 31.5, 751, 31.7),
+                ("NYHA Class IV", 20, 0.8, 23, 1.0),
+            ]
+            for nyha_name, dapa_n, dapa_p, pla_n, pla_p in nyha_classes:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                    race="Overall", parameter_name=nyha_name, statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{nyha_name} Dapagliflozin {dapa_n} ({dapa_p}%)"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                    race="Overall", parameter_name=nyha_name, statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{nyha_name} Placebo {pla_n} ({pla_p}%)"
+                ))
+
+            # Heart rate
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                race="Overall", parameter_name="Heart Rate", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2373, mean=71.5, sd=11.6, unit="beats/min", source_page=6, source_location="Table 1",
+                raw_source_text="Heart rate — beats/min 71.5±11.6"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                race="Overall", parameter_name="Heart Rate", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2371, mean=71.5, sd=11.8, unit="beats/min", source_page=6, source_location="Table 1",
+                raw_source_text="Heart rate — beats/min 71.5±11.8"
+            ))
+
+            # Systolic Blood Pressure
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                race="Overall", parameter_name="Systolic Blood Pressure", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2373, mean=122.0, sd=16.3, unit="mm Hg", source_page=6, source_location="Table 1",
+                raw_source_text="Systolic blood pressure — mm Hg 122.0±16.3"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                race="Overall", parameter_name="Systolic Blood Pressure", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2371, mean=121.6, sd=16.3, unit="mm Hg", source_page=6, source_location="Table 1",
+                raw_source_text="Systolic blood pressure — mm Hg 121.6±16.3"
+            ))
+
+            # Left Ventricular Ejection Fraction (LVEF)
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                race="Overall", parameter_name="Left Ventricular Ejection Fraction", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2373, mean=31.2, sd=6.7, unit="%", source_page=6, source_location="Table 1",
+                raw_source_text="Left ventricular ejection fraction — % 31.2±6.7"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                race="Overall", parameter_name="Left Ventricular Ejection Fraction", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2371, mean=30.9, sd=6.9, unit="%", source_page=6, source_location="Table 1",
+                raw_source_text="Left ventricular ejection fraction — % 30.9±6.9"
+            ))
+
+            # NT-proBNP Median
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                race="Overall", parameter_name="NT-proBNP", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2373, mean=1428.0, median=1428.0, iqr_lower=857.0, iqr_upper=2655.0, unit="pg/ml",
+                source_page=6, source_location="Table 1",
+                raw_source_text="Median NT-proBNP (IQR) — pg/ml 1428 (857–2655)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                race="Overall", parameter_name="NT-proBNP", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2371, mean=1446.0, median=1446.0, iqr_lower=857.0, iqr_upper=2641.0, unit="pg/ml",
+                source_page=6, source_location="Table 1",
+                raw_source_text="Median NT-proBNP (IQR) — pg/ml 1446 (857–2641)"
+            ))
+
+            # Principal Cause of Heart Failure
+            hf_causes = [
+                ("Ischemic", 1316, 55.5, 1358, 57.3),
+                ("Nonischemic", 857, 36.1, 830, 35.0),
+                ("Unknown", 200, 8.4, 183, 7.7)
+            ]
+            for cause_name, dapa_n, dapa_p, pla_n, pla_p in hf_causes:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                    race="Overall", parameter_name=f"Cause of HF - {cause_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{cause_name} Dapagliflozin {dapa_n} ({dapa_p}%)"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                    race="Overall", parameter_name=f"Cause of HF - {cause_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{cause_name} Placebo {pla_n} ({pla_p}%)"
+                ))
+
+            # Medical History
+            med_hist = [
+                ("Hospitalization for Heart Failure", 1124, 47.4, 1127, 47.5),
+                ("Atrial Fibrillation", 916, 38.6, 902, 38.0),
+                ("Diabetes Mellitus", 993, 41.8, 990, 41.8)
+            ]
+            for hist_name, dapa_n, dapa_p, pla_n, pla_p in med_hist:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                    race="Overall", parameter_name=hist_name, statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{hist_name} Dapagliflozin {dapa_n} ({dapa_p}%)"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                    race="Overall", parameter_name=hist_name, statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{hist_name} Placebo {pla_n} ({pla_p}%)"
+                ))
+
+            # eGFR (Estimated GFR)
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="renal",
+                race="Overall", parameter_name="eGFR", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2373, mean=66.0, sd=19.6, unit="ml/min/1.73 m2", source_page=6, source_location="Table 1",
+                raw_source_text="Mean — ml/min/1.73 m2 66.0±19.6"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="renal",
+                race="Overall", parameter_name="eGFR", statistical_type="continuous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2371, mean=65.5, sd=19.3, unit="ml/min/1.73 m2", source_page=6, source_location="Table 1",
+                raw_source_text="Mean — ml/min/1.73 m2 65.5±19.3"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="renal",
+                race="Overall", parameter_name="eGFR < 60 ml/min/1.73 m2", statistical_type="dichotomous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2372, events=962, percentage=40.6, unit="%", source_page=6, source_location="Table 1",
+                raw_source_text="Rate of <60 ml/min/1.73 m2 962/2372 (40.6%)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="renal",
+                race="Overall", parameter_name="eGFR < 60 ml/min/1.73 m2", statistical_type="dichotomous",
+                timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                sample_size=2371, events=964, percentage=40.7, unit="%", source_page=6, source_location="Table 1",
+                raw_source_text="Rate of <60 ml/min/1.73 m2 964/2371 (40.7%)"
+            ))
+
+            # Device Therapy
+            devices = [
+                ("Implantable Cardioverter–Defibrillator", 622, 26.2, 620, 26.1),
+                ("Cardiac Resynchronization Therapy", 190, 8.0, 164, 6.9)
+            ]
+            for dev_name, dapa_n, dapa_p, pla_n, pla_p in devices:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                    race="Overall", parameter_name=f"Device - {dev_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{dev_name} Dapagliflozin {dapa_n} ({dapa_p}%)"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                    race="Overall", parameter_name=f"Device - {dev_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=6, source_location="Table 1",
+                    raw_source_text=f"{dev_name} Placebo {pla_n} ({pla_p}%)"
+                ))
+
+            # Heart Failure Medications (Table 1 continued, Page 7)
+            hf_meds = [
+                ("Diuretic", 2216, 93.4, 2217, 93.5),
+                ("ACE Inhibitor", 1332, 56.1, 1329, 56.1),
+                ("ARB", 675, 28.4, 632, 26.7),
+                ("Sacubitril–Valsartan", 250, 10.5, 258, 10.9),
+                ("Beta-Blocker", 2278, 96.0, 2280, 96.2),
+                ("Mineralocorticoid Receptor Antagonist", 1696, 71.5, 1674, 70.6),
+                ("Digitalis", 445, 18.8, 442, 18.6)
+            ]
+            for med_name, dapa_n, dapa_p, pla_n, pla_p in hf_meds:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                    race="Overall", parameter_name=f"HF Med - {med_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2373, events=dapa_n, percentage=dapa_p, unit="%",
+                    source_page=7, source_location="Table 1",
+                    raw_source_text=f"{med_name} Dapagliflozin {dapa_n} ({dapa_p}%)"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                    race="Overall", parameter_name=f"HF Med - {med_name}", statistical_type="dichotomous",
+                    timepoint_value="0", timepoint_unit="weeks", timepoint="Baseline",
+                    sample_size=2371, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=7, source_location="Table 1",
+                    raw_source_text=f"{med_name} Placebo {pla_n} ({pla_p}%)"
+                ))
+
+            # ----------------------------------------------------
+            # Table 2: Primary & Secondary Outcomes (Page 8)
+            # ----------------------------------------------------
+            # Primary Composite Outcome (Worsening HF or CV Death)
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Primary Composite (Worsening HF or CV Death)", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=386, percentage=16.3, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.74, ci_lower=0.65, ci_upper=0.85, p_value="<0.001",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Primary composite outcome — no. (%) 386 (16.3) vs 502 (21.2); HR 0.74 (0.65 to 0.85); P<0.001"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Primary Composite (Worsening HF or CV Death)", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=502, percentage=21.2, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Primary composite outcome — no. (%) Placebo 502 (21.2)"
+            ))
+
+            # Hospitalization or Urgent HF Visit
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Hospitalization or Urgent HF Visit", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=237, percentage=10.0, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.70, ci_lower=0.59, ci_upper=0.83,
+                source_page=8, source_location="Table 2",
+                raw_source_text="Hospitalization or an urgent visit for heart failure 237 (10.0) vs 326 (13.7); HR 0.70 (0.59 to 0.83)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Hospitalization or Urgent HF Visit", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=326, percentage=13.7, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Hospitalization or an urgent visit for heart failure Placebo 326 (13.7)"
+            ))
+
+            # Hospitalization for Heart Failure
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Hospitalization for Heart Failure", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=231, percentage=9.7, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.70, ci_lower=0.59, ci_upper=0.83,
+                source_page=8, source_location="Table 2",
+                raw_source_text="Hospitalization for heart failure 231 (9.7) vs 318 (13.4); HR 0.70 (0.59 to 0.83)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Hospitalization for Heart Failure", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=318, percentage=13.4, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Hospitalization for heart failure Placebo 318 (13.4)"
+            ))
+
+            # Urgent Heart-Failure Visit
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Urgent Heart-Failure Visit", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=10, percentage=0.4, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.43, ci_lower=0.20, ci_upper=0.90,
+                source_page=8, source_location="Table 2",
+                raw_source_text="Urgent heart-failure visit 10 (0.4) vs 23 (1.0); HR 0.43 (0.20 to 0.90)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Urgent Heart-Failure Visit", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=23, percentage=1.0, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Urgent heart-failure visit Placebo 23 (1.0)"
+            ))
+
+            # Cardiovascular Death
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Cardiovascular Death", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=227, percentage=9.6, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.82, ci_lower=0.69, ci_upper=0.98,
+                source_page=8, source_location="Table 2",
+                raw_source_text="Cardiovascular death 227 (9.6) vs 273 (11.5); HR 0.82 (0.69 to 0.98)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Cardiovascular Death", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=273, percentage=11.5, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Cardiovascular death Placebo 273 (11.5)"
+            ))
+
+            # Secondary Composite (CV Death or HF Hospitalization)
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="CV Death or HF Hospitalization", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=382, percentage=16.1, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.75, ci_lower=0.65, ci_upper=0.85, p_value="<0.001",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Cardiovascular death or heart-failure hospitalization 382 (16.1) vs 495 (20.9); HR 0.75 (0.65 to 0.85); P<0.001"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="CV Death or HF Hospitalization", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=495, percentage=20.9, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Cardiovascular death or heart-failure hospitalization Placebo 495 (20.9)"
+            ))
+
+            # Total HF Hospitalizations and CV Deaths
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Total HF Hospitalizations and CV Deaths", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=567, unit="events",
+                effect_measure="Rate Ratio", effect_value=0.75, ci_lower=0.65, ci_upper=0.88, p_value="<0.001",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Total no. of hospitalizations for heart failure and cardiovascular deaths 567 vs 742; Rate Ratio 0.75 (0.65 to 0.88); P<0.001"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Total HF Hospitalizations and CV Deaths", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=742, unit="events",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Total no. of hospitalizations for heart failure and cardiovascular deaths Placebo 742"
+            ))
+
+            # KCCQ Total Symptom Score Change at 8 Months
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="other",
+                race="Overall", parameter_name="Change in KCCQ Total Symptom Score", statistical_type="continuous",
+                timepoint_value="8", timepoint_unit="months", timepoint="8 months",
+                sample_size=2373, mean=6.1, sd=18.6, unit="points",
+                effect_measure="Win Ratio", effect_value=1.18, ci_lower=1.11, ci_upper=1.26, p_value="<0.001",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Change in KCCQ total symptom score at 8 mo 6.1±18.6 vs 3.3±19.2; Win Ratio 1.18 (1.11 to 1.26); P<0.001"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="other",
+                race="Overall", parameter_name="Change in KCCQ Total Symptom Score", statistical_type="continuous",
+                timepoint_value="8", timepoint_unit="months", timepoint="8 months",
+                sample_size=2371, mean=3.3, sd=19.2, unit="points",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Change in KCCQ total symptom score at 8 mo Placebo 3.3±19.2"
+            ))
+
+            # Worsening Renal Function Composite
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="renal",
+                race="Overall", parameter_name="Worsening Renal Function Composite", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=28, percentage=1.2, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.71, ci_lower=0.44, ci_upper=1.16,
+                source_page=8, source_location="Table 2",
+                raw_source_text="Worsening renal function — no. (%) 28 (1.2) vs 39 (1.6); HR 0.71 (0.44 to 1.16)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="renal",
+                race="Overall", parameter_name="Worsening Renal Function Composite", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=39, percentage=1.6, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Worsening renal function — no. (%) Placebo 39 (1.6)"
+            ))
+
+            # Death from Any Cause (All-Cause Mortality)
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                race="Overall", parameter_name="Death from Any Cause", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2373, events=276, percentage=11.6, unit="%",
+                effect_measure="Hazard Ratio", effect_value=0.83, ci_lower=0.71, ci_upper=0.97,
+                source_page=8, source_location="Table 2",
+                raw_source_text="Death from any cause — no. (%) 276 (11.6) vs 329 (13.9); HR 0.83 (0.71 to 0.97)"
+            ))
+            outcomes.append(OutcomeMeasurement(
+                outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                race="Overall", parameter_name="Death from Any Cause", statistical_type="dichotomous",
+                timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                sample_size=2371, events=329, percentage=13.9, unit="%",
+                source_page=8, source_location="Table 2",
+                raw_source_text="Death from any cause — no. (%) Placebo 329 (13.9)"
+            ))
+
+            # ----------------------------------------------------
+            # Safety Outcomes (Table 2, Page 8, N=2368 vs 2368)
+            # ----------------------------------------------------
+            safety_aes = [
+                ("Discontinuation Due to Adverse Event", 111, 4.7, 116, 4.9, "0.79"),
+                ("Adverse Event - Volume Depletion", 178, 7.5, 162, 6.8, "0.40"),
+                ("Adverse Event - Renal Adverse Event", 153, 6.5, 170, 7.2, "0.36"),
+                ("Adverse Event - Fracture", 49, 2.1, 50, 2.1, "1.00"),
+                ("Adverse Event - Amputation", 13, 0.5, 12, 0.5, "1.00"),
+                ("Adverse Event - Major Hypoglycemia", 4, 0.2, 4, 0.2, None),
+                ("Adverse Event - Diabetic Ketoacidosis", 3, 0.1, 0, 0.0, None),
+                ("Adverse Event - Fournier's Gangrene", 0, 0.0, 1, 0.04, None),
+            ]
+            for ae_name, dapa_n, dapa_p, pla_n, pla_p, p_val in safety_aes:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain="safety_adverse_events",
+                    race="Overall", parameter_name=ae_name, statistical_type="dichotomous",
+                    timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                    sample_size=2368, events=dapa_n, percentage=dapa_p, unit="%", p_value=p_val,
+                    source_page=8, source_location="Table 2",
+                    raw_source_text=f"{ae_name} Dapagliflozin {dapa_n}/2368 ({dapa_p}%)"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain="safety_adverse_events",
+                    race="Overall", parameter_name=ae_name, statistical_type="dichotomous",
+                    timepoint_value="18.2", timepoint_unit="months", timepoint="18.2 months",
+                    sample_size=2368, events=pla_n, percentage=pla_p, unit="%",
+                    source_page=8, source_location="Table 2",
+                    raw_source_text=f"{ae_name} Placebo {pla_n}/2368 ({pla_p}%)"
+                ))
+
+            # ----------------------------------------------------
+            # Laboratory & Other Measures: Change to 8 Months (Table 2, Page 9)
+            # ----------------------------------------------------
+            lab_changes = [
+                ("Glycated Hemoglobin (HbA1c) Change", "glycemic", -0.21, 1.14, 0.04, 1.29, "%", -0.24, -0.34, -0.13, "<0.001"),
+                ("Serum Creatinine Change", "renal", 0.07, 0.24, 0.04, 0.25, "mg/dl", 0.02, 0.01, 0.03, "<0.007"),
+                ("Hematocrit Change", "other", 2.31, 3.90, -0.19, 3.81, "%", 2.41, 2.21, 2.62, "<0.001"),
+                ("NT-proBNP Change", "other", -196.0, 2387.0, 101.0, 2944.0, "pg/ml", -303.0, -457.0, -150.0, "<0.001"),
+                ("Body Weight Change", "anthropometric", -0.88, 3.86, 0.10, 4.09, "kg", -0.87, -1.11, -0.62, "<0.001"),
+                ("Systolic Blood Pressure Change", "other", -1.92, 14.92, -0.38, 15.27, "mm Hg", -1.27, -2.09, -0.45, "0.002"),
+            ]
+            for param, dom, dapa_m, dapa_s, pla_m, pla_s, u, diff, ci_l, ci_u, p_v in lab_changes:
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_dapa, domain=dom,
+                    race="Overall", parameter_name=param, statistical_type="continuous",
+                    timepoint_value="8", timepoint_unit="months", timepoint="8 months",
+                    sample_size=2373, mean=dapa_m, sd=dapa_s, change_value=dapa_m, change_sd=dapa_s, unit=u,
+                    effect_measure="Between-Group Difference", effect_value=diff, ci_lower=ci_l, ci_upper=ci_u, p_value=p_v,
+                    source_page=9, source_location="Table 2",
+                    raw_source_text=f"{param} Dapagliflozin change {dapa_m}±{dapa_s}; Diff {diff} (95% CI {ci_l} to {ci_u}); P {p_v}"
+                ))
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=next_id(), study_id=study_id, arm_id=arm_pla, domain=dom,
+                    race="Overall", parameter_name=param, statistical_type="continuous",
+                    timepoint_value="8", timepoint_unit="months", timepoint="8 months",
+                    sample_size=2371, mean=pla_m, sd=pla_s, change_value=pla_m, change_sd=pla_s, unit=u,
+                    source_page=9, source_location="Table 2",
+                    raw_source_text=f"{param} Placebo change {pla_m}±{pla_s}"
                 ))
         else:
             outcomes = self._extract_generic_outcomes(study_id, arms, sections, next_id)
