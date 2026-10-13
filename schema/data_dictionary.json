@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Clinical Trial Structured Extraction Data Dictionary",
+  "version": "1.0.0",
+  "date": "2026-10-13",
+  "entities": {
+    "Studies": {
+      "description": "Study-level metadata and design attributes",
+      "primary_key": "study_id",
+      "fields": {
+        "study_id": {"type": "string", "example": "RCT_ORLISTAT_2024", "required": true},
+        "title": {"type": "string", "required": true},
+        "authors": {"type": "string", "required": false},
+        "publication_year": {"type": "integer", "required": false},
+        "journal": {"type": "string", "required": false},
+        "doi": {"type": "string", "required": false},
+        "study_design": {"type": "string", "example": "Randomized, double-blind, placebo-controlled", "required": true},
+        "study_phase": {"type": "string", "example": "Phase III / 12-week intervention", "required": false},
+        "total_sample_size": {"type": "integer", "required": true},
+        "duration_value": {"type": "number", "example": 12, "required": true},
+        "duration_unit": {"type": "string", "allowed_values": ["days", "weeks", "months", "years"], "required": true},
+        "condition_studied": {"type": "string", "example": "Obesity with Hyperuricemia", "required": true}
+      }
+    },
+    "Arms": {
+      "description": "Intervention and comparator groups within the trial",
+      "primary_key": "arm_id",
+      "foreign_keys": {"study_id": "Studies.study_id"},
+      "fields": {
+        "arm_id": {"type": "string", "example": "ARM_ORL_120", "required": true},
+        "study_id": {"type": "string", "required": true},
+        "arm_name": {"type": "string", "example": "Orlistat 120mg TID", "required": true},
+        "intervention_type": {"type": "string", "allowed_values": ["experimental", "active_comparator", "placebo", "standard_of_care", "lifestyle", "other"], "required": true},
+        "drug_name": {"type": "string", "example": "Orlistat", "required": false},
+        "dose_value": {"type": "number", "example": 120, "required": false},
+        "dose_unit": {"type": "string", "allowed_values": ["mg", "g", "mcg", "IU", "mL"], "required": false},
+        "frequency_number": {"type": "number", "example": 3, "required": false},
+        "frequency_unit": {"type": "string", "allowed_values": ["daily", "twice daily", "weekly", "monthly", "as needed"], "required": false},
+        "sample_size_allocated": {"type": "integer", "example": 37, "required": true},
+        "sample_size_analyzed": {"type": "integer", "example": 35, "required": false},
+        "source_page": {"type": "integer", "example": 2, "required": true}
+      }
+    },
+    "Eligibility": {
+      "description": "Atomic inclusion and exclusion criteria",
+      "primary_key": "criterion_id",
+      "foreign_keys": {"study_id": "Studies.study_id"},
+      "fields": {
+        "criterion_id": {"type": "string", "example": "ELIG_001", "required": true},
+        "study_id": {"type": "string", "required": true},
+        "criterion_type": {"type": "string", "allowed_values": ["inclusion", "exclusion"], "required": true},
+        "domain": {"type": "string", "allowed_values": ["demographic", "biomarker", "diagnostic", "medical_history", "lifestyle", "other"], "required": true},
+        "criterion_name": {"type": "string", "example": "age", "required": true},
+        "less_than": {"type": "string", "allowed_values": ["<", null], "required": false, "notes": "'<' if less than or part of <="},
+        "equal": {"type": "string", "allowed_values": ["=", null], "required": false, "notes": "'=' if equal to or part of >= / <="},
+        "greater_than": {"type": "string", "allowed_values": [">", null], "required": false, "notes": "'>' if greater than or part of >="},
+        "between": {"type": "string", "allowed_values": ["between", null], "required": false, "notes": "'between' if range between min and max"},
+        "value": {"type": "number", "example": 18, "required": false, "notes": "Used for single threshold criteria"},
+        "min_value": {"type": "number", "example": 20, "required": false, "notes": "Used when between is set"},
+        "max_value": {"type": "number", "example": 65, "required": false, "notes": "Used when between is set"},
+        "unit": {"type": "string", "allowed_values": ["years", "kg/m2", "mg/dL", "mmol/L", "umol/L", "kg", "cm"], "required": false},
+        "raw_source_text": {"type": "string", "example": "aged between 20 and 65 years", "required": true},
+        "source_page": {"type": "integer", "example": 2, "required": true}
+      }
+    },
+    "Outcomes": {
+      "description": "Laboratory, anthropometric, and clinical endpoints across timepoints",
+      "primary_key": "outcome_id",
+      "foreign_keys": {"study_id": "Studies.study_id", "arm_id": "Arms.arm_id"},
+      "fields": {
+        "outcome_id": {"type": "string", "example": "OUT_001", "required": true},
+        "study_id": {"type": "string", "required": true},
+        "arm_id": {"type": "string", "required": true},
+        "race": {"type": "string", "example": "Caucasian", "required": true, "notes": "Demographic or racial subgroup: Caucasian, African American, Hispanic, Asian, Native American, Overall"},
+        "domain": {"type": "string", "allowed_values": ["anthropometric", "glycemic", "lipid", "renal", "liver", "inflammatory", "safety_adverse_events", "other"], "required": true},
+        "parameter_name": {"type": "string", "example": "BMI", "required": true},
+        "statistical_type": {"type": "string", "allowed_values": ["continuous", "dichotomous", "categorical"], "required": true},
+        "timepoint_value": {"type": "string", "example": "0", "required": true, "notes": "Timepoint numeric value or label"},
+        "timepoint_unit": {"type": "string", "allowed_values": ["weeks", "years", "months", "days"], "required": true},
+        "sample_size": {"type": "integer", "example": 37, "required": true, "notes": "Mandatory sample size for each measured row"},
+        "mean": {"type": "number", "example": 30.33, "required": false},
+        "sd": {"type": "number", "example": 3.88, "required": false},
+        "change_value": {"type": "number", "example": -1.45, "required": false},
+        "change_sd": {"type": "number", "example": 0.82, "required": false},
+        "events": {"type": "integer", "example": 3, "required": false},
+        "total": {"type": "integer", "example": 37, "required": false},
+        "percentage": {"type": "number", "example": 8.1, "required": false},
+        "unit": {"type": "string", "example": "kg/m2", "required": true},
+        "p_value": {"type": "string", "example": "0.023", "required": false},
+        "source_page": {"type": "integer", "example": 4, "required": true},
+        "source_location": {"type": "string", "example": "Table 1", "required": true},
+        "raw_source_text": {"type": "string", "required": true}
+      }
+    },
+    "Provenance": {
+      "description": "Audit trail linking each extracted fact to its original paper source",
+      "primary_key": "provenance_id",
+      "foreign_keys": {"study_id": "Studies.study_id"},
+      "fields": {
+        "provenance_id": {"type": "string", "example": "PROV_001", "required": true},
+        "study_id": {"type": "string", "required": true},
+        "target_entity": {"type": "string", "allowed_values": ["Studies", "Arms", "Eligibility", "Outcomes"], "required": true},
+        "target_id": {"type": "string", "required": true},
+        "field_name": {"type": "string", "example": "mean", "required": true},
+        "source_page": {"type": "integer", "example": 3, "required": true},
+        "source_location": {"type": "string", "example": "Table 2 row 3", "required": true},
+        "exact_source_text": {"type": "string", "required": true}
+      }
+    },
+    "Validation_Log": {
+      "description": "System flags for missing fields, ambiguities, and human verification needs",
+      "primary_key": "issue_id",
+      "foreign_keys": {"study_id": "Studies.study_id"},
+      "fields": {
+        "issue_id": {"type": "string", "example": "VAL_001", "required": true},
+        "study_id": {"type": "string", "required": true},
+        "target_entity": {"type": "string", "required": true},
+        "target_id": {"type": "string", "required": true},
+        "field_name": {"type": "string", "required": true},
+        "issue_type": {"type": "string", "allowed_values": ["not_reported", "unit_mismatch", "value_out_of_range", "unclear_text", "calculation_needed", "warning"], "required": true},
+        "review_required": {"type": "boolean", "default": true, "required": true},
+        "comment": {"type": "string", "required": true}
+      }
+    }
+  }
+}

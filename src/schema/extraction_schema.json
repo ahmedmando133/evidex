@@ -1,0 +1,700 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RCT structured extraction",
+  "description": "Output schema for AI-assisted extraction of facts from one RCT. Return ONLY this JSON, no prose.",
+  "type": "object",
+  "required": [
+    "studies",
+    "arms",
+    "eligibility",
+    "outcomes",
+    "provenance"
+  ],
+  "properties": {
+    "studies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authors": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publication_year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "journal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "doi": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_design": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_sample_size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "duration_unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "condition_studied": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "study_id",
+          "title",
+          "study_design",
+          "total_sample_size"
+        ]
+      }
+    },
+    "arms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "arm_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "arm_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "intervention_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "experimental",
+              "placebo",
+              "comparator",
+              "control",
+              null
+            ]
+          },
+          "drug_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dose_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "dose_unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "frequency_number": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "frequency_unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample_size_allocated": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sample_size_analyzed": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "source_page": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "arm_id",
+          "study_id",
+          "arm_name",
+          "intervention_type"
+        ]
+      }
+    },
+    "eligibility": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "criterion_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "inclusion",
+              "exclusion",
+              null
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "criterion_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operator": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "=",
+              ">",
+              ">=",
+              "<",
+              "<=",
+              "between",
+              null
+            ]
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "min_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "raw_source_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_page": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "criterion_id",
+          "study_id",
+          "criterion_name",
+          "operator"
+        ]
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "outcome_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "arm_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parameter_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "statistical_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "continuous",
+              "dichotomous",
+              null
+            ]
+          },
+          "timepoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample_size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mean": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "change_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "change_sd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "events": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "percentage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effect_measure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "MD",
+              "SMD",
+              "RR",
+              "OR",
+              "HR",
+              null
+            ]
+          },
+          "effect_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "p_value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_page": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "source_location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "raw_source_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcome_id",
+          "study_id",
+          "arm_id",
+          "parameter_name",
+          "timepoint"
+        ]
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "provenance_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_entity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Studies",
+              "Arms",
+              "Eligibility",
+              "Outcomes",
+              "Provenance",
+              "Validation_Log",
+              "Flattened_View",
+              null
+            ]
+          },
+          "target_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_page": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "source_location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exact_source_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "provenance_id",
+          "study_id",
+          "target_entity",
+          "field_name",
+          "source_page",
+          "exact_source_text"
+        ]
+      }
+    },
+    "validation_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_entity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Studies",
+              "Arms",
+              "Eligibility",
+              "Outcomes",
+              "Provenance",
+              "Validation_Log",
+              "Flattened_View",
+              null
+            ]
+          },
+          "target_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issue_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "review_required": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "issue_id",
+          "study_id",
+          "target_entity",
+          "field_name",
+          "issue_type"
+        ]
+      }
+    },
+    "flattened_view": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "study_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "arm_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "intervention_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "experimental",
+              "placebo",
+              "comparator",
+              "control",
+              null
+            ]
+          },
+          "dose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "frequency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample_size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "timepoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parameter_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mean_or_events": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sd_or_pct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "change": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_page": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "source_location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

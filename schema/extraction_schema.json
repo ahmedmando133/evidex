@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RCT structured extraction",
+  "description": "Output schema for AI-assisted extraction of facts from one RCT. Return ONLY this JSON, no prose.",
+  "type": "object",
+  "required": ["study_id", "studies", "arms", "eligibility", "outcomes", "baseline", "provenance"],
+  "properties": {
+    "study_id": { "type": "string", "description": "Stable study identifier, e.g. RCT_001" },
+    "studies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["study_id", "title", "condition", "study_design", "n_total"],
+        "properties": {
+          "study_id": { "type": "string" },
+          "title": { "type": ["string", "null"] },
+          "authors": { "type": ["string", "null"] },
+          "journal": { "type": ["string", "null"] },
+          "publication_year": { "type": ["integer", "null"] },
+          "doi": { "type": ["string", "null"] },
+          "condition": { "type": ["string", "null"] },
+          "study_design": { "type": ["string", "null"] },
+          "phase": { "type": ["string", "null"] },
+          "n_total": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["study_id", "arm_id", "arm_name", "arm_type"],
+        "properties": {
+          "study_id": { "type": "string" },
+          "arm_id": { "type": "string" },
+          "arm_name": { "type": ["string", "null"] },
+          "arm_type": { "type": ["string", "null"], "enum": ["intervention", "comparator", "placebo", null] },
+          "n": { "type": ["integer", "null"] },
+          "dose_value": { "type": ["number", "null"] },
+          "dose_unit": { "type": ["string", "null"] },
+          "frequency_value": { "type": ["integer", "null"] },
+          "frequency_unit": { "type": ["string", "null"] },
+          "duration_value": { "type": ["number", "null"] },
+          "duration_unit": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "eligibility": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["study_id", "criterion", "operator"],
+        "properties": {
+          "study_id": { "type": "string" },
+          "criterion": { "type": ["string", "null"] },
+          "operator": { "type": ["string", "null"], "enum": ["=", ">", ">=", "<", "<=", "between", null] },
+          "value": { "type": ["number", "null"] },
+          "min_value": { "type": ["number", "null"] },
+          "max_value": { "type": ["number", "null"] },
+          "unit": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["study_id", "arm_id", "outcome_name"],
+        "properties": {
+          "study_id": { "type": "string" },
+          "arm_id": { "type": "string" },
+          "outcome_name": { "type": ["string", "null"] },
+          "timepoint_value": { "type": ["number", "null"] },
+          "timepoint_unit": { "type": ["string", "null"] },
+          "sample_size": { "type": ["integer", "null"] },
+          "value_type": { "type": ["string", "null"], "enum": ["baseline", "change", "end", null] },
+          "mean": { "type": ["number", "null"] },
+          "sd": { "type": ["number", "null"] },
+          "median": { "type": ["number", "null"] },
+          "q1": { "type": ["number", "null"] },
+          "q3": { "type": ["number", "null"] },
+          "events": { "type": ["integer", "null"] },
+          "total": { "type": ["integer", "null"] },
+          "effect_measure": { "type": ["string", "null"], "enum": ["MD", "SMD", "RR", "OR", "HR", null] },
+          "effect_value": { "type": ["number", "null"] },
+          "ci_low": { "type": ["number", "null"] },
+          "ci_high": { "type": ["number", "null"] },
+          "p_value": { "type": ["number", "null"] },
+          "unit": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "baseline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["study_id", "arm_id", "variable"],
+        "properties": {
+          "study_id": { "type": "string" },
+          "arm_id": { "type": "string" },
+          "variable": { "type": ["string", "null"] },
+          "mean": { "type": ["number", "null"] },
+          "sd": { "type": ["number", "null"] },
+          "unit": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["record_id", "source_page", "source_text"],
+        "properties": {
+          "record_id": { "type": "string" },
+          "source_page": { "type": "integer" },
+          "source_text": { "type": "string" },
+          "table_caption": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

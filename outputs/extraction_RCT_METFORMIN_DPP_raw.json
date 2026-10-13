@@ -1,0 +1,106 @@
+{
+  "study_id": "RCT_METFORMIN_DPP",
+  "studies": [
+    {
+      "study_id": "RCT_METFORMIN_DPP",
+      "title": null,
+      "authors": null,
+      "journal": null,
+      "publication_year": 2012,
+      "doi": null,
+      "condition": null,
+      "study_design": "RCT",
+      "phase": null,
+      "n_total": null
+    }
+  ],
+  "arms": [],
+  "eligibility": [],
+  "outcomes": [],
+  "baseline": [],
+  "provenance": [
+    {
+      "record_id": "rec_0001",
+      "source_page": 1,
+      "source_text": "age hemoglobin and hematocrit levels were slightly lower in the  hemoglobin and hematocrit levels were slightly lower in the",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0002",
+      "source_page": 1,
+      "source_text": "age of of",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0003",
+      "source_page": 1,
+      "source_text": "age 2.1-kg weight loss (4). 2.1-kg weight loss (4).",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0004",
+      "source_page": 1,
+      "source_text": "age 2.5-kg weight loss over 2.5-kg weight loss over",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0005",
+      "source_page": 2,
+      "source_text": "age of 3.2 of 3.2",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0006",
+      "source_page": 2,
+      "source_text": "aged to join the DPPOS, and 88% did to join the DPPOS, and 88% did",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0007",
+      "source_page": 2,
+      "source_text": "aged\noutside the protocol. All participants, other outside the protocol. All participants, other",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0008",
+      "source_page": 2,
+      "source_text": "age losing losing",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0009",
+      "source_page": 3,
+      "source_text": "age weight of weight of",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0010",
+      "source_page": 3,
+      "source_text": "age weight loss from baseline in weight loss from baseline in",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0011",
+      "source_page": 4,
+      "source_text": "age 28% vs. 16%, 28% vs. 16%,",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0012",
+      "source_page": 4,
+      "source_text": "age hemoglobin hemoglobin",
+      "table_caption": null
+    },
+    {
+      "record_id": "rec_0013",
+      "source_page": 7,
+      "source_text": "age XR) in type 2 diabetic pa- XR) in type 2 diabetic pa-",
+      "table_caption": null
+    }
+  ],
+  "_meta": {
+    "backend": "rules",
+    "elapsed_seconds": 1.955,
+    "pdf": "D:\\Evidex\\data\\raw\\metformin clinical trial.pdf"
+  }
+}

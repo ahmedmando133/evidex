@@ -1,0 +1,73 @@
+outcome_id,study_id,arm_id,domain,parameter_name,statistical_type,timepoint,sample_size,mean,sd,change_value,change_sd,events,total,percentage,unit,effect_measure,effect_value,p_value,source_page,source_location,raw_source_text
+OUT_0016,RCT_ORLISTAT,,,,continuous,,,5.29,0.92,,,,,,,,,,5,,TC (mmol/L) 5.29 ± 0.92 5.17 ± 0.87 5.41 ± 0.97 0.289
+OUT_0018,RCT_ORLISTAT,,,,continuous,,,5.17,0.87,,,,,,,,,,5,,TC (mmol/L) 5.29 ± 0.92 5.17 ± 0.87 5.41 ± 0.97 0.289
+OUT_0020,RCT_ORLISTAT,,,,continuous,,,5.41,0.97,,,,,,,,,,5,,TC (mmol/L) 5.29 ± 0.92 5.17 ± 0.87 5.41 ± 0.97 0.289
+OUT_0022,RCT_ORLISTAT,,,,continuous,,,1.02,0.15,,,,,,,,,,5,,HDL (mmol/L) 1.02 ± 0.15 0.99 ± 0.15 1.04 ± 0.16 0.137
+OUT_0024,RCT_ORLISTAT,,,,continuous,,,0.99,0.15,,,,,,,,,,5,,HDL (mmol/L) 1.02 ± 0.15 0.99 ± 0.15 1.04 ± 0.16 0.137
+OUT_0026,RCT_ORLISTAT,,,,continuous,,,1.04,0.16,,,,,,,,,,5,,HDL (mmol/L) 1.02 ± 0.15 0.99 ± 0.15 1.04 ± 0.16 0.137
+OUT_0028,RCT_ORLISTAT,,,,continuous,,,3.48,0.73,,,,,,,,,,5,,LDL (mmol/L) 3.48 ± 0.73 3.34 ± 0.68 3.62 ± 0.77 0.106
+OUT_0030,RCT_ORLISTAT,,,,continuous,,,3.34,0.68,,,,,,,,,,5,,LDL (mmol/L) 3.48 ± 0.73 3.34 ± 0.68 3.62 ± 0.77 0.106
+OUT_0032,RCT_ORLISTAT,,,,continuous,,,3.62,0.77,,,,,,,,,,5,,LDL (mmol/L) 3.48 ± 0.73 3.34 ± 0.68 3.62 ± 0.77 0.106
+OUT_0034,RCT_ORLISTAT,,,,continuous,,,2.49,1.09,,,,,,,,,,5,,TG (mmol/L) 2.49 ± 1.09 2.47 ± 0.94 2.52 ± 1.23 0.844
+OUT_0036,RCT_ORLISTAT,,,,continuous,,,2.47,0.94,,,,,,,,,,5,,TG (mmol/L) 2.49 ± 1.09 2.47 ± 0.94 2.52 ± 1.23 0.844
+OUT_0038,RCT_ORLISTAT,,,,continuous,,,2.52,1.23,,,,,,,,,,5,,TG (mmol/L) 2.49 ± 1.09 2.47 ± 0.94 2.52 ± 1.23 0.844
+OUT_0040,RCT_ORLISTAT,,,,continuous,,,5.09,0.49,,,,,,,,,,5,,Glucose (mmol/L) 5.09 ± 0.49 5.09 ± 0.49 5.09 ± 0.50 0.964
+OUT_0042,RCT_ORLISTAT,,,,continuous,,,5.09,0.49,,,,,,,,,,5,,Glucose (mmol/L) 5.09 ± 0.49 5.09 ± 0.49 5.09 ± 0.50 0.964
+OUT_0044,RCT_ORLISTAT,,,,continuous,,,5.09,0.5,,,,,,,,,,5,,Glucose (mmol/L) 5.09 ± 0.49 5.09 ± 0.49 5.09 ± 0.50 0.964
+OUT_0046,RCT_ORLISTAT,,,,continuous,,,55.11,33.04,,,,,,,,,,5,,ALT (U/L) 55.11 ± 33.04 52.82 ± 35.89 57.33 ± 30.35 0.569
+OUT_0048,RCT_ORLISTAT,,,,continuous,,,52.82,35.89,,,,,,,,,,5,,ALT (U/L) 55.11 ± 33.04 52.82 ± 35.89 57.33 ± 30.35 0.569
+OUT_0050,RCT_ORLISTAT,,,,continuous,,,57.33,30.35,,,,,,,,,,5,,ALT (U/L) 55.11 ± 33.04 52.82 ± 35.89 57.33 ± 30.35 0.569
+OUT_0052,RCT_ORLISTAT,,,,continuous,,,4.45,1.08,,,,,,,,,,5,,Urea (mmol/L) 4.45 ± 1.08 4.36 ± 1.22 4.54 ± 0.93 0.492
+OUT_0054,RCT_ORLISTAT,,,,continuous,,,4.36,1.22,,,,,,,,,,5,,Urea (mmol/L) 4.45 ± 1.08 4.36 ± 1.22 4.54 ± 0.93 0.492
+OUT_0056,RCT_ORLISTAT,,,,continuous,,,4.54,0.93,,,,,,,,,,5,,Urea (mmol/L) 4.45 ± 1.08 4.36 ± 1.22 4.54 ± 0.93 0.492
+OUT_0058,RCT_ORLISTAT,,,,continuous,,,9.52,1.6,,,,,,,,,,5,,Uric acid (mg/dl) 9.52 ± 1.60 9.51 ± 1.51 9.53 ± 1.81 0.956
+OUT_0060,RCT_ORLISTAT,,,,continuous,,,9.51,1.51,,,,,,,,,,5,,Uric acid (mg/dl) 9.52 ± 1.60 9.51 ± 1.51 9.53 ± 1.81 0.956
+OUT_0062,RCT_ORLISTAT,,,,continuous,,,9.53,1.81,,,,,,,,,,5,,Uric acid (mg/dl) 9.52 ± 1.60 9.51 ± 1.51 9.53 ± 1.81 0.956
+OUT_0064,RCT_ORLISTAT,,,,continuous,,,3.67,3.88,,,,,,,,,,5,,Aggregates 3.67 ± 3.88 3.61 ± 3.90 3.73 ± 3.91 0.905
+OUT_0066,RCT_ORLISTAT,,,,continuous,,,3.61,3.9,,,,,,,,,,5,,Aggregates 3.67 ± 3.88 3.61 ± 3.90 3.73 ± 3.91 0.905
+OUT_0068,RCT_ORLISTAT,,,,continuous,,,3.73,3.91,,,,,,,,,,5,,Aggregates 3.67 ± 3.88 3.61 ± 3.90 3.73 ± 3.91 0.905
+OUT_0070,RCT_ORLISTAT,,,,continuous,,,1.15,2.67,,,,,,,,,,5,,Double contour sign 1.15 ± 2.67 1.10 ± 2.68 1.20 ± 2.71 0.945
+OUT_0072,RCT_ORLISTAT,,,,continuous,,,1.1,2.68,,,,,,,,,,5,,Double contour sign 1.15 ± 2.67 1.10 ± 2.68 1.20 ± 2.71 0.945
+OUT_0074,RCT_ORLISTAT,,,,continuous,,,1.2,2.71,,,,,,,,,,5,,Double contour sign 1.15 ± 2.67 1.10 ± 2.68 1.20 ± 2.71 0.945
+OUT_0076,RCT_ORLISTAT,,,,continuous,,,1.15,2.99,,,,,,,,,,5,,Tophus 1.15 ± 2.99 1.13 ± 3.00 1.17 ± 3.04 0.961
+OUT_0078,RCT_ORLISTAT,,,,continuous,,,1.13,3.0,,,,,,,,,,5,,Tophus 1.15 ± 2.99 1.13 ± 3.00 1.17 ± 3.04 0.961
+OUT_0080,RCT_ORLISTAT,,,,continuous,,,1.17,3.04,,,,,,,,,,5,,Tophus 1.15 ± 2.99 1.13 ± 3.00 1.17 ± 3.04 0.961
+OUT_0082,RCT_ORLISTAT,,,,continuous,,,628.01,93.97,,,,,,,,,,5,,The highest uric acid before (µmol/L) 628.01 ± 93.97 630.03 ± 94.57 626.22 ± 94.74 0.869
+OUT_0084,RCT_ORLISTAT,,,,continuous,,,630.03,94.57,,,,,,,,,,5,,The highest uric acid before (µmol/L) 628.01 ± 93.97 630.03 ± 94.57 626.22 ± 94.74 0.869
+OUT_0086,RCT_ORLISTAT,,,,continuous,,,626.22,94.74,,,,,,,,,,5,,The highest uric acid before (µmol/L) 628.01 ± 93.97 630.03 ± 94.57 626.22 ± 94.74 0.869
+OUT_0091,RCT_ORLISTAT,,,,continuous,,,1.92,2.59,,,,,,,,,,6,,Weight (kg) -1.92 ± 2.59 -0.76 ± 2.37 -2.85 ± 2.37 0.001
+OUT_0093,RCT_ORLISTAT,,,,continuous,,,0.76,2.37,,,,,,,,,,6,,Weight (kg) -1.92 ± 2.59 -0.76 ± 2.37 -2.85 ± 2.37 0.001
+OUT_0095,RCT_ORLISTAT,,,,continuous,,,2.85,2.37,,,,,,,,,,6,,Weight (kg) -1.92 ± 2.59 -0.76 ± 2.37 -2.85 ± 2.37 0.001
+OUT_0097,RCT_ORLISTAT,,,,continuous,,,0.63,0.83,,,,,,,,,,6,,BMI (kg/m2) -0.63 ± 0.83 -0.25 ± 0.75 -0.95 ± 0.77 0.001
+OUT_0099,RCT_ORLISTAT,,,,continuous,,,0.25,0.75,,,,,,,,,,6,,BMI (kg/m2) -0.63 ± 0.83 -0.25 ± 0.75 -0.95 ± 0.77 0.001
+OUT_0101,RCT_ORLISTAT,,,,continuous,,,0.95,0.77,,,,,,,,,,6,,BMI (kg/m2) -0.63 ± 0.83 -0.25 ± 0.75 -0.95 ± 0.77 0.001
+OUT_0103,RCT_ORLISTAT,,,,continuous,,,1.98,2.67,,,,,,,,,,6,,WC (cm) -1.98 ± 2.67 -0.75 ± 2.60 -2.97 ± 2.32 0.001
+OUT_0105,RCT_ORLISTAT,,,,continuous,,,0.75,2.6,,,,,,,,,,6,,WC (cm) -1.98 ± 2.67 -0.75 ± 2.60 -2.97 ± 2.32 0.001
+OUT_0107,RCT_ORLISTAT,,,,continuous,,,2.97,2.32,,,,,,,,,,6,,WC (cm) -1.98 ± 2.67 -0.75 ± 2.60 -2.97 ± 2.32 0.001
+OUT_0109,RCT_ORLISTAT,,,,continuous,,,1.39,2.11,,,,,,,,,,6,,Body fat (kg) -1.39 ± 2.11 -0.19 ± 1.69 -2.30 ± 1.95 <0.001
+OUT_0111,RCT_ORLISTAT,,,,continuous,,,0.19,1.69,,,,,,,,,,6,,Body fat (kg) -1.39 ± 2.11 -0.19 ± 1.69 -2.30 ± 1.95 <0.001
+OUT_0113,RCT_ORLISTAT,,,,continuous,,,2.3,1.95,,,,,,,,,,6,,Body fat (kg) -1.39 ± 2.11 -0.19 ± 1.69 -2.30 ± 1.95 <0.001
+OUT_0115,RCT_ORLISTAT,,,,continuous,,,0.42,0.89,,,,,,,,,,6,,Body muscle (kg) -0.42 ± 0.89 -0.09 ± 0.87 -0.67 ± 0.83 0.021
+OUT_0117,RCT_ORLISTAT,,,,continuous,,,0.09,0.87,,,,,,,,,,6,,Body muscle (kg) -0.42 ± 0.89 -0.09 ± 0.87 -0.67 ± 0.83 0.021
+OUT_0119,RCT_ORLISTAT,,,,continuous,,,0.67,0.83,,,,,,,,,,6,,Body muscle (kg) -0.42 ± 0.89 -0.09 ± 0.87 -0.67 ± 0.83 0.021
+OUT_0121,RCT_ORLISTAT,,,,continuous,,,0.06,0.5,,,,,,,,,,6,,Glucose (mmol/L) -0.06 ± 0.50 -0.03 ± 0.48 -0.07 ± 0.53 0.776
+OUT_0123,RCT_ORLISTAT,,,,continuous,,,0.03,0.48,,,,,,,,,,6,,Glucose (mmol/L) -0.06 ± 0.50 -0.03 ± 0.48 -0.07 ± 0.53 0.776
+OUT_0125,RCT_ORLISTAT,,,,continuous,,,0.07,0.53,,,,,,,,,,6,,Glucose (mmol/L) -0.06 ± 0.50 -0.03 ± 0.48 -0.07 ± 0.53 0.776
+OUT_0127,RCT_ORLISTAT,,,,continuous,,,0.05,0.13,,,,,,,,,,6,,HDL (mmol/L) -0.05 ± 0.13 0.01 ± 0.13 -0.09 ± 0.10 0.002
+OUT_0129,RCT_ORLISTAT,,,,continuous,,,0.01,0.13,,,,,,,,,,6,,HDL (mmol/L) -0.05 ± 0.13 0.01 ± 0.13 -0.09 ± 0.10 0.002
+OUT_0131,RCT_ORLISTAT,,,,continuous,,,0.09,0.1,,,,,,,,,,6,,HDL (mmol/L) -0.05 ± 0.13 0.01 ± 0.13 -0.09 ± 0.10 0.002
+OUT_0133,RCT_ORLISTAT,,,,continuous,,,0.39,0.75,,,,,,,,,,6,,TC (mmol/L) -0.39 ± 0.75 -0.10 ± 0.64 -0.61 ± 0.76 0.012
+OUT_0135,RCT_ORLISTAT,,,,continuous,,,0.1,0.64,,,,,,,,,,6,,TC (mmol/L) -0.39 ± 0.75 -0.10 ± 0.64 -0.61 ± 0.76 0.012
+OUT_0137,RCT_ORLISTAT,,,,continuous,,,0.61,0.76,,,,,,,,,,6,,TC (mmol/L) -0.39 ± 0.75 -0.10 ± 0.64 -0.61 ± 0.76 0.012
+OUT_0139,RCT_ORLISTAT,,,,continuous,,,0.03,7.38,,,,,,,,,,6,,Creatinine (µmol/L) 0.03 ± 7.38 0.05 ± 7.02 -0.01 ± 7.75 0.983
+OUT_0141,RCT_ORLISTAT,,,,continuous,,,0.05,7.02,,,,,,,,,,6,,Creatinine (µmol/L) 0.03 ± 7.38 0.05 ± 7.02 -0.01 ± 7.75 0.983
+OUT_0143,RCT_ORLISTAT,,,,continuous,,,0.01,7.75,,,,,,,,,,6,,Creatinine (µmol/L) 0.03 ± 7.38 0.05 ± 7.02 -0.01 ± 7.75 0.983
+OUT_0145,RCT_ORLISTAT,,,,continuous,,,0.38,9.08,,,,,,,,,,6,,e-GFR (ml/min/1.73m2) 0.38 ± 9.08 5.03 ± 22.52 0.50 ± 10.44 0.390
+OUT_0147,RCT_ORLISTAT,,,,continuous,,,5.03,22.52,,,,,,,,,,6,,e-GFR (ml/min/1.73m2) 0.38 ± 9.08 5.03 ± 22.52 0.50 ± 10.44 0.390
+OUT_0149,RCT_ORLISTAT,,,,continuous,,,0.5,10.44,,,,,,,,,,6,,e-GFR (ml/min/1.73m2) 0.38 ± 9.08 5.03 ± 22.52 0.50 ± 10.44 0.390
+OUT_0151,RCT_ORLISTAT,,,,continuous,,,0.57,1.34,,,,,,,,,,6,,E (kPa) -0.57 ± 1.34 -0.12 ± 0.90 -0.88 ± 1.52 0.029
+OUT_0153,RCT_ORLISTAT,,,,continuous,,,0.12,0.9,,,,,,,,,,6,,E (kPa) -0.57 ± 1.34 -0.12 ± 0.90 -0.88 ± 1.52 0.029
+OUT_0155,RCT_ORLISTAT,,,,continuous,,,0.88,1.52,,,,,,,,,,6,,E (kPa) -0.57 ± 1.34 -0.12 ± 0.90 -0.88 ± 1.52 0.029
+OUT_0157,RCT_ORLISTAT,,,,continuous,,,21.29,32.66,,,,,,,,,,6,,CAP (dB/m) -21.29 ± 32.66 -7.86 ± 36.82 -30.39 ± 26.42 0.013
+OUT_0159,RCT_ORLISTAT,,,,continuous,,,7.86,36.82,,,,,,,,,,6,,CAP (dB/m) -21.29 ± 32.66 -7.86 ± 36.82 -30.39 ± 26.42 0.013
+OUT_0161,RCT_ORLISTAT,,,,continuous,,,30.39,26.42,,,,,,,,,,6,,CAP (dB/m) -21.29 ± 32.66 -7.86 ± 36.82 -30.39 ± 26.42 0.013

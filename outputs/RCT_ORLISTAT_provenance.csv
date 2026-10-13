@@ -1,0 +1,104 @@
+provenance_id,study_id,target_entity,target_id,field_name,source_page,source_location,exact_source_text
+PROV_0001,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,1,,ages or other third party material in this  or other third party material in this
+PROV_0002,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,1,,"age 
+weight loss of the orlistat group was 2.85 kg, and the avera weight loss of the orlistat group was 2.85 kg, and the avera"
+PROV_0003,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,2,,age 2 of 10 2 of 10
+PROV_0004,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,2,,aged 18–65 years; male  18–65 years; male
+PROV_0006,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,3,,age 3 of 10 3 of 10
+PROV_0007,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,3,,age BMI of patients in the orlistat group was  BMI of patients in the orlistat group was
+PROV_0008,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,4,,age 4 of 10 4 of 10
+PROV_0009,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,4,,age duration of gout ranged  duration of gout ranged
+PROV_0010,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,4,,age frequency of gout  frequency of gout
+PROV_0011,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,4,,age of patients with gout flares  of patients with gout flares
+PROV_0012,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,4,,age of patients  of patients
+PROV_0013,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,age 5 of 10 5 of 10
+PROV_0014,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,"Age at entry study (years) 37.00 (30.00,41.00) 37.00 (33.00,41.0 at entry study (years) 37.00 (30.00,41.00) 37.00 (33.00,41.0"
+PROV_0015,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,TC (mmol/L) 5.29 ± 0.92 5.17 ± 0.87 5.41 ± 0.97 0.289
+PROV_0017,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,TC (mmol/L) 5.29 ± 0.92 5.17 ± 0.87 5.41 ± 0.97 0.289
+PROV_0019,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,TC (mmol/L) 5.29 ± 0.92 5.17 ± 0.87 5.41 ± 0.97 0.289
+PROV_0021,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,HDL (mmol/L) 1.02 ± 0.15 0.99 ± 0.15 1.04 ± 0.16 0.137
+PROV_0023,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,HDL (mmol/L) 1.02 ± 0.15 0.99 ± 0.15 1.04 ± 0.16 0.137
+PROV_0025,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,HDL (mmol/L) 1.02 ± 0.15 0.99 ± 0.15 1.04 ± 0.16 0.137
+PROV_0027,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,LDL (mmol/L) 3.48 ± 0.73 3.34 ± 0.68 3.62 ± 0.77 0.106
+PROV_0029,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,LDL (mmol/L) 3.48 ± 0.73 3.34 ± 0.68 3.62 ± 0.77 0.106
+PROV_0031,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,LDL (mmol/L) 3.48 ± 0.73 3.34 ± 0.68 3.62 ± 0.77 0.106
+PROV_0033,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,TG (mmol/L) 2.49 ± 1.09 2.47 ± 0.94 2.52 ± 1.23 0.844
+PROV_0035,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,TG (mmol/L) 2.49 ± 1.09 2.47 ± 0.94 2.52 ± 1.23 0.844
+PROV_0037,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,TG (mmol/L) 2.49 ± 1.09 2.47 ± 0.94 2.52 ± 1.23 0.844
+PROV_0039,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Glucose (mmol/L) 5.09 ± 0.49 5.09 ± 0.49 5.09 ± 0.50 0.964
+PROV_0041,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Glucose (mmol/L) 5.09 ± 0.49 5.09 ± 0.49 5.09 ± 0.50 0.964
+PROV_0043,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Glucose (mmol/L) 5.09 ± 0.49 5.09 ± 0.49 5.09 ± 0.50 0.964
+PROV_0045,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,ALT (U/L) 55.11 ± 33.04 52.82 ± 35.89 57.33 ± 30.35 0.569
+PROV_0047,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,ALT (U/L) 55.11 ± 33.04 52.82 ± 35.89 57.33 ± 30.35 0.569
+PROV_0049,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,ALT (U/L) 55.11 ± 33.04 52.82 ± 35.89 57.33 ± 30.35 0.569
+PROV_0051,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Urea (mmol/L) 4.45 ± 1.08 4.36 ± 1.22 4.54 ± 0.93 0.492
+PROV_0053,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Urea (mmol/L) 4.45 ± 1.08 4.36 ± 1.22 4.54 ± 0.93 0.492
+PROV_0055,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Urea (mmol/L) 4.45 ± 1.08 4.36 ± 1.22 4.54 ± 0.93 0.492
+PROV_0057,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Uric acid (mg/dl) 9.52 ± 1.60 9.51 ± 1.51 9.53 ± 1.81 0.956
+PROV_0059,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Uric acid (mg/dl) 9.52 ± 1.60 9.51 ± 1.51 9.53 ± 1.81 0.956
+PROV_0061,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Uric acid (mg/dl) 9.52 ± 1.60 9.51 ± 1.51 9.53 ± 1.81 0.956
+PROV_0063,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Aggregates 3.67 ± 3.88 3.61 ± 3.90 3.73 ± 3.91 0.905
+PROV_0065,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Aggregates 3.67 ± 3.88 3.61 ± 3.90 3.73 ± 3.91 0.905
+PROV_0067,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Aggregates 3.67 ± 3.88 3.61 ± 3.90 3.73 ± 3.91 0.905
+PROV_0069,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Double contour sign 1.15 ± 2.67 1.10 ± 2.68 1.20 ± 2.71 0.945
+PROV_0071,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Double contour sign 1.15 ± 2.67 1.10 ± 2.68 1.20 ± 2.71 0.945
+PROV_0073,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Double contour sign 1.15 ± 2.67 1.10 ± 2.68 1.20 ± 2.71 0.945
+PROV_0075,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Tophus 1.15 ± 2.99 1.13 ± 3.00 1.17 ± 3.04 0.961
+PROV_0077,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Tophus 1.15 ± 2.99 1.13 ± 3.00 1.17 ± 3.04 0.961
+PROV_0079,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,Tophus 1.15 ± 2.99 1.13 ± 3.00 1.17 ± 3.04 0.961
+PROV_0081,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,The highest uric acid before (µmol/L) 628.01 ± 93.97 630.03 ± 94.57 626.22 ± 94.74 0.869
+PROV_0083,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,The highest uric acid before (µmol/L) 628.01 ± 93.97 630.03 ± 94.57 626.22 ± 94.74 0.869
+PROV_0085,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,5,,The highest uric acid before (µmol/L) 628.01 ± 93.97 630.03 ± 94.57 626.22 ± 94.74 0.869
+PROV_0087,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,age 6 of 10 6 of 10
+PROV_0088,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,age of 2.85  kg of  of 2.85  kg of
+PROV_0089,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,"ages of weight loss [ 21, 23].  of weight loss [ 21, 23]."
+PROV_0090,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Weight (kg) -1.92 ± 2.59 -0.76 ± 2.37 -2.85 ± 2.37 0.001
+PROV_0092,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Weight (kg) -1.92 ± 2.59 -0.76 ± 2.37 -2.85 ± 2.37 0.001
+PROV_0094,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Weight (kg) -1.92 ± 2.59 -0.76 ± 2.37 -2.85 ± 2.37 0.001
+PROV_0096,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,BMI (kg/m2) -0.63 ± 0.83 -0.25 ± 0.75 -0.95 ± 0.77 0.001
+PROV_0098,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,BMI (kg/m2) -0.63 ± 0.83 -0.25 ± 0.75 -0.95 ± 0.77 0.001
+PROV_0100,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,BMI (kg/m2) -0.63 ± 0.83 -0.25 ± 0.75 -0.95 ± 0.77 0.001
+PROV_0102,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,WC (cm) -1.98 ± 2.67 -0.75 ± 2.60 -2.97 ± 2.32 0.001
+PROV_0104,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,WC (cm) -1.98 ± 2.67 -0.75 ± 2.60 -2.97 ± 2.32 0.001
+PROV_0106,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,WC (cm) -1.98 ± 2.67 -0.75 ± 2.60 -2.97 ± 2.32 0.001
+PROV_0108,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Body fat (kg) -1.39 ± 2.11 -0.19 ± 1.69 -2.30 ± 1.95 <0.001
+PROV_0110,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Body fat (kg) -1.39 ± 2.11 -0.19 ± 1.69 -2.30 ± 1.95 <0.001
+PROV_0112,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Body fat (kg) -1.39 ± 2.11 -0.19 ± 1.69 -2.30 ± 1.95 <0.001
+PROV_0114,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Body muscle (kg) -0.42 ± 0.89 -0.09 ± 0.87 -0.67 ± 0.83 0.021
+PROV_0116,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Body muscle (kg) -0.42 ± 0.89 -0.09 ± 0.87 -0.67 ± 0.83 0.021
+PROV_0118,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Body muscle (kg) -0.42 ± 0.89 -0.09 ± 0.87 -0.67 ± 0.83 0.021
+PROV_0120,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Glucose (mmol/L) -0.06 ± 0.50 -0.03 ± 0.48 -0.07 ± 0.53 0.776
+PROV_0122,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Glucose (mmol/L) -0.06 ± 0.50 -0.03 ± 0.48 -0.07 ± 0.53 0.776
+PROV_0124,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Glucose (mmol/L) -0.06 ± 0.50 -0.03 ± 0.48 -0.07 ± 0.53 0.776
+PROV_0126,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,HDL (mmol/L) -0.05 ± 0.13 0.01 ± 0.13 -0.09 ± 0.10 0.002
+PROV_0128,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,HDL (mmol/L) -0.05 ± 0.13 0.01 ± 0.13 -0.09 ± 0.10 0.002
+PROV_0130,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,HDL (mmol/L) -0.05 ± 0.13 0.01 ± 0.13 -0.09 ± 0.10 0.002
+PROV_0132,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,TC (mmol/L) -0.39 ± 0.75 -0.10 ± 0.64 -0.61 ± 0.76 0.012
+PROV_0134,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,TC (mmol/L) -0.39 ± 0.75 -0.10 ± 0.64 -0.61 ± 0.76 0.012
+PROV_0136,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,TC (mmol/L) -0.39 ± 0.75 -0.10 ± 0.64 -0.61 ± 0.76 0.012
+PROV_0138,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Creatinine (µmol/L) 0.03 ± 7.38 0.05 ± 7.02 -0.01 ± 7.75 0.983
+PROV_0140,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Creatinine (µmol/L) 0.03 ± 7.38 0.05 ± 7.02 -0.01 ± 7.75 0.983
+PROV_0142,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,Creatinine (µmol/L) 0.03 ± 7.38 0.05 ± 7.02 -0.01 ± 7.75 0.983
+PROV_0144,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,e-GFR (ml/min/1.73m2) 0.38 ± 9.08 5.03 ± 22.52 0.50 ± 10.44 0.390
+PROV_0146,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,e-GFR (ml/min/1.73m2) 0.38 ± 9.08 5.03 ± 22.52 0.50 ± 10.44 0.390
+PROV_0148,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,e-GFR (ml/min/1.73m2) 0.38 ± 9.08 5.03 ± 22.52 0.50 ± 10.44 0.390
+PROV_0150,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,E (kPa) -0.57 ± 1.34 -0.12 ± 0.90 -0.88 ± 1.52 0.029
+PROV_0152,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,E (kPa) -0.57 ± 1.34 -0.12 ± 0.90 -0.88 ± 1.52 0.029
+PROV_0154,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,E (kPa) -0.57 ± 1.34 -0.12 ± 0.90 -0.88 ± 1.52 0.029
+PROV_0156,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,CAP (dB/m) -21.29 ± 32.66 -7.86 ± 36.82 -30.39 ± 26.42 0.013
+PROV_0158,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,CAP (dB/m) -21.29 ± 32.66 -7.86 ± 36.82 -30.39 ± 26.42 0.013
+PROV_0160,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,6,,CAP (dB/m) -21.29 ± 32.66 -7.86 ± 36.82 -30.39 ± 26.42 0.013
+PROV_0162,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,7,,age 7 of 10 7 of 10
+PROV_0163,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,7,,age in obese  in obese
+PROV_0164,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,7,,ages [ 27]. Activation of  [ 27]. Activation of
+PROV_0165,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,7,,ages of weight loss. of weight loss.
+PROV_0166,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,7,,age reduction in SUA lev - reduction in SUA lev -
+PROV_0167,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,7,,age of patients who experienced gout flares in both groups. (A)  of patients who experienced gout flares in both groups. (A)
+PROV_0168,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,8,,age 8 of 10 8 of 10
+PROV_0169,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,9,,age 9 of 10 9 of 10
+PROV_0170,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,9,,ages of  of
+PROV_0171,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,9,,age of weight loss. Further studies are needed to  of weight loss. Further studies are needed to
+PROV_0172,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,10,,age 10 of 10 10 of 10
+PROV_0173,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,10,,age via NF-κβ-  via NF-κβ-
+PROV_0174,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,10,,ages in obese severe Acute  in obese severe Acute
+PROV_0175,RCT_ORLISTAT,Studies,RCT_ORLISTAT,raw_source_text,10,,age asymptomatic hyperuricemia? Joint Bone  asymptomatic hyperuricemia? Joint Bone

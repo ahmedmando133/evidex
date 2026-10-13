@@ -1,0 +1,5 @@
+pypdf>=3.17.0
+openpyxl>=3.1.2
+pydantic>=2.0.0
+pandas>=2.0.0
+gradio>=4.0.0

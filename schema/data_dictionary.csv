@@ -1,0 +1,63 @@
+entity,field,label_en,label_ar,data_type,unit,allowed_values,operator,required,description,example
+Study,study_id,Study identifier,string,,,,yes,Stable unique identifier for the trial,RCT_001
+Study,title,Study title,string,,,,yes,Full title of the publication,
+Study,authors,Authors,string,,,,,"First author et al. or full author list",
+Study,journal,Journal,string,,,,,Journal name,
+Study,publication_year,Publication year,integer,,,,,Year of publication,2019
+Study,doi,DOI,string,,,,,Digital object identifier,
+Study,condition,Condition / disease,string,,,,yes,Target condition or disease,type 2 diabetes
+Study,study_design,Study design,string,,,,yes,RCT; double-blind RCT; crossover RCT,double-blind RCT
+Study,phase,Study phase,string,,,,,Clinical phase if reported,Phase 3
+Study,n_total,Total participants,integer,,,,yes,Total number of randomised participants,2354
+Arm,study_id,Study identifier,string,,,,yes,Parent study,RCT_001
+Arm,arm_id,Arm identifier,string,,,,yes,Study-unique arm id,RCT_001_A1
+Arm,arm_name,Arm name,string,,,,yes,Name/label of the arm as reported,Metformin 850 mg TID
+Arm,arm_type,Arm type,string,,,,yes,intervention; comparator; placebo,intervention
+Arm,n,Arm sample size,integer,,,,,Number of participants in this arm,1177
+Arm,dose_value,Dose value,number,,,,,Numeric dose,850
+Arm,dose_unit,Dose unit,string,,,,,Dose unit,mg
+Arm,frequency_value,Frequency value,integer,,,,,Times per frequency unit,3
+Arm,frequency_unit,Frequency unit,string,,,,,Frequency unit,daily
+Arm,duration_value,Duration value,number,,,,,Follow-up duration,2
+Arm,duration_unit,Duration unit,string,,,,,Duration unit,years
+Eligibility,study_id,Study identifier,string,,,,yes,Parent study,RCT_001
+Eligibility,criterion,Criterion,string,,,,yes,Name of the eligibility criterion,age
+Eligibility,operator,Comparison operator,string,"=,>,>=,<,<=",yes,Operator applied to the criterion,>=
+Eligibility,value,Value,number,,,,,Single threshold value,18
+Eligibility,min_value,Minimum value,number,,,,,Lower bound (ranges),20
+Eligibility,max_value,Maximum value,number,,,,,Upper bound (ranges),65
+Eligibility,unit,Unit,string,,,,,Unit of the criterion,years
+Outcome,study_id,Study identifier,string,,,,yes,Parent study,RCT_001
+Outcome,arm_id,Arm identifier,string,,,,yes,Arm the outcome belongs to,RCT_001_A1
+Outcome,outcome_name,Outcome name,string,,,,yes,Canonical outcome name,body weight
+Outcome,timepoint_value,Timepoint value,number,,,,,Time of measurement,12
+Outcome,timepoint_unit,Timepoint unit,string,,,,,Time unit,weeks
+Outcome,sample_size,Sample size,integer,,,,,Participants analysed,35
+Outcome,value_type,Value type,string,,,,,"baseline; change; end",baseline
+Outcome,mean,Mean,number,,,,,Reported mean,30.33
+Outcome,sd,Standard deviation,number,,,,,Reported SD,
+Outcome,median,Median,number,,,,,Reported median,
+Outcome,q1,First quartile,number,,,,,Lower quartile,
+Outcome,q3,Third quartile,number,,,,,Upper quartile,
+Outcome,events,Events (count),integer,,,,,Number of participants with the event,3
+Outcome,total,Total (denominator),integer,,,,,Denominator for the event count,37
+Outcome,effect_measure,Effect measure,string,,,,,"MD; SMD; RR; OR; HR",MD
+Outcome,effect_value,Effect value,number,,,,,Point estimate,2.1
+Outcome,ci_low,CI lower,number,,,,,Confidence interval lower bound,1.4
+Outcome,ci_high,CI upper,number,,,,,Confidence interval upper bound,2.8
+Outcome,p_value,P-value,number,,,,,Reported p-value,0.03
+Outcome,unit,Unit,string,,,,,Outcome unit,kg
+Baseline,study_id,Study identifier,string,,,,yes,Parent study,RCT_001
+Baseline,arm_id,Arm identifier,string,,,,yes,Arm,RCT_001_A1
+Baseline,variable,Baseline variable,string,,,,yes,Canonical variable name,age
+Baseline,mean,Mean,number,,,,,Reported mean,37
+Baseline,sd,Standard deviation,number,,,,,Reported SD,
+Baseline,unit,Unit,string,,,,,Variable unit,years
+Provenance,record_id,Record identifier,string,,,,yes,ID of the extracted record,rec_0001
+Provenance,source_page,Source page,integer,,,,yes,PDF page number where the fact appears,4
+Provenance,source_text,Exact source text,string,,,,yes,"Verbatim quote supporting the fact","Mean age was 37 years"
+Provenance,table_caption,Table caption,string,,,,,Caption of the source table if any,Table 1. Baseline characteristics
+Validation_Log,record_id,Record identifier,string,,,,yes,ID of the record checked,rec_0001
+Validation_Log,check,Check name,string,,,,yes,Name of the check performed,type_match
+Validation_Log,severity,Severity,string,,,,yes,"error; warning; info",error
+Validation_Log,detail,Detail,string,,,,,Human-readable explanation,unit not in vocabulary

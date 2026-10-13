@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv
+env/
+venv/
+*.tmp
+outputs/*.xlsx
+!outputs/orlistat_structured_extracted.xlsx
+!outputs/metformin_structured_extracted.xlsx
+!outputs/semaglutide_structured_extracted.xlsx
+.DS_Store
+Thumbs.db
