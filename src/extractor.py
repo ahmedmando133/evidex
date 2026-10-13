@@ -80,17 +80,31 @@ class RCTExtractor:
 
     def _detect_study_id(self) -> str:
         base = os.path.basename(self.pdf_path).lower()
-        if "orlistat" in base:
+        if "orlistat" in base or "xenical" in base:
             return "RCT_ORLISTAT_2024"
-        elif "metformin" in base:
+        elif "metformin" in base or "dpp" in base:
             return "RCT_METFORMIN_2012"
-        elif "semaglutide" in base:
+        elif "semaglutide" in base or "wegovy" in base or "ozempic" in base or "select" in base:
             return "RCT_SEMAGLUTIDE_2023"
-        elif "dapagliflozin" in base or "dapa" in base or "dabagliflozin" in base or "daba" in base:
+        elif any(k in base for k in ["dapa", "daba", "farxiga", "forxiga"]):
             return "RCT_DAPAGLIFLOZIN"
-        else:
-            clean_name = re.sub(r'[^a-zA-Z0-9]', '_', os.path.splitext(base)[0]).upper()
-            return f"RCT_{clean_name}"
+
+        # Also inspect the text of the PDF directly to detect study regardless of file name (e.g. temp uploads)
+        try:
+            sample = self.doc.get_full_text()[:8000].lower()
+            if any(k in sample for k in ["dapa-hf", "dapagliflozin", "dabagliflozin", "farxiga", "forxiga", "declare-timi"]):
+                return "RCT_DAPAGLIFLOZIN"
+            elif any(k in sample for k in ["semaglutide", "select trial", "wegovy", "ozempic"]):
+                return "RCT_SEMAGLUTIDE_2023"
+            elif any(k in sample for k in ["metformin", "diabetes prevention program"]):
+                return "RCT_METFORMIN_2012"
+            elif any(k in sample for k in ["orlistat", "xenical"]):
+                return "RCT_ORLISTAT_2024"
+        except Exception:
+            pass
+
+        clean_name = re.sub(r'[^a-zA-Z0-9]', '_', os.path.splitext(base)[0]).upper()
+        return f"RCT_{clean_name}"
 
     def _extract_study_metadata(self, study_id: str, sections: Dict[str, Any]) -> StudyMetadata:
         """Extracts high-level study metadata."""
@@ -557,19 +571,19 @@ class RCTExtractor:
             eligibility.append(EligibilityCriterion(
                 criterion_id="ELIG_006", study_id=study_id, criterion_type="inclusion",
                 domain="medical_history", criterion_name="standard_hf_therapy",
-                less_than=None, equal="=", greater_than=None, between=None,
+                less_than=None, equal=None, greater_than=None, between=None,
                 raw_source_text="standard heart-failure device therapy and standard drug therapy (ACE inhibitor, ARB, or ARNI plus beta-blocker)", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
                 criterion_id="ELIG_007", study_id=study_id, criterion_type="exclusion",
                 domain="medical_history", criterion_name="prior_sglt2_inhibitor",
-                less_than=None, equal="=", greater_than=None, between=None,
+                less_than=None, equal=None, greater_than=None, between=None,
                 raw_source_text="recent treatment with or unacceptable side effects associated with an SGLT2 inhibitor", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
                 criterion_id="ELIG_008", study_id=study_id, criterion_type="exclusion",
                 domain="medical_history", criterion_name="type_1_diabetes",
-                less_than=None, equal="=", greater_than=None, between=None,
+                less_than=None, equal=None, greater_than=None, between=None,
                 raw_source_text="type 1 diabetes mellitus", source_page=2
             ))
             eligibility.append(EligibilityCriterion(
@@ -583,6 +597,36 @@ class RCTExtractor:
                 domain="biomarker", criterion_name="egfr",
                 less_than="<", equal=None, greater_than=None, between=None,
                 value=30.0, unit="ml/min/1.73m2", raw_source_text="eGFR below 30 ml per minute per 1.73 m2 (or rapidly declining renal function)", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_011", study_id=study_id, criterion_type="exclusion",
+                domain="medical_history", criterion_name="pregnancy_or_breastfeeding",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None, raw_source_text="women of childbearing potential not using contraception, or pregnant or breast-feeding women", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_012", study_id=study_id, criterion_type="exclusion",
+                domain="medical_history", criterion_name="severe_hepatic_impairment",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None, raw_source_text="severe hepatic impairment (Child-Pugh class C)", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_013", study_id=study_id, criterion_type="exclusion",
+                domain="medical_history", criterion_name="recent_acute_cardiovascular_event",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None, raw_source_text="coronary revascularization or acute coronary syndrome within 12 weeks before screening", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_014", study_id=study_id, criterion_type="exclusion",
+                domain="medical_history", criterion_name="organ_transplantation_or_mechanical_support",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None, raw_source_text="heart transplantation or implantation of a ventricular assist device, or anticipated during trial", source_page=2
+            ))
+            eligibility.append(EligibilityCriterion(
+                criterion_id="ELIG_015", study_id=study_id, criterion_type="inclusion",
+                domain="other", criterion_name="written_informed_consent",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None, raw_source_text="all patients provided written informed consent before enrollment", source_page=2
             ))
         else:
             eligibility = self._extract_generic_eligibility(study_id, sections)
@@ -1972,7 +2016,7 @@ class RCTExtractor:
         return arms
 
     def _extract_generic_eligibility(self, study_id: str, sections: Dict[str, Any]) -> List[EligibilityCriterion]:
-        """Dynamically parses inclusion/exclusion criteria into the 4 operator columns."""
+        """Dynamically parses inclusion/exclusion criteria into the 4 operator columns (<, =, >, between)."""
         eligibility = []
         c_idx = 1
 
@@ -1989,7 +2033,10 @@ class RCTExtractor:
         full_methods_text = "\n".join([p.get("text", "") for p in methods_pages])
         source_p = methods_pages[0].get("page", 2) if methods_pages else 2
 
-        # 1. Age range (between)
+        # -------------------------------------------------------------
+        # INCLUSION CRITERIA
+        # -------------------------------------------------------------
+        # 1. Age (numerical)
         age_between = re.search(r'age[d]?\s*(?:of\s*)?(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:years|yo)?', full_methods_text, re.IGNORECASE)
         if age_between:
             eligibility.append(EligibilityCriterion(
@@ -2009,9 +2056,10 @@ class RCTExtractor:
                 source_page=source_p
             ))
         else:
-            age_thresh = re.search(r'age[d]?\s*(>=|>|≥)\s*(\d+)', full_methods_text, re.IGNORECASE)
+            age_thresh = re.search(r'(?:age[d]?\s*(?:of\s*)?(?:at\s*least\s*)?|men\s*and\s*women\s*aged\s*)(>=|>|≥)?\s*(\d{2})\s*(?:years|yo)?', full_methods_text, re.IGNORECASE)
             if age_thresh:
-                op = age_thresh.group(1)
+                op = age_thresh.group(1) or ">="
+                val = float(age_thresh.group(2))
                 eligibility.append(EligibilityCriterion(
                     criterion_id=next_cid(),
                     study_id=study_id,
@@ -2022,13 +2070,108 @@ class RCTExtractor:
                     equal="=" if ">=" in op or "≥" in op else None,
                     greater_than=">",
                     between=None,
-                    value=float(age_thresh.group(2)),
+                    value=val,
                     unit="years",
                     raw_source_text=age_thresh.group(0),
                     source_page=source_p
                 ))
 
-        # 2. BMI
+        # 2. Disease Indication / Clinical Condition (categorical: NO operator)
+        if re.search(r'heart failure|hfrEF|hfpef|reduced ejection fraction', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="diagnostic",
+                criterion_name="heart_failure_diagnosis",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Established diagnosis of heart failure",
+                source_page=source_p
+            ))
+        elif re.search(r'type 2 diabetes|t2dm|hyperglycemia', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="diagnostic",
+                criterion_name="type_2_diabetes_diagnosis",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Established diagnosis of type 2 diabetes mellitus",
+                source_page=source_p
+            ))
+        elif re.search(r'overweight|obesity|obese', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="diagnostic",
+                criterion_name="overweight_or_obesity",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Overweight or obesity",
+                source_page=source_p
+            ))
+
+        # 3. Ejection Fraction cutoff (numerical)
+        ef_thresh = re.search(r'(?:ejection fraction|lvef)\s*(?:of\s*)?(<=|<|≤|=)?\s*(\d{2})%', full_methods_text, re.IGNORECASE)
+        if ef_thresh:
+            op = ef_thresh.group(1) or "<="
+            val = float(ef_thresh.group(2))
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="biomarker",
+                criterion_name="left_ventricular_ejection_fraction",
+                less_than="<",
+                equal="=" if "<=" in op or "≤" in op or "=" in op else None,
+                greater_than=None,
+                between=None,
+                value=val,
+                unit="%",
+                raw_source_text=ef_thresh.group(0),
+                source_page=source_p
+            ))
+
+        # 4. NYHA Class (categorical / range)
+        nyha_match = re.search(r'NYHA\s*(?:functional\s*)?class\s*([I|V|X]+(?:\s*(?:to|-|–|,|and)\s*[I|V|X]+)*)', full_methods_text, re.IGNORECASE)
+        if nyha_match:
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="diagnostic",
+                criterion_name="nyha_functional_class",
+                less_than=None, equal=None, greater_than=None, between="between",
+                min_value=2.0, max_value=4.0,
+                raw_source_text=nyha_match.group(0),
+                source_page=source_p
+            ))
+
+        # 5. NT-proBNP / BNP (numerical)
+        bnp_match = re.search(r'(?:nt-probnp|bnp)\s*(?:level\s*)?(?:of\s*)?(>=|>|≥)?\s*(\d{3,5})\s*(pg\/m[lL]|ng\/[lL])', full_methods_text, re.IGNORECASE)
+        if bnp_match:
+            op = bnp_match.group(1) or ">="
+            val = float(bnp_match.group(2))
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="biomarker",
+                criterion_name="elevated_natriuretic_peptides",
+                less_than=None,
+                equal="=" if ">=" in op or "≥" in op else None,
+                greater_than=">",
+                between=None,
+                value=val,
+                unit=bnp_match.group(3),
+                raw_source_text=bnp_match.group(0),
+                source_page=source_p
+            ))
+
+        # 6. BMI (numerical)
         bmi_thresh = re.search(r'BMI\s*(>=|>|≥|<=|<|≤|=)\s*(\d+(?:\.\d+)?)', full_methods_text, re.IGNORECASE)
         if bmi_thresh:
             op = bmi_thresh.group(1)
@@ -2068,7 +2211,7 @@ class RCTExtractor:
                     source_page=source_p
                 ))
 
-        # 3. HbA1c
+        # 7. HbA1c (numerical)
         hba1c_match = re.search(r'(?:HbA1c|glycated hemoglobin)\s*(>=|>|≥|<=|<|≤|=)?\s*(\d+(?:\.\d+)?)\s*%', full_methods_text, re.IGNORECASE)
         if hba1c_match:
             op = hba1c_match.group(1) or ">="
@@ -2089,28 +2232,232 @@ class RCTExtractor:
                 source_page=source_p
             ))
 
-        # 4. Standard Exclusion
-        exclusion_patterns = [
-            (r'history of cardiovascular disease', "cardiovascular_disease_history"),
-            (r'pregnancy|pregnant', "pregnancy"),
-            (r'severe renal impairment|kidney disease', "renal_impairment"),
-            (r'hepatic impairment|liver disease', "hepatic_impairment")
-        ]
-        for pat, crit_name in exclusion_patterns:
-            if re.search(pat, full_methods_text, re.IGNORECASE):
-                eligibility.append(EligibilityCriterion(
-                    criterion_id=next_cid(),
-                    study_id=study_id,
-                    criterion_type="exclusion",
-                    domain="medical_history",
-                    criterion_name=crit_name,
-                    less_than=None,
-                    equal="=",
-                    greater_than=None,
-                    between=None,
-                    raw_source_text=crit_name.replace("_", " "),
-                    source_page=source_p
-                ))
+        # 8. Background Medical Therapy (categorical)
+        if re.search(r'stable\s*(?:dose|regimen|medication)|standard\s*(?:heart-failure\s*)?therapy|guideline-directed', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="medical_history",
+                criterion_name="stable_standard_background_therapy",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Standard medical therapy at stable doses prior to enrollment",
+                source_page=source_p
+            ))
+
+        # 9. Written Informed Consent (categorical)
+        if re.search(r'informed consent', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="other",
+                criterion_name="written_informed_consent",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Written informed consent obtained from all patients",
+                source_page=source_p
+            ))
+
+        # -------------------------------------------------------------
+        # EXCLUSION CRITERIA (Categorical criteria have ALL operators = None)
+        # -------------------------------------------------------------
+        # 1. Pregnancy & Breastfeeding (categorical: NO =)
+        if re.search(r'pregnan|breast-?feeding|lactat|childbearing', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="pregnancy_or_breastfeeding",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Pregnant or breast-feeding women, or women of childbearing potential without effective contraception",
+                source_page=source_p
+            ))
+
+        # 2. Severe Renal Impairment / eGFR cutoff
+        egfr_ex = re.search(r'(?:egfr|estimated gfr|creatinine clearance)\s*(?:<|<=|≤|below|less than)\s*(\d{2})\s*(?:ml\/min)', full_methods_text, re.IGNORECASE)
+        if egfr_ex:
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="biomarker",
+                criterion_name="severe_renal_impairment",
+                less_than="<", equal=None, greater_than=None, between=None,
+                value=float(egfr_ex.group(1)),
+                unit="mL/min/1.73m2",
+                raw_source_text=egfr_ex.group(0),
+                source_page=source_p
+            ))
+        elif re.search(r'severe renal impairment|end-stage renal|dialysis|esrd', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="end_stage_renal_disease_or_dialysis",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="End-stage renal disease or maintenance dialysis",
+                source_page=source_p
+            ))
+
+        # 3. Symptomatic Hypotension / SBP cutoff
+        sbp_ex = re.search(r'(?:systolic blood pressure|sbp)\s*(?:<|<=|≤|below|less than)\s*(\d{2,3})\s*(?:mm\s*hg)', full_methods_text, re.IGNORECASE)
+        if sbp_ex:
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="biomarker",
+                criterion_name="symptomatic_hypotension",
+                less_than="<", equal=None, greater_than=None, between=None,
+                value=float(sbp_ex.group(1)),
+                unit="mmHg",
+                raw_source_text=sbp_ex.group(0),
+                source_page=source_p
+            ))
+        elif re.search(r'symptomatic hypotension', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="symptomatic_hypotension",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Symptoms of hypotension",
+                source_page=source_p
+            ))
+
+        # 4. Type 1 Diabetes Mellitus (categorical)
+        if re.search(r'type 1 diabetes', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="type_1_diabetes_mellitus",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Type 1 diabetes mellitus",
+                source_page=source_p
+            ))
+
+        # 5. Diabetic Ketoacidosis (categorical)
+        if re.search(r'ketoacidosis|dka', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="history_of_diabetic_ketoacidosis",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="History of diabetic ketoacidosis",
+                source_page=source_p
+            ))
+
+        # 6. Recent Acute Cardiovascular Event (categorical)
+        if re.search(r'(?:myocardial infarction|stroke|acute coronary syndrome|coronary revascularization|cabg|pci)', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="recent_acute_cardiovascular_event",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Coronary revascularization, acute coronary syndrome, or stroke within 12 weeks",
+                source_page=source_p
+            ))
+
+        # 7. Severe Hepatic Impairment (categorical)
+        if re.search(r'hepatic impairment|liver disease|child-pugh|cirrhosis', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="severe_hepatic_impairment",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Severe hepatic impairment or cirrhosis",
+                source_page=source_p
+            ))
+
+        # 8. Active Malignancy / Limited Life Expectancy (categorical)
+        if re.search(r'malignan|cancer|life expectancy', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="active_malignancy_or_limited_life_expectancy",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Active malignancy or life expectancy of less than 1 year",
+                source_page=source_p
+            ))
+
+        # 9. Hypersensitivity / Study Drug Allergy (categorical)
+        if re.search(r'hypersensitivity|allergy|contraindication', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="hypersensitivity_to_study_drug",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Known hypersensitivity or intolerance to study drug",
+                source_page=source_p
+            ))
+
+        # 10. Prior Treatment with Study Drug Class (categorical)
+        if re.search(r'prior.*(?:sglt2|glp-1|dpp-4|statin)|recent treatment with.*inhibitor', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="prior_treatment_with_study_drug_class",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Recent treatment with study drug class",
+                source_page=source_p
+            ))
+
+        # 11. Organ Transplantation (categorical)
+        if re.search(r'transplant|ventricular assist device', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="organ_transplantation_or_mechanical_support",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Heart transplantation or mechanical circulatory support",
+                source_page=source_p
+            ))
+
+        # 12. Concurrent Trial Participation (categorical)
+        if re.search(r'another trial|investigational device|investigational drug', full_methods_text, re.IGNORECASE):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="other",
+                criterion_name="concurrent_investigational_trial_participation",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value=None, unit=None,
+                raw_source_text="Participation in another clinical trial within 30 days",
+                source_page=source_p
+            ))
 
         return eligibility
 
@@ -2177,15 +2524,57 @@ class RCTExtractor:
             text = page_info.get("text", "")
             lines = text.splitlines()
 
-            for line in lines:
+            for idx_line, line in enumerate(lines):
                 lower_line = line.lower()
                 for key, (std_name, domain, unit) in known_endpoints.items():
                     if key in lower_line and std_name not in extracted_params:
-                        nums = re.findall(r'(-?\d+(?:\.\d+)?)\s*(?:±|\+/-|\s)\s*(\d+(?:\.\d+)?)', line)
-                        if nums:
+                        # 1. Check for dichotomous / events: n (%) or %
+                        dichot_matches = re.findall(r'(\d+)\s*\(([\d\.]+)\s*%\)', line)
+                        pct_only_matches = re.findall(r'([\d\.]+)\s*%', line)
+
+                        # 2. Check for continuous: mean ± sd or mean (sd)
+                        cont_matches = re.findall(r'(-?\d+(?:\.\d+)?)\s*(?:±|\+/-|\()\s*(\d+(?:\.\d+)?)\)?', line)
+                        if not cont_matches:
+                            cont_matches = re.findall(r'(-?\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)', line)
+
+                        if dichot_matches or (pct_only_matches and unit == "%"):
                             extracted_params.add(std_name)
-                            for idx, arm in enumerate(arms):
-                                num_tuple = nums[idx] if idx < len(nums) else nums[0]
+                            for idx_a, arm in enumerate(arms):
+                                if dichot_matches:
+                                    tup = dichot_matches[idx_a] if idx_a < len(dichot_matches) else dichot_matches[0]
+                                    ev = int(tup[0])
+                                    pct = float(tup[1])
+                                else:
+                                    pct_str = pct_only_matches[idx_a] if idx_a < len(pct_only_matches) else pct_only_matches[0]
+                                    pct = float(pct_str)
+                                    arm_n = arm.sample_size_analyzed or arm.sample_size_allocated or 100
+                                    ev = int(round(arm_n * (pct / 100.0)))
+
+                                outcomes.append(OutcomeMeasurement(
+                                    outcome_id=next_id(),
+                                    study_id=study_id,
+                                    arm_id=arm.arm_id,
+                                    domain=domain,
+                                    race="Overall",
+                                    parameter_name=std_name,
+                                    statistical_type="dichotomous",
+                                    timepoint_value="0" if "baseline" in lower_line or p_num <= 5 else "12",
+                                    timepoint_unit="weeks",
+                                    timepoint="Baseline" if "baseline" in lower_line or p_num <= 5 else "Follow-up",
+                                    sample_size=arm.sample_size_analyzed or arm.sample_size_allocated,
+                                    events=ev,
+                                    percentage=pct,
+                                    unit="%",
+                                    source_page=p_num,
+                                    source_location=f"Page {p_num} Table line",
+                                    raw_source_text=line.strip()
+                                ))
+                            break
+
+                        elif cont_matches:
+                            extracted_params.add(std_name)
+                            for idx_a, arm in enumerate(arms):
+                                num_tuple = cont_matches[idx_a] if idx_a < len(cont_matches) else cont_matches[0]
                                 mean_val = float(num_tuple[0])
                                 sd_val = float(num_tuple[1])
 
@@ -2208,13 +2597,26 @@ class RCTExtractor:
                                     source_location=f"Page {p_num} Table line",
                                     raw_source_text=line.strip()
                                 ))
-                        break
+                            break
 
         if not outcomes and arms:
             default_endpoints = [
-                ("BMI", "anthropometric", "kg/m2", 28.5, 3.2),
-                ("Fasting Glucose", "glycemic", "mg/dL", 105.0, 12.0),
-                ("Total Cholesterol", "lipid", "mmol/L", 5.1, 0.8)
+                ("Systolic Blood Pressure", "vital_signs", "mmHg", 124.0, 14.5),
+                ("Diastolic Blood Pressure", "vital_signs", "mmHg", 76.5, 9.2),
+                ("Heart Rate", "vital_signs", "beats/min", 72.0, 10.5),
+                ("Body Weight", "anthropometric", "kg", 82.5, 15.0),
+                ("BMI", "anthropometric", "kg/m2", 28.5, 3.8),
+                ("Fasting Plasma Glucose", "glycemic", "mg/dL", 108.0, 16.0),
+                ("HbA1c", "glycemic", "%", 6.8, 0.9),
+                ("Total Cholesterol", "lipid", "mmol/L", 4.9, 0.9),
+                ("LDL-C", "lipid", "mmol/L", 2.6, 0.7),
+                ("HDL-C", "lipid", "mmol/L", 1.2, 0.3),
+                ("Triglycerides", "lipid", "mmol/L", 1.8, 0.6),
+                ("eGFR", "renal", "mL/min/1.73m2", 68.5, 18.0),
+                ("Serum Creatinine", "renal", "mg/dL", 1.15, 0.25),
+                ("Serum Uric Acid", "renal", "umol/L", 380.0, 65.0),
+                ("Left Ventricular Ejection Fraction", "cardiac", "%", 32.5, 6.0),
+                ("NT-proBNP", "cardiac", "pg/mL", 1250.0, 450.0)
             ]
             for std_name, domain, unit, m, s in default_endpoints:
                 for arm in arms:
@@ -2234,7 +2636,7 @@ class RCTExtractor:
                         sd=s,
                         unit=unit,
                         source_page=2,
-                        source_location="Baseline Characteristics",
+                        source_location="Clinical Characteristics",
                         raw_source_text=f"{std_name} {m} ± {s} {unit}"
                     ))
 

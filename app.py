@@ -20,7 +20,10 @@ def process_pdf(pdf_file, api_key=""):
         return None, "⚠️ Please upload a clinical trial PDF file.", None, None
 
     pdf_path = pdf_file.name if hasattr(pdf_file, "name") else str(pdf_file)
-    base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+    if hasattr(pdf_file, "orig_name") and pdf_file.orig_name:
+        base_name = os.path.splitext(pdf_file.orig_name)[0]
+    else:
+        base_name = os.path.splitext(os.path.basename(pdf_path))[0]
     output_filename = f"outputs/{base_name}_extracted.xlsx"
     os.makedirs("outputs", exist_ok=True)
 
