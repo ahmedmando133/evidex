@@ -301,7 +301,7 @@ def process_pdf(pdf_file, api_key="", model_choice="Google Gemini 3.8 Flash (Ult
                 "Source Protocol Text": e.raw_source_text,
                 "Page": e.source_page
             })
-            df_elig = pd.DataFrame(elig_rows)
+        df_elig = pd.DataFrame(elig_rows)
 
         # Clean all DataFrames to have strictly unique column headers and filled NaNs
         df_master = deduplicate_columns(df_master)
