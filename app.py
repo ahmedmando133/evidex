@@ -5,8 +5,10 @@ Upload any RCT PDF and get a standardized, audit-verified multi-sheet Excel and 
 
 import os
 import sys
+import re
 import json
 import functools
+from pathlib import Path
 from typing import Any
 import gradio as gr
 
@@ -369,6 +371,330 @@ def process_pdf(
         return None, None, err_card, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 
+CACHED_COHORT_PIPELINES: dict[str, Any] = {}
+
+
+def list_available_cohorts() -> list[str]:
+    """Scans analysis/ directory and returns list of drug cohort subfolders."""
+    analysis_dir = Path("analysis")
+    if not analysis_dir.exists():
+        return ["Metformin", "Dapagliflozin", "Orlistat"]
+    subdirs = [d.name for d in analysis_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]
+    return sorted(subdirs) if subdirs else ["Metformin"]
+
+
+def toggle_cohort_mode(mode: str):
+    """Switches UI inputs between Local Folder and Online Multi-File Upload."""
+    if "Upload" in mode:
+        return gr.update(visible=False), gr.update(visible=True)
+    return gr.update(visible=True), gr.update(visible=False)
+
+
+def refresh_cohorts():
+    """Dynamically refreshes the list of cohort folders from analysis/."""
+    choices = list_available_cohorts()
+    return gr.update(choices=choices, value=choices[0] if choices else None)
+
+
+def simulate_virtual_trial_ui(mode: str, cohort_dropdown: str, custom_drug_name: str, param_name: str, dose: float, duration: float) -> str:
+    """Interactively simulates a virtual trial for a specified dose and duration."""
+    import html
+    from src.cohort_pipeline import ActiveIngredientCohortPipeline
+
+    if "Upload" in str(mode) and custom_drug_name:
+        cohort_name = custom_drug_name.strip()
+    else:
+        cohort_name = cohort_dropdown or "Metformin"
+
+    pipeline = CACHED_COHORT_PIPELINES.get(cohort_name)
+    if not pipeline:
+        try:
+            pipeline = ActiveIngredientCohortPipeline(cohort_name=cohort_name)
+            pipeline.run_all()
+            CACHED_COHORT_PIPELINES[cohort_name] = pipeline
+        except Exception as e:
+            return f"<div style='background: rgba(239,68,68,0.1); border: 1px solid #EF4444; border-radius: 10px; color: #FCA5A5; padding: 14px;'>Simulation Notice: {html.escape(str(e))}</div>"
+
+    predictor = pipeline.predictors.get(param_name)
+    if not predictor:
+        if pipeline.predictors:
+            param_name = list(pipeline.predictors.keys())[0]
+            predictor = pipeline.predictors[param_name]
+        else:
+            return f"<div style='background: rgba(245,158,11,0.1); border: 1px solid #F59E0B; border-radius: 10px; color: #FBBF24; padding: 14px;'>No meta-regression models available for parameter: {html.escape(str(param_name))}</div>"
+
+    proj = predictor.predict_trial(dose_mg=float(dose), duration_weeks=float(duration))
+    meas = predictor.effects[0].measure if predictor.effects else "Effect"
+
+    direction_color = "#10B981" if proj.predicted_effect < 0 else "#38BDF8"
+    signif_badge = "Statistically Significant" if (proj.ci_lower > 0 or proj.ci_upper < 0) else "Neutral / Overlapping Null"
+
+    return f"""
+    <div style="background: linear-gradient(135deg, rgba(30,27,75,0.92) 0%, rgba(15,23,42,0.96) 100%); border: 1.5px solid #EC4899; border-radius: 18px; padding: 22px; margin: 15px 0; box-shadow: 0 10px 30px rgba(236,72,153,0.25);">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px; gap: 10px;">
+        <div>
+          <span style="background: #EC4899; color: white; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">
+            Virtual Trial Simulation Result
+          </span>
+          <h3 style="color: #F8FAFC; margin: 6px 0 0 0; font-size: 20px; font-weight: 800;">
+            {param_name} @ {dose:.0f} mg/day for {duration:.0f} weeks
+          </h3>
+        </div>
+        <div>
+          <span style="background: rgba(236,72,153,0.15); border: 1px solid #EC4899; color: #F472B6; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 700;">
+            {signif_badge}
+          </span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 16px;">
+        <div style="background: rgba(15,23,42,0.7); border-radius: 14px; padding: 14px; border-left: 4px solid {direction_color};">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Projected Effect ({meas})</div>
+          <div style="color: #F8FAFC; font-size: 24px; font-weight: 800; margin-top: 2px;">{proj.predicted_effect:+.2f}</div>
+          <div style="color: {direction_color}; font-size: 11px; font-weight: 600;">Expected Mean Shift</div>
+        </div>
+        <div style="background: rgba(15,23,42,0.7); border-radius: 14px; padding: 14px; border-left: 4px solid #38BDF8;">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">95% Confidence Interval</div>
+          <div style="color: #F8FAFC; font-size: 20px; font-weight: 800; margin-top: 2px;">[{proj.ci_lower:+.2f}, {proj.ci_upper:+.2f}]</div>
+          <div style="color: #38BDF8; font-size: 11px; font-weight: 600;">Uncertainty of Mean Response</div>
+        </div>
+        <div style="background: rgba(15,23,42,0.7); border-radius: 14px; padding: 14px; border-left: 4px solid #F59E0B;">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">95% Prediction Interval (PI)</div>
+          <div style="color: #F8FAFC; font-size: 20px; font-weight: 800; margin-top: 2px;">[{proj.pi_lower:+.2f}, {proj.pi_upper:+.2f}]</div>
+          <div style="color: #FBBF24; font-size: 11px; font-weight: 600;">Extrapolated Range for Future Trial</div>
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 14px; font-size: 13px; color: #E2E8F0; line-height: 1.5;">
+        💡 <strong>Executive Clinical Takeaway:</strong> {proj.clinical_interpretation}
+      </div>
+    </div>
+    """
+
+
+def process_cohort(
+    ingest_mode: str,
+    cohort_dropdown: str,
+    custom_drug_name: str,
+    uploaded_files: list,
+    model_choice: str,
+    api_key: str,
+    progress=gr.Progress(track_tqdm=True)
+):
+    """Runs end-to-end active-ingredient cohort extraction, harmonization, meta-analysis, and dashboard generation."""
+    import re
+    import html
+    import shutil
+    from pathlib import Path
+    import pandas as pd
+    from src.cohort_pipeline import ActiveIngredientCohortPipeline
+
+    progress(0.05, desc="🔍 Initializing Active Ingredient Cohort Pipeline...")
+
+    try:
+        # Determine Cohort Name and Input Files
+        if "Upload" in str(ingest_mode) and uploaded_files:
+            clean_drug = re.sub(r'[^a-zA-Z0-9_\-]', '_', (custom_drug_name or "Custom_Drug").strip()).strip('_')
+            if not clean_drug:
+                clean_drug = "Custom_Drug"
+            cohort_name = clean_drug
+            target_dir = Path("analysis") / cohort_name
+            target_dir.mkdir(parents=True, exist_ok=True)
+            for uf in uploaded_files:
+                src_f = Path(uf.name if hasattr(uf, "name") else str(uf))
+                orig_name = getattr(uf, "orig_name", src_f.name)
+                dst_f = target_dir / orig_name
+                shutil.copy2(src_f, dst_f)
+        else:
+            cohort_name = cohort_dropdown or "Metformin"
+
+        # Map Model Selection
+        model_name = "auto"
+        if "Auto" in model_choice or "auto" in model_choice.lower():
+            model_name = "auto"
+        elif "2.0" in model_choice or "3.8" in model_choice:
+            model_name = "gemini-2.0-flash"
+        elif "1.5 Pro" in model_choice:
+            model_name = "gemini-1.5-pro"
+        elif "1.5 Flash" in model_choice:
+            model_name = "gemini-1.5-flash"
+        elif "Sonnet" in model_choice or "sonnet" in model_choice.lower():
+            model_name = "claude-3-5-sonnet-20241022"
+        elif "Haiku" in model_choice or "haiku" in model_choice.lower():
+            model_name = "claude-3-5-haiku-20241022"
+        elif "GPT-4o-mini" in model_choice:
+            model_name = "gpt-4o-mini"
+        elif "GPT-4o" in model_choice:
+            model_name = "gpt-4o"
+        elif "Local" in model_choice:
+            model_name = "smart-local"
+
+        pipeline = ActiveIngredientCohortPipeline(
+            cohort_name=cohort_name,
+            api_key=api_key.strip() if api_key else None,
+            model_name=model_name
+        )
+
+        res = pipeline.run_all(progress_callback=progress)
+        CACHED_COHORT_PIPELINES[cohort_name] = pipeline
+
+        # Extract Primary Verdict
+        primary_param = list(res["meta_results"].keys())[0] if res["meta_results"] else "Overall Cohort"
+        verdict = res["verdicts"].get(primary_param, {})
+
+        # Build Top Executive Verdict & KPI Card
+        evidence_badge = verdict.get("evidence_strength", "Statistically Significant")
+        verdict_title = verdict.get("verdict_title", f"Executive Clinical Verdict • {cohort_name}")
+        summary_text = verdict.get("summary_narrative", f"Analyzed {res['trials_count']} randomized controlled trials.")
+        pooled_effect_str = verdict.get("pooled_effect", "N/A")
+        pi_str = verdict.get("prediction_interval", "N/A")
+        i2_str = verdict.get("i2_percent", "0.0%")
+        tau2_str = verdict.get("tau2", "0.0000")
+        dose_trend_str = verdict.get("dose_trend", "Linear Meta-Regression")
+
+        verdict_html = f"""
+        <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.96) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(99,102,241,0.5); border-radius: 20px; padding: 26px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.2); margin-bottom: 24px; backdrop-filter: blur(20px);">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 16px; margin-bottom: 18px; gap: 14px;">
+            <div style="max-width: 72%;">
+              <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <span style="background: linear-gradient(90deg, #10B981, #059669); color: white; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: 0 0 12px rgba(16,185,129,0.5);">
+                  {evidence_badge}
+                </span>
+                <span style="background: rgba(99,102,241,0.15); border: 1px solid #6366F1; color: #A5B4FC; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+                  Cohort: {cohort_name}
+                </span>
+                <span style="background: rgba(245,158,11,0.15); border: 1px solid #F59E0B; color: #FBBF24; padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+                  Primary: {primary_param}
+                </span>
+              </div>
+              <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 22px; font-weight: 800;">
+                {verdict_title}
+              </h2>
+              <p style="color: #94A3B8; margin: 0; font-size: 13px; line-height: 1.5;">
+                {summary_text}
+              </p>
+            </div>
+            <div>
+              <div style="background: rgba(99,102,241,0.15); border: 1.5px solid #6366F1; color: #C4B5FD; padding: 10px 18px; border-radius: 14px; font-weight: 800; font-size: 13px; text-align: center; box-shadow: 0 0 20px rgba(99,102,241,0.25);">
+                <div style="font-size: 15px; color: #F8FAFC;">{pooled_effect_str}</div>
+                <div style="font-size: 11px; color: #FBBF24; margin-top: 4px;">{pi_str}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 Radiant Cohort KPI Cards -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px;">
+            <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; border-left: 4px solid #6366F1;">
+              <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Pooled Trials</div>
+              <div style="color: #F8FAFC; font-size: 22px; font-weight: 800;">{res['trials_count']} RCTs</div>
+              <div style="color: #A5B4FC; font-size: 11px; margin-top: 2px;">Fully Harmonized</div>
+            </div>
+            <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; border-left: 4px solid #8B5CF6;">
+              <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Total Cohort Size</div>
+              <div style="color: #F8FAFC; font-size: 22px; font-weight: 800;">{res['total_patients']:,} Patients</div>
+              <div style="color: #C084FC; font-size: 11px; margin-top: 2px;">Cross-Trial Population</div>
+            </div>
+            <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; border-left: 4px solid #10B981;">
+              <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Heterogeneity I²</div>
+              <div style="color: #F8FAFC; font-size: 22px; font-weight: 800;">{i2_str}</div>
+              <div style="color: #34D399; font-size: 11px; margin-top: 2px;">Variance τ² = {tau2_str}</div>
+            </div>
+            <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; border-left: 4px solid #EC4899;">
+              <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Dose Response</div>
+              <div style="color: #F8FAFC; font-size: 13px; font-weight: 700; margin-top: 4px;">{dose_trend_str}</div>
+            </div>
+          </div>
+        </div>
+        """
+
+        # DataFrames: Comparison & Heatmap
+        comp_df = deduplicate_columns(res["comparison_matrix"])
+        heatmap_df = deduplicate_columns(res["heatmap"])
+
+        # Meta-Analysis Summary Table
+        meta_rows = []
+        for p_name, m_res in res["meta_results"].items():
+            v = res["verdicts"].get(p_name, {})
+            meta_rows.append({
+                "Clinical Parameter": p_name,
+                "Measure": m_res.measure,
+                "Trials (k)": m_res.k_studies,
+                "Patients (N)": m_res.total_n,
+                "Pooled RE Estimate": round(m_res.re_estimate, 3),
+                "95% CI Lower": round(m_res.re_ci_lower, 3),
+                "95% CI Upper": round(m_res.re_ci_upper, 3),
+                "95% Prediction Interval": f"[{m_res.pi_lower:+.2f}, {m_res.pi_upper:+.2f}]",
+                "p-value": round(m_res.re_p_value, 5),
+                "I² (%)": f"{m_res.i2:.1f}%",
+                "tau² (DL)": round(m_res.tau2, 4),
+                "tau² (REML)": round(m_res.reml_tau2 or m_res.tau2, 4),
+                "Egger Test p": round(m_res.egger_p, 4) if m_res.egger_p else "N/A (k < 4)",
+                "Evidence Strength": v.get("evidence_strength", "Significant")
+            })
+        meta_df = deduplicate_columns(pd.DataFrame(meta_rows))
+
+        # Predictive Projections Matrix
+        pred_rows = []
+        for p_name, pred_eng in pipeline.predictors.items():
+            for proj in pred_eng.generate_dose_duration_grid():
+                pred_rows.append({
+                    "Parameter": p_name,
+                    "Dose (mg)": proj.dose_mg,
+                    "Duration (wks)": proj.duration_weeks,
+                    "Projected Effect": round(proj.predicted_effect, 3),
+                    "95% CI": f"[{proj.ci_lower:+.2f}, {proj.ci_upper:+.2f}]",
+                    "95% Prediction Interval": f"[{proj.pi_lower:+.2f}, {proj.pi_upper:+.2f}]",
+                    "NNT": f"{proj.nnt:.1f}" if proj.nnt else "—",
+                    "Clinical Takeaway": proj.clinical_interpretation
+                })
+        pred_df = deduplicate_columns(pd.DataFrame(pred_rows))
+
+        # Forest Plot Visual
+        forest_html = ""
+        if hasattr(pipeline, "forest_htmls") and pipeline.forest_htmls:
+            forest_html = pipeline.forest_htmls[0]
+        else:
+            with open(res["html_path"], "r", encoding="utf-8") as hf:
+                content = hf.read()
+                forest_html = f"<iframe srcdoc='{html.escape(content)}' style='width: 100%; height: 550px; border: none; border-radius: 14px;'></iframe>"
+
+        # Initial Simulation Result for Primary Parameter
+        init_sim_html = simulate_virtual_trial_ui(ingest_mode, cohort_dropdown, custom_drug_name, primary_param, dose=1000.0, duration=24.0)
+
+        # Param choices
+        param_choices = list(res["meta_results"].keys()) if res["meta_results"] else [primary_param]
+
+        return (
+            verdict_html,
+            comp_df,
+            heatmap_df,
+            forest_html,
+            meta_df,
+            pred_df,
+            res["excel_path"],
+            res["html_path"],
+            gr.update(choices=param_choices, value=param_choices[0]),
+            init_sim_html
+        )
+
+    except Exception as e:
+        import traceback, html
+        traceback.print_exc()
+        err_msg = html.escape(str(e))
+        err_card = f"""
+        <div style="background: linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(15,23,42,0.95) 100%); border: 1.5px solid #EF4444; border-radius: 18px; padding: 26px; color: #FCA5A5; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="font-size: 24px;">⚠️</span>
+            <h3 style="color: #F87171; margin: 0; font-size: 18px; font-weight: 800;">Cohort Meta-Analysis Diagnostic</h3>
+          </div>
+          <p style="color: #FEE2E2; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">
+            An issue occurred during multi-trial pooling or statistical meta-analysis:
+          </p>
+          <pre style="background: rgba(0,0,0,0.5); padding: 12px 16px; border-radius: 10px; color: #FCA5A5; font-family: monospace; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">{err_msg}</pre>
+        </div>
+        """
+        import pandas as pd
+        return err_card, pd.DataFrame(), pd.DataFrame(), "", pd.DataFrame(), pd.DataFrame(), None, None, gr.update(), ""
+
+
 def build_app():
     custom_css = """
     /* Sleek Modern Biotech & Deep AI Aesthetic */
@@ -515,103 +841,299 @@ def build_app():
                 """
             )
 
-        with gr.Row():
-            # Left Column: Upload & Parameters
-            with gr.Column(scale=1):
-                gr.Markdown("### 📄 Step 1: Upload Trial Protocol / Paper")
-                pdf_input = gr.File(
-                    label="Drop RCT Paper (PDF)",
-                    file_types=[".pdf"],
-                    type="filepath"
+        with gr.Tabs() as main_nav_tabs:
+            # ==========================================
+            # TAB 1: PHASE 1 SINGLE-STUDY DEEP EXTRACTOR
+            # ==========================================
+            with gr.TabItem("🩺 Single-Study Deep Extractor (Phase 1)"):
+                with gr.Row():
+                    # Left Column: Upload & Parameters
+                    with gr.Column(scale=1):
+                        gr.Markdown("### 📄 Step 1: Upload Trial Protocol / Paper")
+                        pdf_input = gr.File(
+                            label="Drop RCT Paper (PDF)",
+                            file_types=[".pdf"],
+                            type="filepath"
+                        )
+
+                        gr.Markdown("### ⚡ Step 2: Configure AI Engine")
+                        model_selector = gr.Dropdown(
+                            label="🤖 Deep AI Model Selection (BYOK)",
+                            choices=[
+                                "⚡ Auto-Detect & Select Best Available Model (Recommended)",
+                                "Google Gemini 2.0 Flash (Fast & Accurate Flagship)",
+                                "Google Gemini 1.5 Pro (Deep Clinical Reasoning)",
+                                "Google Gemini 1.5 Flash",
+                                "Anthropic Claude 3.5 Sonnet (Benchmark Methodological Extraction)",
+                                "Anthropic Claude 3.5 Haiku",
+                                "OpenAI GPT-4o (Clinical Reasoning)",
+                                "OpenAI GPT-4o-mini",
+                                "Smart Local Engine (Offline / Reference Benchmark)"
+                            ],
+                            value="⚡ Auto-Detect & Select Best Available Model (Recommended)"
+                        )
+
+                        api_key_input = gr.Textbox(
+                            label="🔑 AI Provider API Key (Google AI Studio / Anthropic / OpenAI)",
+                            type="password",
+                            placeholder="Enter your Gemini Key (AIza...), Claude Key (sk-ant...), or OpenAI Key (sk-...)"
+                        )
+
+                        extract_btn = gr.Button("🚀 Run Academic Deep Extraction", variant="primary", elem_classes=["extract-btn"])
+
+                        gr.Markdown("### 📥 Step 3: Verified Outputs")
+                        excel_output = gr.File(label="📊 Standardized Multi-Sheet Excel (.xlsx)")
+                        json_output = gr.File(label="📄 Structured Trial Protocol Data (.json)")
+
+                    # Right Column: Visual Dashboard & Interactive Tables
+                    with gr.Column(scale=2):
+                        summary_output = gr.HTML(
+                            """
+                            <div style="background: rgba(30,41,59,0.5); border: 1.5px dashed rgba(99,102,241,0.3); border-radius: 18px; padding: 40px 20px; text-align: center; color: #94A3B8;">
+                              <div style="font-size: 38px; margin-bottom: 10px;">🩺</div>
+                              <h3 style="color: #F8FAFC; margin: 0 0 8px 0; font-size: 18px;">Awaiting Clinical Trial PDF</h3>
+                              <p style="margin: 0; font-size: 13px;">Upload an RCT paper on the left to extract full study metadata, randomized arms, atomic eligibility criteria, and 60–120+ clinical outcomes.</p>
+                            </div>
+                            """
+                        )
+
+                        with gr.Tabs():
+                            with gr.TabItem("📑 Master Extraction Sheet (Sheet 1 - Consolidated)"):
+                                master_table = gr.DataFrame(
+                                    label="Consolidated Multi-Level Mining Table (Replicating Benchmark)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=500
+                                )
+
+                            with gr.TabItem("📊 Variables Matrix (Cross-Arm Comparison)"):
+                                matrix_table = gr.DataFrame(
+                                    label="Horizontal Cross-Trial Variable Matrix",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=500
+                                )
+
+                            with gr.TabItem("📋 Granular Outcomes (100% Sample Sizes)"):
+                                outcomes_table = gr.DataFrame(
+                                    label="Normalized Clinical & Safety Outcomes",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=500
+                                )
+
+                            with gr.TabItem("⚖️ Eligibility Criteria Matrix (4 Operators)"):
+                                eligibility_table = gr.DataFrame(
+                                    label="Atomic Inclusion & Exclusion Criteria",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=500
+                                )
+
+                extract_btn.click(
+                    fn=process_pdf,
+                    inputs=[pdf_input, api_key_input, model_selector],
+                    outputs=[excel_output, json_output, summary_output, master_table, matrix_table, outcomes_table, eligibility_table],
+                    show_progress="full"
                 )
 
-                gr.Markdown("### ⚡ Step 2: Configure AI Engine")
-                model_selector = gr.Dropdown(
-                    label="🤖 Deep AI Model Selection (BYOK)",
-                    choices=[
-                        "⚡ Auto-Detect & Select Best Available Model (Recommended)",
-                        "Google Gemini 2.0 Flash (Fast & Accurate Flagship)",
-                        "Google Gemini 1.5 Pro (Deep Clinical Reasoning)",
-                        "Google Gemini 1.5 Flash",
-                        "Anthropic Claude 3.5 Sonnet (Benchmark Methodological Extraction)",
-                        "Anthropic Claude 3.5 Haiku",
-                        "OpenAI GPT-4o (Clinical Reasoning)",
-                        "OpenAI GPT-4o-mini",
-                        "Smart Local Engine (Offline / Reference Benchmark)"
+            # =========================================================================
+            # TAB 2: PHASE 2 MULTI-TRIAL COHORT, META-ANALYSIS & PREDICTIVE DASHBOARD
+            # =========================================================================
+            with gr.TabItem("🚀 Multi-Trial Cohort, Meta-Analysis & Predictive Executive Dashboard (Phase 2)"):
+                with gr.Row():
+                    # Left Column: Cohort Selection & Configuration
+                    with gr.Column(scale=1):
+                        gr.Markdown("### 🧬 Step 1: Active-Ingredient Ingestion")
+                        cohort_mode_radio = gr.Radio(
+                            choices=["Local Cohort Folder (analysis/<Drug>)", "Upload Multiple Files (PDFs / Excels)"],
+                            label="Cohort Source",
+                            value="Local Cohort Folder (analysis/<Drug>)"
+                        )
+
+                        with gr.Group() as local_mode_group:
+                            available_cohorts = list_available_cohorts()
+                            cohort_dropdown = gr.Dropdown(
+                                label="Select Active Ingredient Folder",
+                                choices=available_cohorts,
+                                value=available_cohorts[0] if available_cohorts else None
+                            )
+                            refresh_cohorts_btn = gr.Button("🔄 Refresh Folder List", size="sm")
+
+                        with gr.Group(visible=False) as upload_mode_group:
+                            custom_drug_input = gr.Textbox(
+                                label="Active Ingredient / Drug Name",
+                                placeholder="e.g. Metformin, Dapagliflozin, Semaglutide..."
+                            )
+                            upload_cohort_files = gr.File(
+                                label="Upload Trial PDFs or Pre-Extracted Excels",
+                                file_count="multiple",
+                                file_types=[".pdf", ".xlsx"]
+                            )
+
+                        gr.Markdown("### ⚡ Step 2: Auto-Extraction & AI Engine")
+                        cohort_model_selector = gr.Dropdown(
+                            label="🤖 Deep AI Model Selection (BYOK for unextracted PDFs)",
+                            choices=[
+                                "⚡ Auto-Detect & Select Best Available Model (Recommended)",
+                                "Google Gemini 2.0 Flash (Fast & Accurate Flagship)",
+                                "Google Gemini 1.5 Pro (Deep Clinical Reasoning)",
+                                "Google Gemini 1.5 Flash",
+                                "Anthropic Claude 3.5 Sonnet (Benchmark Methodological Extraction)",
+                                "Anthropic Claude 3.5 Haiku",
+                                "OpenAI GPT-4o (Clinical Reasoning)",
+                                "OpenAI GPT-4o-mini",
+                                "Smart Local Engine (Offline / Reference Benchmark)"
+                            ],
+                            value="⚡ Auto-Detect & Select Best Available Model (Recommended)"
+                        )
+
+                        cohort_api_key_input = gr.Textbox(
+                            label="🔑 AI Provider API Key (Optional for Cloud Extraction)",
+                            type="password",
+                            placeholder="Enter your Gemini Key (AIza...), Claude Key (sk-ant...), or OpenAI Key (sk-...)"
+                        )
+
+                        run_cohort_btn = gr.Button("🚀 Run End-to-End Cohort Extraction & Executive Analysis", variant="primary", elem_classes=["extract-btn"])
+
+                        gr.Markdown("### 📥 Step 3: Executive Deliverables")
+                        cohort_excel_file = gr.File(label="📊 Master Comparison & Meta-Analysis Excel (.xlsx)")
+                        cohort_html_file = gr.File(label="🌐 Standalone Interactive HTML Executive Dashboard (.html)")
+
+                    # Right Column: Visual Dashboard, Meta-Analysis & Virtual Trial Simulator
+                    with gr.Column(scale=2):
+                        cohort_verdict_html = gr.HTML(
+                            """
+                            <div style="background: rgba(30,41,59,0.5); border: 1.5px dashed rgba(99,102,241,0.3); border-radius: 18px; padding: 40px 20px; text-align: center; color: #94A3B8;">
+                              <div style="font-size: 38px; margin-bottom: 10px;">🚀</div>
+                              <h3 style="color: #F8FAFC; margin: 0 0 8px 0; font-size: 18px;">Awaiting Cohort Selection</h3>
+                              <p style="margin: 0; font-size: 13px;">Select an active ingredient folder or upload multiple trial files on the left to run automatic extraction, cross-trial harmonization, metafor-grade meta-analysis, and predictive virtual trial simulation.</p>
+                            </div>
+                            """
+                        )
+
+                        with gr.Tabs():
+                            with gr.TabItem("📑 Cross-Trial Comparison & Coverage"):
+                                cohort_comp_table = gr.DataFrame(
+                                    label="Head-to-Head Comparative Matrix (Arms, Dosages, Durations, Sample Sizes)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=450
+                                )
+                                cohort_heatmap_table = gr.DataFrame(
+                                    label="Parameter Coverage Heatmap (Across Pooled Trials)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=450
+                                )
+
+                            with gr.TabItem("📊 metafor-Grade Meta-Analysis"):
+                                cohort_forest_html = gr.HTML(
+                                    label="Forest & Funnel Plots"
+                                )
+                                cohort_meta_table = gr.DataFrame(
+                                    label="Pooled Random-Effects Results (Estimate, 95% CI, 95% PI, I², tau², p-value, Egger Test)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=450
+                                )
+
+                            with gr.TabItem("🔮 Virtual Trial Simulator & Projections"):
+                                gr.Markdown("#### 🧬 Simulate Hypothetical & Future Trial Outcomes (Multivariate WLS Meta-Regression)")
+                                with gr.Row():
+                                    sim_param_dropdown = gr.Dropdown(
+                                        label="Target Clinical Parameter",
+                                        choices=["HbA1c", "Body Weight", "Systolic BP"],
+                                        value="HbA1c"
+                                    )
+                                    sim_dose_slider = gr.Slider(
+                                        minimum=0,
+                                        maximum=3000,
+                                        step=25,
+                                        value=1000,
+                                        label="Target Dosage (mg/day)"
+                                    )
+                                    sim_dur_slider = gr.Slider(
+                                        minimum=4,
+                                        maximum=156,
+                                        step=4,
+                                        value=24,
+                                        label="Treatment Duration (weeks)"
+                                    )
+
+                                sim_run_btn = gr.Button("🔮 Simulate Virtual Trial Outcome", variant="secondary")
+                                sim_result_html = gr.HTML(
+                                    """
+                                    <div style="background: rgba(30,41,59,0.4); border: 1px dashed rgba(236,72,153,0.3); border-radius: 14px; padding: 20px; text-align: center; color: #94A3B8; margin: 10px 0;">
+                                      Adjust dosage & duration sliders above and click Simulate to project outcome with 95% Confidence & Prediction Intervals.
+                                    </div>
+                                    """
+                                )
+
+                                cohort_pred_table = gr.DataFrame(
+                                    label="Dose-Duration Extrapolation Matrix (with 95% Confidence & Prediction Intervals)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=450
+                                )
+
+                cohort_mode_radio.change(
+                    fn=toggle_cohort_mode,
+                    inputs=[cohort_mode_radio],
+                    outputs=[local_mode_group, upload_mode_group]
+                )
+
+                refresh_cohorts_btn.click(
+                    fn=refresh_cohorts,
+                    inputs=[],
+                    outputs=[cohort_dropdown]
+                )
+
+                run_cohort_btn.click(
+                    fn=process_cohort,
+                    inputs=[
+                        cohort_mode_radio,
+                        cohort_dropdown,
+                        custom_drug_input,
+                        upload_cohort_files,
+                        cohort_model_selector,
+                        cohort_api_key_input
                     ],
-                    value="⚡ Auto-Detect & Select Best Available Model (Recommended)"
+                    outputs=[
+                        cohort_verdict_html,
+                        cohort_comp_table,
+                        cohort_heatmap_table,
+                        cohort_forest_html,
+                        cohort_meta_table,
+                        cohort_pred_table,
+                        cohort_excel_file,
+                        cohort_html_file,
+                        sim_param_dropdown,
+                        sim_result_html
+                    ],
+                    show_progress="full"
                 )
 
-                api_key_input = gr.Textbox(
-                    label="🔑 AI Provider API Key (Google AI Studio / Anthropic / OpenAI)",
-                    type="password",
-                    placeholder="Enter your Gemini Key (AIza...), Claude Key (sk-ant...), or OpenAI Key (sk-...)"
+                sim_run_btn.click(
+                    fn=simulate_virtual_trial_ui,
+                    inputs=[
+                        cohort_mode_radio,
+                        cohort_dropdown,
+                        custom_drug_input,
+                        sim_param_dropdown,
+                        sim_dose_slider,
+                        sim_dur_slider
+                    ],
+                    outputs=[sim_result_html]
                 )
-
-                extract_btn = gr.Button("🚀 Run Academic Deep Extraction", variant="primary", elem_classes=["extract-btn"])
-
-                gr.Markdown("### 📥 Step 3: Verified Outputs")
-                excel_output = gr.File(label="📊 Standardized Multi-Sheet Excel (.xlsx)")
-                json_output = gr.File(label="📄 Structured Trial Protocol Data (.json)")
-
-            # Right Column: Visual Dashboard & Interactive Tables
-            with gr.Column(scale=2):
-                summary_output = gr.HTML(
-                    """
-                    <div style="background: rgba(30,41,59,0.5); border: 1.5px dashed rgba(99,102,241,0.3); border-radius: 18px; padding: 40px 20px; text-align: center; color: #94A3B8;">
-                      <div style="font-size: 38px; margin-bottom: 10px;">🩺</div>
-                      <h3 style="color: #F8FAFC; margin: 0 0 8px 0; font-size: 18px;">Awaiting Clinical Trial PDF</h3>
-                      <p style="margin: 0; font-size: 13px;">Upload an RCT paper on the left to extract full study metadata, randomized arms, atomic eligibility criteria, and 60–120+ clinical outcomes.</p>
-                    </div>
-                    """
-                )
-
-                with gr.Tabs():
-                    with gr.TabItem("📑 Master Extraction Sheet (Sheet 1 - Consolidated)"):
-                        master_table = gr.DataFrame(
-                            label="Consolidated Multi-Level Mining Table (Replicating Benchmark)",
-                            interactive=False,
-                            wrap=True,
-                            max_height=500
-                        )
-
-                    with gr.TabItem("📊 Variables Matrix (Cross-Arm Comparison)"):
-                        matrix_table = gr.DataFrame(
-                            label="Horizontal Cross-Trial Variable Matrix",
-                            interactive=False,
-                            wrap=True,
-                            max_height=500
-                        )
-
-                    with gr.TabItem("📋 Granular Outcomes (100% Sample Sizes)"):
-                        outcomes_table = gr.DataFrame(
-                            label="Normalized Clinical & Safety Outcomes",
-                            interactive=False,
-                            wrap=True,
-                            max_height=500
-                        )
-
-                    with gr.TabItem("⚖️ Eligibility Criteria Matrix (4 Operators)"):
-                        eligibility_table = gr.DataFrame(
-                            label="Atomic Inclusion & Exclusion Criteria",
-                            interactive=False,
-                            wrap=True,
-                            max_height=500
-                        )
-
-        extract_btn.click(
-            fn=process_pdf,
-            inputs=[pdf_input, api_key_input, model_selector],
-            outputs=[excel_output, json_output, summary_output, master_table, matrix_table, outcomes_table, eligibility_table],
-            show_progress="full"
-        )
 
         gr.HTML(
             """
             <div style="margin-top: 35px; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: #64748B; font-size: 12px;">
               <strong style="color: #94A3B8;">Evidex Academic Methodological Standards:</strong>
               Split eligibility operators (<, =, >, between) • Pure parameter names with dedicated race & timepoint columns • 
-              100% filled sample sizes across all outcomes • Page-level provenance citations • Full PRISMA / Cochrane compatibility.
+              100% filled sample sizes across all outcomes • Page-level provenance citations • metafor-grade Fixed/Random Effects (DL & REML) • 
+              95% Prediction Intervals (PI) • Full PRISMA / Cochrane compatibility.
             </div>
             """
         )

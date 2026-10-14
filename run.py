@@ -88,6 +88,41 @@ def cmd_flatten_pdfs(args) -> None:
         print(f"{study_id}: {len(pages)} pages -> {path}")
 
 
+def cmd_analyze_cohort(args) -> None:
+    from src.cohort_pipeline import ActiveIngredientCohortPipeline
+    api_key = getattr(args, "api_key", None)
+    backend = getattr(args, "backend", "rules")
+    pipeline = ActiveIngredientCohortPipeline(
+        cohort_name=args.cohort,
+        api_key=api_key,
+        model_name=backend if backend != "rules" else None
+    )
+    res = pipeline.run_all()
+    print("\n" + "=" * 50)
+    print(f"[*] Cohort Analysis Complete: {res['cohort_name']}")
+    print(f"[*] Extracted Workbooks: {res['trials_count']} trials")
+    print(f"[*] Total Patients: {res['total_patients']:,}")
+    print(f"[*] Master Excel: {res['excel_path']}")
+    print(f"[*] Executive Dashboard: {res['html_path']}")
+    print("=" * 50 + "\n")
+
+
+def cmd_analyze_all(args) -> None:
+    analysis_dir = ROOT / "analysis"
+    if not analysis_dir.exists():
+        print("No analysis/ directory found.")
+        return
+    cohort_dirs = [d for d in analysis_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]
+    if not cohort_dirs:
+        print("No cohort subdirectories found in analysis/.")
+        return
+    print(f"Found {len(cohort_dirs)} cohort(s) to analyze: {', '.join(d.name for d in cohort_dirs)}")
+    for c in cohort_dirs:
+        print(f"\n---> Starting Cohort: {c.name}")
+        cohort_args = argparse.Namespace(cohort=c.name, backend=args.backend, api_key=getattr(args, "api_key", None))
+        cmd_analyze_cohort(cohort_args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Evidex RCT extraction pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -95,11 +130,11 @@ def build_parser() -> argparse.ArgumentParser:
     e = sub.add_parser("extract", help="extract one PDF")
     e.add_argument("--pdf", required=True)
     e.add_argument("--study", required=True)
-    e.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic"])
+    e.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic", "gemini"])
     e.set_defaults(func=cmd_extract)
 
     ea = sub.add_parser("extract-all", help="extract all default PDFs")
-    ea.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic"])
+    ea.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic", "gemini"])
     ea.set_defaults(func=cmd_extract_all)
 
     v = sub.add_parser("validate", help="validate a raw extraction JSON")
@@ -113,6 +148,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     fp = sub.add_parser("flatten-pdfs", help="dump PDF text to .txt files")
     fp.set_defaults(func=cmd_flatten_pdfs)
+
+    ac = sub.add_parser("analyze-cohort", help="run multi-trial cohort meta-analysis for an active ingredient")
+    ac.add_argument("--cohort", required=True, help="active ingredient name (subfolder in analysis/)")
+    ac.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic", "gemini"])
+    ac.add_argument("--api-key", default=None, help="optional LLM API key for unextracted PDFs")
+    ac.set_defaults(func=cmd_analyze_cohort)
+
+    aa = sub.add_parser("analyze-all", help="run cohort meta-analysis on all subfolders in analysis/")
+    aa.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic", "gemini"])
+    aa.add_argument("--api-key", default=None, help="optional LLM API key for unextracted PDFs")
+    aa.set_defaults(func=cmd_analyze_all)
 
     return p
 
