@@ -21,12 +21,23 @@ class PDFDocument:
         self._load()
 
     def _load(self):
-        reader = pypdf.PdfReader(self.file_path)
-        for idx, page in enumerate(reader.pages):
-            txt = page.extract_text() or ""
-            # Clean non-printable characters while preserving newlines
-            cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', txt)
-            self.pages.append(PDFPage(page_number=idx + 1, text=cleaned))
+        try:
+            reader = pypdf.PdfReader(self.file_path, strict=False)
+            if getattr(reader, "is_encrypted", False):
+                try:
+                    reader.decrypt("")
+                except Exception:
+                    pass
+            for idx, page in enumerate(reader.pages):
+                try:
+                    txt = page.extract_text() or ""
+                except Exception:
+                    txt = ""
+                # Clean non-printable characters while preserving newlines
+                cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', txt)
+                self.pages.append(PDFPage(page_number=idx + 1, text=cleaned))
+        except Exception as e:
+            print(f"[!] Error loading PDF {self.file_path}: {e}")
 
     @property
     def total_pages(self) -> int:

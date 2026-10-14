@@ -1879,7 +1879,8 @@ class RCTExtractor:
         PHARMA_SUFFIXES = (
             "flozin", "glutide", "gliptin", "statin", "sartan", "olol", "pril", "mab", "nib",
             "tide", "line", "zole", "cillin", "xacin", "dipine", "asone", "afil", "vir", "semide",
-            "grel", "parin", "tine", "mine", "zone", "dine", "pam", "lam", "fen", "cin", "ximab", "zumab"
+            "grel", "parin", "tine", "mine", "zone", "dine", "pam", "lam", "fen", "cin", "ximab", "zumab",
+            "kast", "lukast", "kiren", "coxib", "prazole", "dronate", "cept", "tinib"
         )
         STOP_WORDS = {
             "fraction", "ejection", "dose", "doses", "dosage", "group", "groups", "total", "placebo",
@@ -2525,7 +2526,13 @@ class RCTExtractor:
             "hospitalization for heart failure": ("Hospitalization for Heart Failure", "safety_adverse_events", "%"),
             "all-cause mortality": ("All-Cause Mortality", "safety_adverse_events", "%"),
             "myocardial infarction": ("Myocardial Infarction", "safety_adverse_events", "%"),
-            "stroke": ("Stroke", "safety_adverse_events", "%")
+            "stroke": ("Stroke", "safety_adverse_events", "%"),
+            "fev1": ("FEV1", "respiratory", "L"),
+            "fvc": ("FVC", "respiratory", "L"),
+            "pef": ("Peak Expiratory Flow", "respiratory", "L/min"),
+            "asthma exacerbation": ("Asthma Exacerbation", "respiratory", "%"),
+            "wheezing": ("Wheezing", "respiratory", "%"),
+            "eosinophil": ("Blood Eosinophils", "inflammatory", "cells/uL")
         }
 
         extracted_params = set()
@@ -2730,7 +2737,7 @@ class RCTExtractor:
             elif "1.5 flash" in mod_pref:
                 gemini_candidates = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
             else:
-                gemini_candidates = ["gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
+                gemini_candidates = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
 
             try:
                 import google.generativeai as genai
@@ -2742,8 +2749,20 @@ class RCTExtractor:
                         model = genai.GenerativeModel(g_mod, generation_config={"response_mime_type": "application/json", "temperature": 0.1})
                         full_p = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
                         resp = model.generate_content(full_p)
-                        if resp and resp.text:
-                            raw_text = resp.text
+                        cand_text = None
+                        if resp:
+                            try:
+                                cand_text = resp.text
+                            except Exception:
+                                pass
+                            if not cand_text and hasattr(resp, "candidates") and resp.candidates:
+                                try:
+                                    parts = resp.candidates[0].content.parts
+                                    cand_text = "".join(p.text for p in parts if hasattr(p, "text"))
+                                except Exception:
+                                    pass
+                        if cand_text:
+                            raw_text = cand_text
                             self.actual_model_used = g_mod
                             if "3.8" in mod_pref:
                                 self.engine_used = f"Google Gemini 3.8 Flash ({g_mod})"

@@ -48,6 +48,24 @@ class TreatmentArm(BaseModel):
     sample_size_analyzed: Optional[int] = Field(default=None, description="Number of participants analyzed (PP or ITT)")
     source_page: Optional[int] = Field(default=None, description="PDF page where arm details are defined")
 
+    @field_validator("intervention_type", mode="before")
+    @classmethod
+    def normalize_intervention(cls, v):
+        if not v:
+            return "experimental"
+        v_str = str(v).lower().strip()
+        if "placebo" in v_str:
+            return "placebo"
+        if "control" in v_str or "comparator" in v_str:
+            return "active_comparator"
+        if "standard" in v_str or "care" in v_str or "soc" in v_str:
+            return "standard_of_care"
+        if "life" in v_str or "diet" in v_str or "exercise" in v_str:
+            return "lifestyle"
+        if "exp" in v_str or "drug" in v_str or "active" in v_str or "treatment" in v_str:
+            return "experimental"
+        return "other"
+
 
 # ---------------------------------------------------------
 # 3. Eligibility Criteria (Atomic decomposition)
@@ -56,8 +74,9 @@ class EligibilityCriterion(BaseModel):
     criterion_id: str = Field(description="Unique criterion identifier, e.g. ELIG_001")
     study_id: str = Field(description="Foreign key linking to StudyMetadata.study_id")
     criterion_type: Literal["inclusion", "exclusion"] = Field(default="inclusion")
-    domain: Literal["demographic", "biomarker", "diagnostic", "medical_history", "lifestyle", "other"] = Field(
-        default="biomarker"
+    domain: str = Field(
+        default="biomarker",
+        description="demographic, biomarker, diagnostic, medical_history, lifestyle, or other"
     )
     criterion_name: str = Field(
         description="Standardized name, e.g. age, bmi, fasting_plasma_glucose, impaired_glucose_tolerance, uric_acid"
@@ -73,6 +92,34 @@ class EligibilityCriterion(BaseModel):
     raw_source_text: Optional[str] = Field(default=None, description="Original verbatim text snippet from paper")
     source_page: Optional[int] = Field(default=None, description="PDF page number")
 
+    @field_validator("criterion_type", mode="before")
+    @classmethod
+    def normalize_criterion_type(cls, v):
+        if not v:
+            return "inclusion"
+        return "exclusion" if "exc" in str(v).lower() else "inclusion"
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def normalize_elig_domain(cls, v):
+        if not v:
+            return "other"
+        v_low = str(v).lower().strip()
+        allowed = {"demographic", "biomarker", "diagnostic", "medical_history", "lifestyle", "other"}
+        if v_low in allowed:
+            return v_low
+        if "demo" in v_low or "age" in v_low or "sex" in v_low or "gender" in v_low:
+            return "demographic"
+        if "bio" in v_low or "lab" in v_low or "vital" in v_low:
+            return "biomarker"
+        if "diag" in v_low or "disease" in v_low or "condition" in v_low:
+            return "diagnostic"
+        if "med" in v_low or "history" in v_low or "prior" in v_low or "pregnan" in v_low:
+            return "medical_history"
+        if "life" in v_low or "diet" in v_low or "smoke" in v_low:
+            return "lifestyle"
+        return "other"
+
 
 # ---------------------------------------------------------
 # 4. Clinical Outcomes & Laboratory Measures
@@ -81,9 +128,10 @@ class OutcomeMeasurement(BaseModel):
     outcome_id: str = Field(description="Unique outcome record ID, e.g. OUT_001")
     study_id: str = Field(description="Foreign key linking to StudyMetadata.study_id")
     arm_id: str = Field(description="Foreign key linking to TreatmentArm.arm_id")
-    domain: Literal[
-        "anthropometric", "glycemic", "lipid", "renal", "liver", "inflammatory", "safety_adverse_events", "other"
-    ] = Field(default="anthropometric")
+    domain: str = Field(
+        default="anthropometric",
+        description="Clinical domain: anthropometric, glycemic, lipid, renal, liver, inflammatory, cardiac, vital_signs, respiratory, safety_adverse_events, other"
+    )
     race: Optional[str] = Field(
         default="Overall",
         description="Race, ethnicity, or demographic subgroup, e.g. Caucasian, African American, Hispanic, Asian, Native American, Overall"
@@ -100,6 +148,56 @@ class OutcomeMeasurement(BaseModel):
         default=None,
         description="Measurement unit of timepoint, e.g. weeks, years, months, days"
     )
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def normalize_domain(cls, v):
+        if not v:
+            return "other"
+        v_low = str(v).lower().strip()
+        allowed = {
+            "anthropometric", "glycemic", "lipid", "renal", "liver",
+            "inflammatory", "safety_adverse_events", "cardiac", "cardiovascular",
+            "vital_signs", "demographic", "respiratory", "pulmonary", "other"
+        }
+        if v_low in allowed:
+            return v_low
+        if "safe" in v_low or "adverse" in v_low or "ae" in v_low:
+            return "safety_adverse_events"
+        if "vital" in v_low or "bp" in v_low or "pressure" in v_low:
+            return "vital_signs"
+        if "cardio" in v_low or "heart" in v_low:
+            return "cardiac"
+        if "lung" in v_low or "breath" in v_low or "asthma" in v_low or "pulmon" in v_low:
+            return "respiratory"
+        if "anthro" in v_low or "weight" in v_low or "bmi" in v_low:
+            return "anthropometric"
+        if "glyc" in v_low or "diabet" in v_low or "glucose" in v_low or "hba1c" in v_low:
+            return "glycemic"
+        if "lipid" in v_low or "cholest" in v_low:
+            return "lipid"
+        if "renal" in v_low or "kidney" in v_low or "egfr" in v_low:
+            return "renal"
+        if "liver" in v_low or "hepat" in v_low:
+            return "liver"
+        if "inflam" in v_low or "crp" in v_low:
+            return "inflammatory"
+        if "demo" in v_low or "age" in v_low or "sex" in v_low:
+            return "demographic"
+        return "other"
+
+    @field_validator("statistical_type", mode="before")
+    @classmethod
+    def normalize_stat_type(cls, v):
+        if not v:
+            return "continuous"
+        v_str = str(v).lower().strip()
+        if "dichot" in v_str or "binary" in v_str or "event" in v_str or "count" in v_str:
+            return "dichotomous"
+        if "categ" in v_str:
+            return "categorical"
+        return "continuous"
+
     timepoint: Optional[str] = Field(
         default=None,
         description="Optional full timepoint string, e.g. Baseline, 12 weeks"
