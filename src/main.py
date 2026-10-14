@@ -63,14 +63,27 @@ def main():
     args = parser.parse_args()
 
     if args.all or (not args.input and not args.output):
-        trials = [
-            ("data/raw/Orlistat.pdf", "outputs/orlistat_structured_extracted.xlsx"),
-            ("data/raw/metformin clinical trial.pdf", "outputs/metformin_structured_extracted.xlsx"),
-            ("data/raw/semaglutide trial.pdf", "outputs/semaglutide_structured_extracted.xlsx"),
-            ("data/raw/Dabagliflozin.pdf", "outputs/dapagliflozin_structured_extracted.xlsx")
-        ]
-        for pdf, out in trials:
+        import glob
+        all_pdf_files = sorted(glob.glob("data/raw/*.pdf"))
+        if not all_pdf_files:
+            print("[!] No PDF files found in data/raw/ directory.")
+            return
+
+        print(f"\n=======================================================")
+        print(f"[*] Found {len(all_pdf_files)} Clinical Trial PDF(s) in data/raw/")
+        print(f"=======================================================")
+        for idx, pdf in enumerate(all_pdf_files, 1):
+            print(f"  {idx}. {os.path.basename(pdf)}")
+
+        for pdf in all_pdf_files:
+            base = os.path.splitext(os.path.basename(pdf))[0]
+            out = f"outputs/{base}_extracted.xlsx"
             process_single_trial(pdf, out, api_key=args.api_key, model=args.model)
+
+        print("\n" + "=" * 55)
+        print(f"[SUCCESS] All {len(all_pdf_files)} trials extracted successfully!")
+        print(f"[INFO] Excel workbooks saved in: {os.path.abspath('outputs')}")
+        print("=" * 55 + "\n")
     else:
         out = args.output or f"outputs/{os.path.splitext(os.path.basename(args.input))[0]}_extracted.xlsx"
         process_single_trial(args.input, out, api_key=args.api_key, model=args.model)
