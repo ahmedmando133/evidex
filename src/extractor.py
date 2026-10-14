@@ -2795,17 +2795,50 @@ class RCTExtractor:
 
         # --- 3. GOOGLE GEMINI ROUTING ---
         else:
-            gemini_candidates = []
+            base_candidates = []
             if "1.5 pro" in mod_pref or "pro" in mod_pref:
-                gemini_candidates = ["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"]
+                base_candidates = [
+                    "gemini-1.5-pro", "gemini-1.5-pro-latest", "gemini-2.0-flash", 
+                    "gemini-1.5-flash", "gemini-1.5-flash-latest"
+                ]
             elif "1.5 flash" in mod_pref:
-                gemini_candidates = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+                base_candidates = [
+                    "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", 
+                    "gemini-1.5-pro", "gemini-1.5-pro-latest"
+                ]
             else:
-                gemini_candidates = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+                base_candidates = [
+                    "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest", 
+                    "gemini-1.5-pro", "gemini-1.5-pro-latest", "gemini-2.0-flash-exp"
+                ]
 
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=key_str)
+
+                # Dynamically discover active models on this user's Google AI Studio account
+                live_models = []
+                try:
+                    for m in genai.list_models():
+                        if "generateContent" in getattr(m, "supported_generation_methods", []):
+                            m_clean = m.name.replace("models/", "")
+                            live_models.append(m_clean)
+                except Exception as list_err:
+                    print(f"[!] list_models discovery note: {list_err}")
+
+                gemini_candidates = []
+                if live_models:
+                    print(f"[*] Discovered {len(live_models)} models for this key: {live_models[:6]}")
+                    for cand in base_candidates:
+                        if cand in live_models and cand not in gemini_candidates:
+                            gemini_candidates.append(cand)
+                    for lm in live_models:
+                        if lm not in gemini_candidates and ("flash" in lm or "pro" in lm):
+                            gemini_candidates.append(lm)
+
+                if not gemini_candidates:
+                    gemini_candidates = base_candidates
+
                 last_g_err = None
                 for g_mod in gemini_candidates:
                     try:

@@ -520,7 +520,7 @@ def build_app():
 
             # Right Column: Visual Dashboard & Interactive Tables
             with gr.Column(scale=2):
-                summary_output = gr.Markdown(
+                summary_output = gr.HTML(
                     """
                     <div style="background: rgba(30,41,59,0.5); border: 1.5px dashed rgba(99,102,241,0.3); border-radius: 18px; padding: 40px 20px; text-align: center; color: #94A3B8;">
                       <div style="font-size: 38px; margin-bottom: 10px;">🩺</div>
