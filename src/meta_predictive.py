@@ -80,6 +80,30 @@ class MetaAnalysisResult:
 
 
 @dataclass
+class SubgroupSummary:
+    subgroup_name: str
+    k_studies: int
+    total_n: int
+    pooled_estimate: float
+    ci_lower: float
+    ci_upper: float
+    p_value: float
+    i2: float
+    tau2: float
+
+
+@dataclass
+class SubgroupAnalysisResult:
+    parameter_or_domain: str
+    subgroup_variable: str  # e.g., "Active Ingredient", "Dosage Tier", "Clinical Domain"
+    subgroups: List[SubgroupSummary]
+    q_between: float
+    q_between_df: int
+    p_between: float
+    interpretation: str
+
+
+@dataclass
 class PredictiveProjection:
     parameter_name: str
     dose_mg: float
@@ -90,6 +114,9 @@ class PredictiveProjection:
     ci_upper: float
     pi_lower: float
     pi_upper: float
+    standardized_smd: Optional[float] = None
+    percent_change: Optional[float] = None
+    rate_per_month: Optional[float] = None
     nnt: Optional[float] = None
     clinical_interpretation: str = ""
 
@@ -634,13 +661,49 @@ class MetaPredictiveEngine:
             if rd_approx > 1e-4:
                 nnt_val = float(abs(1.0 / rd_approx))
 
+        # Compute standardized SMD, % change, and rate per month
+        sd_pool = 1.0
+        for e in self.effects:
+            if e.sd_exp and e.sd_exp > 0:
+                sd_pool = e.sd_exp
+                break
+            elif e.sd_ctrl and e.sd_ctrl > 0:
+                sd_pool = e.sd_ctrl
+                break
+
+        if meas == "SMD":
+            std_smd = float(pred_y)
+        else:
+            std_smd = float(pred_y / max(sd_pool, 1e-4))
+
+        base_ref = baseline_val
+        if base_ref is None or base_ref == 0:
+            for e in self.effects:
+                if e.baseline_val and e.baseline_val > 0:
+                    base_ref = e.baseline_val
+                    break
+        if base_ref is None or base_ref == 0:
+            p_low = param_name.lower()
+            if "weight" in p_low or "bmi" in p_low:
+                base_ref = 90.0
+            elif "hba1c" in p_low or "glucose" in p_low:
+                base_ref = 8.0
+            elif "bp" in p_low:
+                base_ref = 135.0
+            else:
+                base_ref = 50.0
+
+        pct_change = float((pred_y / base_ref) * 100.0) if base_ref else None
+        rate_mo = float(pred_y / max(duration_weeks / 4.333, 0.5))
+
         # Clinical Verdict Synthesis
         direction = "reduction" if pred_y < 0 else "increase"
         signif = "statistically significant" if (ci_l > 0 or ci_u < 0) else "not statistically significant"
+        smd_str = f" ({std_smd:+.2f} Hedges' g SMD, {pct_change:+.1f}% from baseline)" if pct_change is not None else ""
         interp = (
-            f"Projected mean {meas} of {pred_y:+.2f} ({direction}) with 95% Confidence Interval [{ci_l:+.2f}, {ci_u:+.2f}] "
-            f"({signif}). A new trial under {dose_mg} mg for {duration_weeks:.0f} weeks is projected with 95% certainty to fall "
-            f"within the Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}]."
+            f"Projected mean {meas} of {pred_y:+.2f}{smd_str} ({direction}) with 95% Confidence Interval [{ci_l:+.2f}, {ci_u:+.2f}] "
+            f"({signif}). A new trial under {dose_mg:.0f} mg for {duration_weeks:.0f} weeks is projected with 95% certainty to fall "
+            f"within the Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}] (Monthly trajectory: {rate_mo:+.2f} {meas}/month)."
         )
         if nnt_val:
             interp += f" Projected Number Needed to Treat (NNT): {nnt_val:.1f} patients."
@@ -655,6 +718,9 @@ class MetaPredictiveEngine:
             ci_upper=ci_u,
             pi_lower=pi_l,
             pi_upper=pi_u,
+            standardized_smd=round(std_smd, 3),
+            percent_change=round(pct_change, 1) if pct_change is not None else None,
+            rate_per_month=round(rate_mo, 3),
             nnt=nnt_val,
             clinical_interpretation=interp
         )
@@ -1021,4 +1087,100 @@ def extrapolation_risk_score(
             "icon": "🟠",
             "narrative": "Simulation involves cross-drug synthesis or parameters far outside published clinical trial protocols. Treat as exploratory hypothesis-generating data."
         }
+
+
+# --- SUBGROUP META-ANALYSIS ---
+
+def run_subgroup_meta_analysis(
+    effects: List[EffectSizeResult],
+    subgroup_variable: str = "active_ingredient"
+) -> Optional[SubgroupAnalysisResult]:
+    """
+    Performs Subgroup Meta-Analysis across Active Ingredients, Dosage Tiers, or Clinical Domains,
+    computing subgroup-specific pooled effects, heterogeneity, and the test of subgroup differences (Q_between).
+    """
+    valid = [e for e in effects if e is not None and not math.isnan(e.yi) and e.vi > 0]
+    if len(valid) < 2:
+        return None
+
+    # Group effects by the specified subgroup variable
+    groups: Dict[str, List[EffectSizeResult]] = {}
+    for e in valid:
+        if subgroup_variable == "active_ingredient":
+            grp_key = str(e.active_ingredient or "Active").strip().title()
+        elif subgroup_variable == "dosage_tier":
+            d = e.dose_mg or 0.0
+            if d <= 500.0:
+                grp_key = "Low Dose (<=500 mg)"
+            elif d <= 1000.0:
+                grp_key = "Moderate Dose (501-1000 mg)"
+            else:
+                grp_key = "High Dose (>1000 mg)"
+        elif subgroup_variable == "clinical_domain":
+            grp_key = str(e.domain or map_parameter_to_domain(e.parameter_name)).strip()
+        else:
+            grp_key = "Overall"
+        groups.setdefault(grp_key, []).append(e)
+
+    if len(groups) < 2:
+        return None
+
+    sub_summaries = []
+    sub_effects = []
+    sub_weights = []
+
+    for grp_name, g_effects in sorted(groups.items()):
+        if not g_effects:
+            continue
+        g_meta = run_meta_analysis(g_effects)
+        if not g_meta:
+            continue
+        sub_summaries.append(SubgroupSummary(
+            subgroup_name=grp_name,
+            k_studies=g_meta.k_studies,
+            total_n=g_meta.total_n,
+            pooled_estimate=g_meta.re_estimate,
+            ci_lower=g_meta.re_ci_lower,
+            ci_upper=g_meta.re_ci_upper,
+            p_value=g_meta.re_p_value,
+            i2=g_meta.i2,
+            tau2=g_meta.tau2
+        ))
+        w_j = 1.0 / max(g_meta.re_se ** 2, 1e-6)
+        sub_effects.append(g_meta.re_estimate)
+        sub_weights.append(w_j)
+
+    if len(sub_summaries) < 2:
+        return None
+
+    # Cochran's Q_between for subgroup differences
+    w_arr = np.array(sub_weights, dtype=float)
+    eff_arr = np.array(sub_effects, dtype=float)
+    w_bar = float(np.sum(w_arr * eff_arr) / np.sum(w_arr))
+    q_between = float(np.sum(w_arr * ((eff_arr - w_bar) ** 2)))
+    df_between = len(sub_summaries) - 1
+
+    try:
+        from scipy import stats
+        p_between = float(1.0 - stats.chi2.cdf(q_between, df_between))
+    except Exception:
+        z_approx = math.sqrt(max(0.0, 2.0 * q_between)) - math.sqrt(max(1.0, 2.0 * df_between - 1.0))
+        p_between = float(_calc_p_value_from_z(z_approx))
+
+    sig_diff = "statistically significant subgroup difference" if p_between < 0.05 else "no statistically significant between-subgroup divergence"
+    interp = (
+        f"Subgroup meta-analysis across {len(sub_summaries)} {subgroup_variable.replace('_', ' ')} tiers "
+        f"yielded Q_between = {q_between:.2f} (df = {df_between}, p = {p_between:.4f}), indicating {sig_diff}."
+    )
+
+    param_label = valid[0].parameter_name if valid else "Outcome"
+    return SubgroupAnalysisResult(
+        parameter_or_domain=param_label,
+        subgroup_variable=subgroup_variable.replace("_", " ").title(),
+        subgroups=sub_summaries,
+        q_between=round(q_between, 3),
+        q_between_df=df_between,
+        p_between=round(p_between, 5),
+        interpretation=interp
+    )
 

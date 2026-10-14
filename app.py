@@ -653,6 +653,7 @@ def process_cohort(
         div_rep = res.get("divergence_report", {})
         df_reg = div_rep.get("df_regimens", pd.DataFrame())
         df_dur = div_rep.get("df_durations", pd.DataFrame())
+        df_elig = div_rep.get("df_eligibility", pd.DataFrame())
         exact_p = div_rep.get("exact_parameters", [])
         dom_p = div_rep.get("domain_bridged_parameters", [])
         uniq_map = div_rep.get("unique_parameters_by_trial", {})
@@ -660,6 +661,7 @@ def process_cohort(
 
         reg_html = df_reg.to_html(classes="comp-table", index=False) if not df_reg.empty else "<p style='color: #94A3B8;'>No regimen divergence.</p>"
         dur_html = df_dur.to_html(classes="comp-table", index=False) if not df_dur.empty else "<p style='color: #94A3B8;'>No duration divergence.</p>"
+        elig_html = df_elig.to_html(classes="comp-table", index=False) if not df_elig.empty else "<p style='color: #94A3B8;'>No eligibility criteria divergence recorded.</p>"
 
         uniq_items = []
         for s_id, u_list in uniq_map.items():
@@ -670,7 +672,7 @@ def process_cohort(
         cohort_divergence_html = f"""
         <div style="background: rgba(30, 41, 59, 0.75); border: 1.5px solid {badge_color}66; border-radius: 16px; padding: 22px; margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">🔍 Trial Differences & Adaptation Disclosure</h3>
+            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">⚠️ Trial Divergence & How Evidex Adapted (Transparency Matrix & Narrative Summary)</h3>
             <span style="background: {badge_color}33; color: #FFFFFF; border: 1px solid {badge_color}; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px;">
               {badge_icon} {cohort_mode}
             </span>
@@ -688,8 +690,12 @@ def process_cohort(
               {dur_html}
             </div>
           </div>
+          <div style="background: rgba(15,23,42,0.5); padding: 12px; border-radius: 10px; margin-bottom: 16px; overflow-x: auto;">
+            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">3. Patient Population & Eligibility Criteria</h4>
+            {elig_html}
+          </div>
           <div style="background: rgba(15,23,42,0.6); padding: 14px 16px; border-radius: 10px; font-size: 13px;">
-            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">3. Endpoint Categorization Across Trials</h4>
+            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">4. Endpoint Categorization Across Trials</h4>
             <div style="margin-bottom: 6px;"><strong style="color: #38BDF8;">Exact Harmonized Parameters (Tier 1):</strong> {', '.join(exact_p) if exact_p else 'None (Cross-scale domain bridging applied)'}</div>
             <div style="margin-bottom: 6px;"><strong style="color: #A78BFA;">Clinical Domains Bridged (Tier 2 SMD):</strong> {', '.join(dom_p) if dom_p else 'None'}</div>
             <div><strong style="color: #F59E0B;">Trial-Specific Unique Parameters:</strong> {uniq_html}</div>
@@ -755,7 +761,24 @@ def process_cohort(
                 "Worst Treatment Prob (%)": f"{s.get('worst_prob', 0):.1f}%",
                 "Efficacy Tier": s.get("tier", "Evaluated")
             })
-        sucra_df = deduplicate_columns(pd.DataFrame(sucra_rows))
+        # Subgroup Meta-Analysis DataFrame
+        subgroup_rows = []
+        for sg in res.get("subgroup_results", []):
+            for sub in sg.subgroups:
+                subgroup_rows.append({
+                    "Subgroup Variable": sg.subgroup_variable,
+                    "Subgroup Tier": sub.subgroup_name,
+                    "Studies (k)": sub.k_studies,
+                    "Patients (N)": sub.total_n,
+                    "Pooled Estimate": round(sub.pooled_estimate, 3),
+                    "95% CI": f"[{sub.ci_lower:+.3f}, {sub.ci_upper:+.3f}]",
+                    "p-value": round(sub.p_value, 5),
+                    "I² (%)": f"{sub.i2:.1f}%",
+                    "Q_between": round(sg.q_between, 3),
+                    "p_between": round(sg.p_between, 5),
+                    "Subgroup Verdict": sg.interpretation
+                })
+        subgroup_df = deduplicate_columns(pd.DataFrame(subgroup_rows))
 
         # Predictive Projections Matrix
         pred_rows = []
@@ -810,6 +833,7 @@ def process_cohort(
             meta_df,
             domain_df,
             sucra_df,
+            subgroup_df,
             pred_df,
             res["excel_path"],
             res["html_path"],
@@ -841,6 +865,7 @@ def process_cohort(
             pd.DataFrame(),
             pd.DataFrame(),
             "",
+            pd.DataFrame(),
             pd.DataFrame(),
             pd.DataFrame(),
             pd.DataFrame(),
@@ -1185,7 +1210,7 @@ def build_app():
                                     max_height=450
                                 )
 
-                            with gr.TabItem("🔍 Trial Differences & Adaptation Disclosure"):
+                            with gr.TabItem("⚠️ Trial Divergence & How Evidex Adapted"):
                                 cohort_divergence_html = gr.HTML(
                                     label="Explicit Divergence & Methodological Adaptation Strategy"
                                 )
@@ -1201,9 +1226,15 @@ def build_app():
                                     max_height=450
                                 )
 
-                            with gr.TabItem("🌐 Domain Bridging & SUCRA Rankings"):
+                            with gr.TabItem("🏆 Cross-Drug / Cross-Trial Domain Comparison & Ranking"):
                                 cohort_sucra_table = gr.DataFrame(
                                     label="🏆 SUCRA Comparative Treatment Rankings & Hierarchy (Monte Carlo Simulation)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=320
+                                )
+                                cohort_subgroup_table = gr.DataFrame(
+                                    label="📊 Subgroup Meta-Analysis Across Active Ingredients & Regimen Tiers (Cochran's Q_between)",
                                     interactive=False,
                                     wrap=True,
                                     max_height=320
@@ -1291,6 +1322,7 @@ def build_app():
                         cohort_meta_table,
                         cohort_domain_table,
                         cohort_sucra_table,
+                        cohort_subgroup_table,
                         cohort_pred_table,
                         cohort_excel_file,
                         cohort_html_file,

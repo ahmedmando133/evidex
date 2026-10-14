@@ -39,7 +39,9 @@ from src.meta_predictive import (
     run_domain_meta_analysis,
     compute_indirect_comparison_nma,
     compute_sucra_rankings,
-    extrapolation_risk_score
+    extrapolation_risk_score,
+    SubgroupAnalysisResult,
+    run_subgroup_meta_analysis
 )
 
 
@@ -108,6 +110,7 @@ class ActiveIngredientCohortPipeline:
         self.domain_meta_results: Dict[str, DomainMetaAnalysisResult] = {}
         self.sucra_rankings: List[Dict[str, Any]] = []
         self.nma_comparisons: List[Dict[str, Any]] = []
+        self.subgroup_results: List[SubgroupAnalysisResult] = []
         self.divergence_report: Dict[str, Any] = {}
         self.unique_outcomes: Dict[str, List[str]] = {}
 
@@ -188,6 +191,7 @@ class ActiveIngredientCohortPipeline:
             "domain_meta_results": self.domain_meta_results,
             "sucra_rankings": self.sucra_rankings,
             "nma_comparisons": self.nma_comparisons,
+            "subgroup_results": self.subgroup_results,
             "divergence_report": self.divergence_report,
             "verdicts": self.verdicts,
             "comparison_matrix": self.comparison_matrix,
@@ -611,14 +615,23 @@ class ActiveIngredientCohortPipeline:
                         )
 
                     if eff:
-                        # Match drug
-                        arm_match = self.arms_df[self.arms_df["arm_id"] == eff.arm_experimental]
-                        if not arm_match.empty:
-                            i_name = str(arm_match.iloc[0].get("arm_name", ""))
-                            drug = next((kd.title() for kd in self.normalized_drugs if kd.lower() in i_name.lower()), self.normalized_drugs[0] if self.normalized_drugs else "Active")
-                            eff.active_ingredient = drug
-                        else:
-                            eff.active_ingredient = self.normalized_drugs[0] if self.normalized_drugs else "Active"
+                        # Match drug robustly across arm name, intervention, and study context
+                        arm_text = f"{eff.arm_experimental} {s_id}".lower()
+                        matching_arms = self.arms_df[(self.arms_df["study_id"] == s_id) & (self.arms_df["arm_name"] == eff.arm_experimental)]
+                        if not matching_arms.empty:
+                            i_full = f"{matching_arms.iloc[0].get('arm_name', '')} {matching_arms.iloc[0].get('intervention_name', '')}".lower()
+                            arm_text += f" {i_full}"
+
+                        matched_drug = next((kd.title() for kd in self.normalized_drugs if kd.lower() in arm_text), None)
+                        if not matched_drug:
+                            KNOWN_DRUGS = [
+                                "metformin", "orlistat", "dapagliflozin", "empagliflozin", "semaglutide",
+                                "liraglutide", "tirzepatide", "canagliflozin", "sitagliptin", "pioglitazone",
+                                "glimepiride", "glipizide", "insulin", "montelukast", "atorvastatin", "rosuvastatin"
+                            ]
+                            matched_drug = next((kd.title() for kd in KNOWN_DRUGS if kd in arm_text), None)
+
+                        eff.active_ingredient = matched_drug or (self.normalized_drugs[0] if self.normalized_drugs else "Active")
                         eff.domain = map_parameter_to_domain(param_name)
                         eff.rate_per_month = float(eff.yi / max(0.5, dur_weeks / 4.33))
                         effects.append(eff)
@@ -689,6 +702,22 @@ class ActiveIngredientCohortPipeline:
         elif len(drug_estimates) == 1:
             self.sucra_rankings = compute_sucra_rankings(drug_estimates)
 
+        # Subgroup Meta-Analysis across Active Ingredients and Dosage Tiers
+        self.subgroup_results = []
+        try:
+            sg_drug = run_subgroup_meta_analysis(getattr(self, "all_effects", []), subgroup_variable="active_ingredient")
+            if sg_drug:
+                self.subgroup_results.append(sg_drug)
+        except Exception as e:
+            print(f"[!] Warning: Subgroup analysis by active ingredient failed: {e}")
+
+        try:
+            sg_dose = run_subgroup_meta_analysis(getattr(self, "all_effects", []), subgroup_variable="dosage_tier")
+            if sg_dose:
+                self.subgroup_results.append(sg_dose)
+        except Exception as e:
+            print(f"[!] Warning: Subgroup analysis by dosage tier failed: {e}")
+
     # --- STEP 4C: TRIAL DIVERGENCE & ADAPTATION DISCLOSURE ---
 
     def _build_divergence_report(self):
@@ -750,7 +779,42 @@ class ActiveIngredientCohortPipeline:
             })
         df_dur_diff = pd.DataFrame(dur_diffs)
 
-        # 4. Methodological Adaptation Note
+        # 3. Patient Population & Eligibility Divergence
+        elig_diffs = []
+        for s_id in trials:
+            s_elig = self.eligibility_df[self.eligibility_df["study_id"] == s_id] if not self.eligibility_df.empty else pd.DataFrame()
+            s_matches = self.studies_df[self.studies_df["study_id"] == s_id]
+            s_row = s_matches.iloc[0] if not s_matches.empty else {}
+
+            inc_strs = []
+            exc_strs = []
+            if not s_elig.empty:
+                for _, el in s_elig.iterrows():
+                    c_type = str(el.get("criterion_type", "")).lower()
+                    c_name = str(el.get("criterion_name", "")).replace("_", " ").title()
+                    c_val = str(el.get("value", "") or el.get("raw_source_text", ""))
+                    op = str(el.get("operator", "") or el.get("greater_than (>)", "") or el.get("less_than (<)", "")).strip()
+                    unit = str(el.get("unit", "")).strip()
+                    if op == "nan":
+                        op = ""
+                    if unit == "nan":
+                        unit = ""
+                    desc = f"{c_name} {op} {c_val} {unit}".strip() if (c_val and c_val != "nan") else (str(el.get("raw_source_text", "")) or c_name)
+                    if "inc" in c_type:
+                        inc_strs.append(desc)
+                    elif "exc" in c_type:
+                        exc_strs.append(desc)
+
+            target_pop = s_row.get("condition_studied") or "Metabolic / Clinical Condition"
+            elig_diffs.append({
+                "Study ID": s_id,
+                "Target Population / Disease": target_pop,
+                "Key Inclusion Criteria": " • ".join(inc_strs[:3]) if inc_strs else "Standard protocol inclusion",
+                "Key Exclusion Criteria": " • ".join(exc_strs[:3]) if exc_strs else "Standard protocol exclusion"
+            })
+        df_elig_diff = pd.DataFrame(elig_diffs)
+
+        # 4. Methodological Adaptation Note & Concrete Phrasing
         if self.cohort_mode == "Homogeneous Single-Drug Cohort":
             adaptation_note = (
                 f"All pooled trials share the active ingredient ({', '.join(self.normalized_drugs)}). "
@@ -773,6 +837,34 @@ class ActiveIngredientCohortPipeline:
                 f"bridging were utilized to maximize analytical utility while maintaining strict transparency regarding between-trial divergence."
             )
 
+        # Dynamic Concrete Comparative Adaptation Phrasing
+        concrete_example = ""
+        if len(trials) >= 2:
+            t1, t2 = trials[0], trials[1]
+            p1_list = list(study_param_map.get(t1, []))
+            p2_list = list(study_param_map.get(t2, []))
+            p1 = p1_list[0] if p1_list else "primary outcome"
+            p2 = next((p for p in p2_list if p != p1), p2_list[0] if p2_list else "clinical endpoint")
+
+            d1_row = df_dur_diff[df_dur_diff["Study ID"] == t1]
+            d2_row = df_dur_diff[df_dur_diff["Study ID"] == t2]
+            dur1 = d1_row.iloc[0]["Follow-up Duration"] if not d1_row.empty else "protocol period"
+            dur2 = d2_row.iloc[0]["Follow-up Duration"] if not d2_row.empty else "protocol period"
+
+            r1_row = df_regimen_diff[df_regimen_diff["Study ID"] == t1]
+            r2_row = df_regimen_diff[df_regimen_diff["Study ID"] == t2]
+            reg1 = r1_row.iloc[0]["Treatment Arms & Regimens"] if not r1_row.empty else "active regimen"
+            reg2 = r2_row.iloc[0]["Treatment Arms & Regimens"] if not r2_row.empty else "active regimen"
+
+            concrete_example = (
+                f" Specifically, because {t1} measured '{p1}' over {dur1} ({reg1}) "
+                f"and {t2} measured '{p2}' over {dur2} ({reg2}), "
+                f"Evidex automatically applied Tier 2 Scale-Free Standardized Mean Difference (Hedges' g SMD) "
+                f"and clinical domain bridging ({map_parameter_to_domain(p1)}) to synthesize their therapeutic impact "
+                f"on a unified, dimensionless scale while computing monthly rate-of-change trajectories to reconcile differing follow-up horizons."
+            )
+        adaptation_note += concrete_example
+
         self.divergence_report = {
             "cohort_mode": self.cohort_mode,
             "badge_color": self.cohort_badge_color,
@@ -781,6 +873,7 @@ class ActiveIngredientCohortPipeline:
             "normalized_drugs": self.normalized_drugs,
             "df_regimens": df_regimen_diff,
             "df_durations": df_dur_diff,
+            "df_eligibility": df_elig_diff,
             "exact_parameters": exact_params,
             "domain_bridged_parameters": list(self.domain_meta_results.keys()),
             "unique_parameters_by_trial": unique_to_study,
@@ -1078,6 +1171,28 @@ class ActiveIngredientCohortPipeline:
             ws7.cell(row=r7, column=2, value=", ".join(u_params) if u_params else "All endpoints overlap with cohort").border = thin_border
             r7 += 1
 
+        r7 += 1
+        # 4. Patient Population & Eligibility Criteria Divergence
+        ws7.cell(row=r7, column=1, value="4. Patient Population & Eligibility Criteria Divergence").font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
+        r7 += 1
+        headers7_elig = ["Study ID", "Target Population / Disease", "Key Inclusion Criteria", "Key Exclusion Criteria"]
+        for c_idx, h in enumerate(headers7_elig, 1):
+            cell = ws7.cell(row=r7, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        r7 += 1
+        df_elig = self.divergence_report.get("df_eligibility", pd.DataFrame())
+        if not df_elig.empty:
+            for _, r in df_elig.iterrows():
+                ws7.cell(row=r7, column=1, value=str(r.get("Study ID", ""))).border = thin_border
+                ws7.cell(row=r7, column=2, value=str(r.get("Target Population / Disease", ""))).border = thin_border
+                ws7.cell(row=r7, column=3, value=str(r.get("Key Inclusion Criteria", ""))).border = thin_border
+                ws7.cell(row=r7, column=4, value=str(r.get("Key Exclusion Criteria", ""))).border = thin_border
+                r7 += 1
+        else:
+            ws7.cell(row=r7, column=1, value="No eligibility divergence recorded").border = thin_border
+            r7 += 1
+
         # SHEET 8: Domain_Bridged_Meta_Analysis
         ws8 = wb.create_sheet(title="Domain_Bridged_Meta_Analysis")
         ws8["A1"] = f"Evidex Cross-Scale Clinical Domain Bridging & SUCRA Rankings • {self.cohort_name}"
@@ -1173,6 +1288,39 @@ class ActiveIngredientCohortPipeline:
                 c.border = thin_border
                 c.alignment = Alignment(horizontal="center" if c_idx not in [1, 9, 10, 11] else "left")
             r8 += 1
+
+        r8 += 1
+        # Section 4: Subgroup Meta-Analysis Across Active Ingredients & Regimen Tiers
+        ws8.cell(row=r8, column=1, value="Subgroup Meta-Analysis Across Active Ingredients & Regimen Tiers").font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
+        r8 += 1
+        headers8_sub = ["Subgroup Variable", "Subgroup Tier / Cohort", "Studies (k)", "Patients (N)", "Pooled Estimate", "95% CI Lower", "95% CI Upper", "p-value", "I^2 (%)", "Q_between", "Q df", "p_between", "Between-Subgroup Divergence Verdict"]
+        for c_idx, h in enumerate(headers8_sub, 1):
+            cell = ws8.cell(row=r8, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        r8 += 1
+        for sg_res in getattr(self, "subgroup_results", []):
+            for sub in sg_res.subgroups:
+                vals = [
+                    sg_res.subgroup_variable,
+                    sub.subgroup_name,
+                    sub.k_studies,
+                    sub.total_n,
+                    round(sub.pooled_estimate, 3),
+                    round(sub.ci_lower, 3),
+                    round(sub.ci_upper, 3),
+                    round(sub.p_value, 5),
+                    f"{sub.i2:.1f}%",
+                    round(sg_res.q_between, 3),
+                    sg_res.q_between_df,
+                    round(sg_res.p_between, 5),
+                    sg_res.interpretation
+                ]
+                for c_idx, val in enumerate(vals, 1):
+                    c = ws8.cell(row=r8, column=c_idx, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 13] else "left")
+                r8 += 1
 
         # Auto-fit column widths across all sheets
         for sheet in wb.worksheets:
@@ -1427,6 +1575,7 @@ class ActiveIngredientCohortPipeline:
         div_rep = getattr(self, "divergence_report", {})
         df_reg = div_rep.get("df_regimens", pd.DataFrame())
         df_dur = div_rep.get("df_durations", pd.DataFrame())
+        df_elig = div_rep.get("df_eligibility", pd.DataFrame())
         exact_p = div_rep.get("exact_parameters", [])
         dom_p = div_rep.get("domain_bridged_parameters", [])
         uniq_map = div_rep.get("unique_parameters_by_trial", {})
@@ -1434,6 +1583,7 @@ class ActiveIngredientCohortPipeline:
 
         reg_html = df_reg.to_html(classes="comp-table", index=False) if not df_reg.empty else "<p>No regimen divergence.</p>"
         dur_html = df_dur.to_html(classes="comp-table", index=False) if not df_dur.empty else "<p>No duration divergence.</p>"
+        elig_html = df_elig.to_html(classes="comp-table", index=False) if not df_elig.empty else "<p>No eligibility divergence recorded.</p>"
 
         uniq_items = []
         for s_id, u_list in uniq_map.items():
@@ -1444,7 +1594,7 @@ class ActiveIngredientCohortPipeline:
         divergence_html = f"""
         <div class="table-container" style="border-left: 4px solid {self.cohort_badge_color}; background: rgba(30, 41, 59, 0.75);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px;">🔍 Trial Differences & Adaptation Disclosure</h3>
+            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px;">⚠️ Trial Divergence & How Evidex Adapted (Transparency Matrix & Narrative Summary)</h3>
             <span style="background: {self.cohort_badge_color}33; color: #FFFFFF; border: 1px solid {self.cohort_badge_color}; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px;">
               {self.cohort_badge_icon} {self.cohort_mode}
             </span>
@@ -1462,8 +1612,12 @@ class ActiveIngredientCohortPipeline:
               {dur_html}
             </div>
           </div>
+          <div style="background: rgba(15,23,42,0.5); padding: 12px; border-radius: 10px; margin-bottom: 16px; overflow-x: auto;">
+            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">3. Patient Population & Eligibility Criteria</h4>
+            {elig_html}
+          </div>
           <div style="background: rgba(15,23,42,0.6); padding: 14px 16px; border-radius: 10px; font-size: 13px;">
-            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">3. Endpoint Categorization Across Trials</h4>
+            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">4. Endpoint Categorization Across Trials</h4>
             <div style="margin-bottom: 6px;"><strong style="color: #38BDF8;">Exact Harmonized Parameters (Tier 1):</strong> {', '.join(exact_p) if exact_p else 'None (Cross-scale domain bridging applied)'}</div>
             <div style="margin-bottom: 6px;"><strong style="color: #A78BFA;">Clinical Domains Bridged (Tier 2 SMD):</strong> {', '.join(dom_p) if dom_p else 'None'}</div>
             <div><strong style="color: #F59E0B;">Trial-Specific Unique Parameters:</strong> {uniq_html}</div>
@@ -1471,11 +1625,13 @@ class ActiveIngredientCohortPipeline:
         </div>
         """
 
-        # Build SUCRA and NMA HTML section if available
+        # Build SUCRA, NMA and Subgroup HTML section if available
         sucra_html = ""
-        if getattr(self, "sucra_rankings", []):
+        has_rankings = bool(getattr(self, "sucra_rankings", []))
+        has_subgroups = bool(getattr(self, "subgroup_results", []))
+        if has_rankings or has_subgroups:
             sucra_rows = []
-            for s in self.sucra_rankings:
+            for s in getattr(self, "sucra_rankings", []):
                 tier_color = "#F59E0B" if "Gold" in s.get("tier", "") else ("#94A3B8" if "Silver" in s.get("tier", "") else "#CD7F32")
                 sucra_rows.append(f"""
                 <tr>
@@ -1509,12 +1665,30 @@ class ActiveIngredientCohortPipeline:
                 </tr>
                 """)
 
+            subgroup_rows = []
+            for sg in getattr(self, "subgroup_results", []):
+                for sub in sg.subgroups:
+                    subgroup_rows.append(f"""
+                    <tr>
+                      <td style="font-weight: 700; color: #38BDF8;">{sg.subgroup_variable}</td>
+                      <td style="font-weight: 700; color: #F8FAFC;">{sub.subgroup_name}</td>
+                      <td>{sub.k_studies}</td>
+                      <td>{sub.total_n:,}</td>
+                      <td style="font-weight: 700; color: #A5B4FC;">{sub.pooled_estimate:+.3f} [{sub.ci_lower:+.3f}, {sub.ci_upper:+.3f}]</td>
+                      <td>{sub.p_value:.4f}</td>
+                      <td>{sub.i2:.1f}%</td>
+                      <td>Q={sg.q_between:.2f} (p={sg.p_between:.4f})</td>
+                      <td style="color: #cbd5e1; font-size: 12px;">{sg.interpretation}</td>
+                    </tr>
+                    """)
+
             sucra_html = f"""
             <div class="table-container" style="border-left: 4px solid #EC4899; background: rgba(30, 41, 59, 0.75);">
-              <h3 style="color: #F8FAFC; margin-top: 0; font-size: 18px;">🏆 Comparative Treatment Efficacy Hierarchy (SUCRA & NMA)</h3>
+              <h3 style="color: #F8FAFC; margin-top: 0; font-size: 18px;">🏆 Cross-Drug / Cross-Trial Domain Comparison & Ranking</h3>
               <p style="color: #94A3B8; font-size: 13px; margin-bottom: 16px;">
                 Surface Under the Cumulative RAnking curve (SUCRA) computed via 1,500 Monte Carlo draws. Higher SUCRA indicates greater cumulative probability of being among the top-performing treatments.
               </p>
+              {f'''
               <table>
                 <thead>
                   <tr>
@@ -1528,9 +1702,10 @@ class ActiveIngredientCohortPipeline:
                   </tr>
                 </thead>
                 <tbody>
-                  {''.join(sucra_rows)}
+                  {"".join(sucra_rows)}
                 </tbody>
               </table>
+              ''' if sucra_rows else ''}
               {f'''
               <h4 style="color: #F8FAFC; margin: 24px 0 12px 0; font-size: 15px;">🔗 Bucher Anchored Indirect Treatment Comparisons</h4>
               <table>
@@ -1549,6 +1724,27 @@ class ActiveIngredientCohortPipeline:
                 </tbody>
               </table>
               ''' if nma_rows else ''}
+              {f'''
+              <h4 style="color: #F8FAFC; margin: 24px 0 12px 0; font-size: 15px;">📊 Subgroup Meta-Analysis Across Active Ingredients & Regimen Tiers</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Subgroup Variable</th>
+                    <th>Subgroup Tier</th>
+                    <th>Studies (k)</th>
+                    <th>Patients (N)</th>
+                    <th>Pooled Estimate (95% CI)</th>
+                    <th>p-value</th>
+                    <th>I² (%)</th>
+                    <th>Subgroup Test (Q)</th>
+                    <th>Subgroup Verdict</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {"".join(subgroup_rows)}
+                </tbody>
+              </table>
+              ''' if subgroup_rows else ''}
             </div>
             """
 

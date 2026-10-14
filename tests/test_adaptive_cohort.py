@@ -24,6 +24,7 @@ from src.meta_predictive import (
     compute_indirect_comparison_nma,
     compute_sucra_rankings,
     extrapolation_risk_score,
+    run_subgroup_meta_analysis,
     EffectSizeResult
 )
 from src.cohort_pipeline import ActiveIngredientCohortPipeline
@@ -85,6 +86,21 @@ def test_sucra_rankings():
     assert "Gold" in sucra[0]["tier"]
 
 
+def test_subgroup_meta_analysis():
+    eff1 = EffectSizeResult("S1", "Metformin 500", "Placebo", "HbA1c", "12w", "MD", -0.6, 0.04, 0.2, -0.99, -0.21, dose_mg=500.0, active_ingredient="Metformin")
+    eff2 = EffectSizeResult("S2", "Metformin 850", "Placebo", "HbA1c", "12w", "MD", -0.7, 0.04, 0.2, -1.09, -0.31, dose_mg=850.0, active_ingredient="Metformin")
+    eff3 = EffectSizeResult("S3", "Orlistat 120", "Placebo", "HbA1c", "12w", "MD", -0.2, 0.04, 0.2, -0.59, 0.19, dose_mg=120.0, active_ingredient="Orlistat")
+    eff4 = EffectSizeResult("S4", "Orlistat 120", "Placebo", "HbA1c", "12w", "MD", -0.3, 0.04, 0.2, -0.69, 0.09, dose_mg=120.0, active_ingredient="Orlistat")
+
+    sg_res = run_subgroup_meta_analysis([eff1, eff2, eff3, eff4], subgroup_variable="active_ingredient")
+    assert sg_res is not None
+    assert len(sg_res.subgroups) == 2
+    assert sg_res.q_between >= 0
+    assert sg_res.q_between_df == 1
+    assert 0 <= sg_res.p_between <= 1.0
+    assert "subgroup difference" in sg_res.interpretation or "between-subgroup" in sg_res.interpretation
+
+
 def test_extrapolation_confidence_levels():
     obs_drugs = ["Metformin", "Orlistat"]
     obs_doses = [500.0, 850.0, 120.0]
@@ -115,6 +131,16 @@ def test_mixed_metabolic_cohort_pipeline():
     assert "Metformin" in res["divergence_report"]["normalized_drugs"]
     assert "Orlistat" in res["divergence_report"]["normalized_drugs"]
 
+    # Divergence Report Verification
+    div = res["divergence_report"]
+    assert "df_eligibility" in div
+    assert not div["df_eligibility"].empty
+    assert "Specifically, because" in div["adaptation_narrative"]
+
+    # Subgroup Results Verification
+    assert "subgroup_results" in res
+    assert len(res["subgroup_results"]) >= 1
+
     # Check Master Excel
     excel_path = Path(res["excel_path"])
     assert excel_path.exists()
@@ -127,10 +153,20 @@ def test_mixed_metabolic_cohort_pipeline():
     for s in expected_sheets:
         assert s in wb.sheetnames
 
+    # Check Sheet 7 Eligibility Section and Sheet 8 Subgroup Section
+    ws7 = wb["Trial_Differences_Report"]
+    ws7_text = " ".join([str(c.value) for row in ws7.iter_rows() for c in row if c.value])
+    assert "Eligibility Criteria Divergence" in ws7_text
+
+    ws8 = wb["Domain_Bridged_Meta_Analysis"]
+    ws8_text = " ".join([str(c.value) for row in ws8.iter_rows() for c in row if c.value])
+    assert "Subgroup Meta-Analysis" in ws8_text
+
     # Check Interactive HTML Dashboard
     html_path = Path(res["html_path"])
     assert html_path.exists()
     with open(html_path, "r", encoding="utf-8") as f:
         html_text = f.read()
-    assert "Trial Differences & Adaptation Disclosure" in html_text
+    assert "Trial Divergence & How Evidex Adapted" in html_text
+    assert "Cross-Drug / Cross-Trial Domain Comparison & Ranking" in html_text
     assert "Multi-Drug Shared-Indication Cohort" in html_text
