@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Evidex - Automatic Clinical Trial Extractor
+title MANDOROS — Meta-Analysis & Predictive Engine
 cd /d "%~dp0"
 
 echo ======================================================================
-echo   EVIDEX 2.0 - AUTOMATIC CLINICAL TRIAL DATA EXTRACTION ENGINE
+echo   M Λ N D O R O S - AUTOMATIC CLINICAL TRIAL DATA EXTRACTION ENGINE
 echo ======================================================================
 echo   Scanning 'data\raw\' for all clinical trial PDF files...
 echo.

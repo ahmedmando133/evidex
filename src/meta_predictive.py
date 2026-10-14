@@ -1,5 +1,5 @@
 """
-Evidex Meta-Analysis & Predictive Virtual Trial Engine.
+MANDOROS Meta-Analysis & Predictive Virtual Trial Engine.
 Implements metafor-grade statistical pooling (Fixed & Random Effects, DL & REML),
 heterogeneity statistics (Q, I^2, tau^2, 95% Prediction Intervals),
 funnel plot bias tests (Egger's regression), and multivariate meta-regression

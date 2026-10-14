@@ -127,7 +127,7 @@ def cmd_analyze_all(args) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Evidex RCT extraction pipeline")
+    p = argparse.ArgumentParser(description="MANDOROS — Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     e = sub.add_parser("extract", help="extract one PDF")

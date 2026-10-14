@@ -1,3 +1,3 @@
-"""Evidex: AI-assisted structured data extraction from RCTs."""
+"""MANDOROS: Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis."""
 
-__version__ = "0.1.0"
+__version__ = "2.0.0"

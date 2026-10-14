@@ -1,5 +1,5 @@
 """
-Evidex Phase 2: Active-Ingredient Multi-Trial Cohort Pipeline.
+MANDOROS Phase 2: Active-Ingredient Multi-Trial Cohort Pipeline.
 Automates:
 1. End-to-end auto-extraction of raw trial PDFs placed in analysis/<Active_Ingredient>/
 2. Cross-trial harmonization and head-to-head comparison matrices
@@ -467,7 +467,7 @@ class ActiveIngredientCohortPipeline:
             self.cohort_mode_description = (
                 f"Cohort encompasses {len(self.normalized_drugs)} distinct active ingredients "
                 f"({', '.join(self.normalized_drugs)}) targeting overlapping clinical domains ({', '.join(list(domains_detected)[:2])}). "
-                f"Evidex automatically applied scale-free Standardized Mean Difference (Hedges' g) and Network Meta-Analysis to bridge them."
+                f"MANDOROS automatically applied scale-free Standardized Mean Difference (Hedges' g) and Network Meta-Analysis to bridge them."
             )
         else:
             self.cohort_mode = "Heterogeneous Cross-Domain Exploratory Cohort"
@@ -892,13 +892,13 @@ class ActiveIngredientCohortPipeline:
         if self.cohort_mode == "Homogeneous Single-Drug Cohort":
             adaptation_note = (
                 f"All pooled trials share the active ingredient ({', '.join(self.normalized_drugs)}). "
-                f"Evidex applied standard inverse-variance random-effects meta-analysis (DerSimonian-Laird & REML). "
+                f"MANDOROS applied standard inverse-variance random-effects meta-analysis (DerSimonian-Laird & REML). "
                 f"Outcomes were harmonized directly using exact parameter definitions."
             )
         elif self.cohort_mode == "Multi-Drug Shared-Indication Cohort":
             adaptation_note = (
                 f"Trials evaluate {len(self.normalized_drugs)} distinct active ingredients ({', '.join(self.normalized_drugs)}) "
-                f"with differing measurement endpoints and follow-up horizons. Evidex automatically adapted by: "
+                f"with differing measurement endpoints and follow-up horizons. MANDOROS automatically adapted by: "
                 f"(1) Running direct pooling on exact parameter matches where available; "
                 f"(2) Constructing Clinical Outcome Domains and applying scale-free Standardized Mean Differences (Hedges' g) "
                 f"to bridge differing metrics (e.g. BMI vs. Body Weight vs. Waist Circumference); "
@@ -933,7 +933,7 @@ class ActiveIngredientCohortPipeline:
             concrete_example = (
                 f" Specifically, because {t1} measured '{p1}' over {dur1} ({reg1}) "
                 f"and {t2} measured '{p2}' over {dur2} ({reg2}), "
-                f"Evidex automatically applied Tier 2 Scale-Free Standardized Mean Difference (Hedges' g SMD) "
+                f"MANDOROS automatically applied Tier 2 Scale-Free Standardized Mean Difference (Hedges' g SMD) "
                 f"and clinical domain bridging ({map_parameter_to_domain(p1)}) to synthesize their therapeutic impact "
                 f"on a unified, dimensionless scale while computing monthly rate-of-change trajectories to reconcile differing follow-up horizons."
             )
@@ -1001,7 +1001,8 @@ class ActiveIngredientCohortPipeline:
 
     def _export_master_excel(self) -> Path:
         """Generates comprehensive 6-sheet Master Comparison & Meta-Analysis Excel."""
-        out_excel = self.output_dir / f"{self.cohort_name}_Master_Comparison_and_Meta_Analysis.xlsx"
+        out_excel = self.output_dir / f"{self.cohort_name}_MANDOROS_Master_Report.xlsx"
+        legacy_excel = self.output_dir / f"{self.cohort_name}_Master_Comparison_and_Meta_Analysis.xlsx"
         wb = openpyxl.Workbook()
         wb.remove(wb.active)  # Remove blank default
 
@@ -1018,7 +1019,7 @@ class ActiveIngredientCohortPipeline:
 
         # SHEET 1: Executive_Summary
         ws1 = wb.create_sheet(title="Executive_Summary")
-        ws1["A1"] = f"Evidex Executive Meta-Analytic Report • {self.cohort_name} Cohort"
+        ws1["A1"] = f"MANDOROS Executive Meta-Analytic Report • {self.cohort_name} Cohort"
         ws1["A1"].font = title_font
         ws1["A2"] = f"Total Pooled Studies: {len(self.trial_workbooks)} | Generated: Academic Standard (metafor-grade)"
         ws1["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
@@ -1175,7 +1176,7 @@ class ActiveIngredientCohortPipeline:
 
         # SHEET 7: Trial_Differences_Report
         ws7 = wb.create_sheet(title="Trial_Differences_Report")
-        ws7["A1"] = f"Evidex Trial Differences & Adaptation Disclosure • {self.cohort_name} Cohort"
+        ws7["A1"] = f"MANDOROS Trial Differences & Adaptation Disclosure • {self.cohort_name} Cohort"
         ws7["A1"].font = title_font
         ws7["A2"] = f"Detected Cohort Mode: {self.cohort_mode} ({self.cohort_badge_icon})"
         ws7["A2"].font = Font(name="Calibri", size=11, bold=True, color="1F4E79")
@@ -1269,7 +1270,7 @@ class ActiveIngredientCohortPipeline:
 
         # SHEET 8: Domain_Bridged_Meta_Analysis
         ws8 = wb.create_sheet(title="Domain_Bridged_Meta_Analysis")
-        ws8["A1"] = f"Evidex Cross-Scale Clinical Domain Bridging & SUCRA Rankings • {self.cohort_name}"
+        ws8["A1"] = f"MANDOROS Cross-Scale Clinical Domain Bridging & SUCRA Rankings • {self.cohort_name}"
         ws8["A1"].font = title_font
         ws8["A2"] = "Standardized Mean Differences (Hedges' g) & Network Meta-Analysis Hierarchy"
         ws8["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
@@ -1404,13 +1405,18 @@ class ActiveIngredientCohortPipeline:
                 sheet.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 65)
 
         wb.save(out_excel)
+        try:
+            wb.save(legacy_excel)
+        except Exception:
+            pass
         return out_excel
 
     # --- STEP 7: INTERACTIVE HTML DASHBOARD ---
 
     def _export_interactive_dashboard(self) -> Path:
         """Builds a self-contained, interactive Plotly Executive Dashboard."""
-        out_html = self.output_dir / f"{self.cohort_name}_Executive_Dashboard.html"
+        out_html = self.output_dir / f"{self.cohort_name}_MANDOROS_Executive_Dashboard.html"
+        legacy_html = self.output_dir / f"{self.cohort_name}_Executive_Dashboard.html"
 
         try:
             import plotly.graph_objects as go
@@ -1668,7 +1674,7 @@ class ActiveIngredientCohortPipeline:
         divergence_html = f"""
         <div class="table-container" style="border-left: 4px solid {self.cohort_badge_color}; background: rgba(30, 41, 59, 0.75);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px;">⚠️ Trial Divergence & How Evidex Adapted (Transparency Matrix & Narrative Summary)</h3>
+            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px;">⚠️ Trial Divergence & How MANDOROS Adapted (Transparency Matrix & Narrative Summary)</h3>
             <span style="background: {self.cohort_badge_color}33; color: #FFFFFF; border: 1px solid {self.cohort_badge_color}; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px;">
               {self.cohort_badge_icon} {self.cohort_mode}
             </span>
@@ -1826,7 +1832,7 @@ class ActiveIngredientCohortPipeline:
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Evidex Executive Dashboard • {self.cohort_name}</title>
+  <title>MANDOROS Executive Dashboard • {self.cohort_name}</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -1937,5 +1943,10 @@ class ActiveIngredientCohortPipeline:
 
         with open(out_html, "w", encoding="utf-8") as f:
             f.write(html_content)
+        try:
+            with open(legacy_html, "w", encoding="utf-8") as f:
+                f.write(html_content)
+        except Exception:
+            pass
 
         return out_html

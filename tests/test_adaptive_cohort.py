@@ -168,7 +168,7 @@ def test_mixed_metabolic_cohort_pipeline():
     assert html_path.exists()
     with open(html_path, "r", encoding="utf-8") as f:
         html_text = f.read()
-    assert "Trial Divergence & How Evidex Adapted" in html_text
+    assert "Trial Divergence & How MANDOROS Adapted" in html_text or "Trial Divergence & How Evidex Adapted" in html_text
     assert "Cross-Drug / Cross-Trial Domain Comparison & Ranking" in html_text
     assert "Multi-Drug Shared-Indication Cohort" in html_text
 

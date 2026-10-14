@@ -1,6 +1,6 @@
 """
-Evidex - Academic-Grade Web Interface for AI-assisted Clinical Trial Data Extraction.
-Upload any RCT PDF and get a standardized, audit-verified multi-sheet Excel and structured JSON.
+MANDOROS - Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis.
+Upload any RCT PDF and get a standardized, audit-verified multi-sheet Excel, structured JSON, and metafor-grade pooled evidence.
 """
 
 import os
@@ -672,7 +672,7 @@ def process_cohort(
         cohort_divergence_html = f"""
         <div style="background: rgba(30, 41, 59, 0.75); border: 1.5px solid {badge_color}66; border-radius: 16px; padding: 22px; margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">⚠️ Trial Divergence & How Evidex Adapted (Transparency Matrix & Narrative Summary)</h3>
+            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">⚠️ Trial Divergence & How MANDOROS Adapted (Transparency Matrix & Narrative Summary)</h3>
             <span style="background: {badge_color}33; color: #FFFFFF; border: 1px solid {badge_color}; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px;">
               {badge_icon} {cohort_mode}
             </span>
@@ -884,146 +884,477 @@ def process_cohort(
 
 def build_app():
     custom_css = """
-    /* Sleek Modern Biotech & Deep AI Aesthetic */
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    /* Apple.com Flagship Dark Architecture & Futuristic Biotech Aesthetic */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     :root {
-        --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', Roboto, sans-serif;
         --font-mono: 'JetBrains Mono', monospace;
     }
 
     body, .gradio-container {
         font-family: var(--font-sans) !important;
-        background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 45%, #090d16 100%) !important;
+        background: radial-gradient(circle at 50% -10%, #0d1b38 0%, #061026 40%, #030712 100%) !important;
         color: #f1f5f9 !important;
         min-height: 100vh;
     }
 
-    /* Radiant Header Styling */
+    /* Apple.com Obsidian Header Hero Container */
     #header-container {
+        position: relative;
         text-align: center;
-        padding: 40px 20px 25px 20px;
-        margin-bottom: 25px;
-        background: linear-gradient(180deg, rgba(30, 27, 75, 0.5) 0%, rgba(15, 23, 42, 0) 100%);
-        border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+        padding: 42px 20px 32px 20px;
+        margin-bottom: 28px;
+        background: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.12) 0%, rgba(99, 102, 241, 0.08) 35%, rgba(3, 7, 18, 0.6) 80%);
+        border-bottom: 1px solid rgba(56, 189, 248, 0.18);
+        border-radius: 0 0 28px 28px;
+        overflow: hidden;
     }
 
-    .header-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
-        border: 1px solid rgba(139, 92, 246, 0.4);
-        padding: 6px 16px;
-        border-radius: 9999px;
-        font-size: 13px;
-        font-weight: 700;
-        color: #c4b5fd;
-        margin-bottom: 16px;
-        box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
+    .mesh-wave {
+        position: absolute;
+        top: 15px;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .mesh-left { left: -10px; }
+    .mesh-right { right: -10px; transform: scaleX(-1); }
+
+    .header-content-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 1280px;
+        margin: 0 auto;
     }
 
-    .main-title {
-        font-size: 2.8rem !important;
-        font-weight: 800 !important;
-        background: linear-gradient(135deg, #ffffff 20%, #a5b4fc 60%, #38bdf8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 10px !important;
-        letter-spacing: -0.02em;
-    }
-
-    .sub-title {
-        font-size: 1.15rem !important;
-        color: #94a3b8 !important;
-        max-width: 800px;
-        margin: 0 auto 20px auto !important;
-        line-height: 1.6;
-    }
-
-    /* Badges Row */
-    .badges-row {
+    /* 3D Ribbon Emblem Container */
+    .emblem-wrapper {
         display: flex;
         justify-content: center;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 12px;
+        align-items: center;
+        margin-bottom: 6px;
     }
 
-    .pill-badge {
-        font-size: 11px;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .pill-blue { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .pill-purple { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
-    .pill-green { background: rgba(52, 211, 153, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .pill-amber { background: rgba(251, 191, 36, 0.12); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
-
-    /* Card Panels & Glassmorphism */
-    .glass-card {
-        background: rgba(15, 23, 42, 0.75) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 18px !important;
-        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4) !important;
-        backdrop-filter: blur(16px) !important;
-    }
-
-    /* Primary Action Button */
-    .extract-btn {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%) !important;
-        color: white !important;
+    /* M Λ N D O R O S Geometric Metallic Title */
+    .mandoros-hero-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', sans-serif !important;
+        font-size: clamp(2.5rem, 5.5vw, 4.2rem) !important;
         font-weight: 800 !important;
-        font-size: 16px !important;
+        letter-spacing: 0.32em !important;
+        text-indent: 0.32em;
+        background: linear-gradient(90deg, #2DD4BF 0%, #67E8F9 25%, #FFFFFF 52%, #60A5FA 78%, #F8FAFC 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        margin: 12px 0 6px 0 !important;
+        text-transform: uppercase !important;
+        filter: drop-shadow(0 0 35px rgba(45, 212, 191, 0.32));
+    }
+
+    .mandoros-lambda {
+        display: inline-block;
+        font-family: inherit;
+        font-weight: 700;
+        margin: 0 -0.04em;
+        color: #2DD4BF;
+        -webkit-text-fill-color: #2DD4BF;
+        filter: drop-shadow(0 0 14px rgba(45, 212, 191, 0.7));
+    }
+
+    .mandoros-subtitle {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif !important;
+        font-size: 14.5px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.06em !important;
+        color: #94A3B8 !important;
+        margin: 0 auto 16px auto !important;
+        max-width: 900px;
+    }
+
+    /* Primary Tagline */
+    .mandoros-tagline-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        max-width: 720px;
+        margin: 0 auto 28px auto;
+    }
+
+    .tagline-rule {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
+    }
+
+    .mandoros-tagline {
+        font-style: italic !important;
+        font-size: 14.5px !important;
+        letter-spacing: 0.05em !important;
+        color: #38BDF8 !important;
+        white-space: nowrap;
+    }
+
+    /* 8-Node Interactive Pipeline Strip (M-A-N-D-O-R-O-S) */
+    .mandoros-pipeline-strip {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 12px 8px 24px 8px;
+        max-width: 1260px;
+        margin: 0 auto;
+    }
+
+    .pipeline-node {
+        flex: 1 1 125px;
+        min-width: 105px;
+        max-width: 140px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .pipeline-node:hover {
+        transform: translateY(-4px);
+    }
+
+    .node-circle {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 9px;
+        background: radial-gradient(circle at 35% 35%, rgba(15, 23, 42, 0.95), rgba(3, 7, 18, 0.98));
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+    .node-circle-1 { border: 1.5px solid #00F5D4; box-shadow: 0 0 16px rgba(0, 245, 212, 0.5); }
+    .node-circle-2 { border: 1.5px solid #0EA5E9; box-shadow: 0 0 16px rgba(14, 165, 233, 0.5); }
+    .node-circle-3 { border: 1.5px solid #6366F1; box-shadow: 0 0 16px rgba(99, 102, 241, 0.5); }
+    .node-circle-4 { border: 1.5px solid #8B5CF6; box-shadow: 0 0 16px rgba(139, 92, 246, 0.5); }
+    .node-circle-5 { border: 1.5px solid #38BDF8; box-shadow: 0 0 16px rgba(56, 189, 248, 0.5); }
+    .node-circle-6 { border: 1.5px solid #A855F7; box-shadow: 0 0 16px rgba(168, 85, 247, 0.5); }
+    .node-circle-7 { border: 1.5px solid #14B8A6; box-shadow: 0 0 16px rgba(20, 184, 166, 0.5); }
+    .node-circle-8 { border: 1.5px solid #0284C7; box-shadow: 0 0 16px rgba(2, 132, 199, 0.5); }
+
+    .pipeline-chevron {
+        display: flex;
+        align-items: center;
+        color: rgba(148, 163, 184, 0.35);
+        font-size: 18px;
+        font-weight: 300;
+        margin: 15px 1px 0 1px;
+        user-select: none;
+    }
+
+    .node-letter {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        font-size: 20px;
+        font-weight: 900;
+        margin-bottom: 2px;
+    }
+
+    .node-letter-1 { color: #00F5D4; text-shadow: 0 0 12px rgba(0, 245, 212, 0.55); }
+    .node-letter-2 { color: #38BDF8; text-shadow: 0 0 12px rgba(56, 189, 248, 0.55); }
+    .node-letter-3 { color: #818CF8; text-shadow: 0 0 12px rgba(129, 140, 248, 0.55); }
+    .node-letter-4 { color: #A78BFA; text-shadow: 0 0 12px rgba(167, 139, 250, 0.55); }
+    .node-letter-5 { color: #38BDF8; text-shadow: 0 0 12px rgba(56, 189, 248, 0.55); }
+    .node-letter-6 { color: #C084FC; text-shadow: 0 0 12px rgba(192, 132, 252, 0.55); }
+    .node-letter-7 { color: #2DD4BF; text-shadow: 0 0 12px rgba(45, 212, 191, 0.55); }
+    .node-letter-8 { color: #38BDF8; text-shadow: 0 0 12px rgba(56, 189, 248, 0.55); }
+
+    .node-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        white-space: nowrap;
+    }
+
+    .node-title-1 { color: #22D3EE; }
+    .node-title-2 { color: #60A5FA; }
+    .node-title-3 { color: #A5B4FC; }
+    .node-title-4 { color: #C084FC; }
+    .node-title-5 { color: #38BDF8; }
+    .node-title-6 { color: #E879F9; }
+    .node-title-7 { color: #2DD4BF; }
+    .node-title-8 { color: #60A5FA; }
+
+    .node-desc {
+        font-size: 10.5px;
+        line-height: 1.35;
+        color: #94A3B8;
+        padding: 0 3px;
+    }
+
+    /* Bottom Framing Motto */
+    .mandoros-motto-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        max-width: 860px;
+        margin: 10px auto 0 auto;
+    }
+
+    .motto-rule {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+    }
+
+    .mandoros-motto {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.32em !important;
+        color: #94A3B8 !important;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+        white-space: nowrap;
+    }
+
+    /* Apple.com Bento Frosted Glass Architecture */
+    .glass-card, div.gr-box, div.gr-panel, div.gr-form {
+        background: rgba(11, 22, 44, 0.62) !important;
+        border: 1px solid rgba(148, 163, 184, 0.14) !important;
+        border-top: 1px solid rgba(56, 189, 248, 0.28) !important;
+        border-radius: 22px !important;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+        backdrop-filter: saturate(180%) blur(24px) !important;
+        -webkit-backdrop-filter: saturate(180%) blur(24px) !important;
+    }
+
+    /* Apple-Style Radiant CTA Buttons */
+    .extract-btn {
+        background: linear-gradient(135deg, #00F5D4 0%, #0EA5E9 40%, #6366F1 80%, #A855F7 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 800 !important;
+        font-size: 15px !important;
         padding: 14px 28px !important;
-        border-radius: 14px !important;
+        border-radius: 9999px !important;
         border: none !important;
-        box-shadow: 0 0 25px rgba(139, 92, 246, 0.5) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 0 30px rgba(14, 165, 233, 0.45) !important;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
         cursor: pointer !important;
     }
 
     .extract-btn:hover {
         transform: translateY(-2px) scale(1.01) !important;
-        box-shadow: 0 0 35px rgba(217, 70, 239, 0.65) !important;
+        box-shadow: 0 0 40px rgba(0, 245, 212, 0.65) !important;
+    }
+
+    /* Segmented Pill Tabs */
+    .tab-nav {
+        background: rgba(15, 23, 42, 0.65) !important;
+        border-radius: 9999px !important;
+        padding: 5px !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        margin-bottom: 20px !important;
+    }
+
+    .tab-nav button {
+        border-radius: 9999px !important;
+        padding: 8px 22px !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        transition: all 0.2s ease !important;
+        border: none !important;
+        color: #94A3B8 !important;
+    }
+
+    .tab-nav button.selected {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(99, 102, 241, 0.35)) !important;
+        border: 1px solid rgba(56, 189, 248, 0.5) !important;
+        color: #F8FAFC !important;
+        font-weight: 700 !important;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.3) !important;
     }
 
     /* Dataframe Styling */
     .gradio-dataframe {
-        border-radius: 12px !important;
+        border-radius: 16px !important;
         overflow: hidden !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-
-    /* Tabs active accent */
-    .tab-nav button.selected {
-        border-bottom: 3px solid #8b5cf6 !important;
-        color: #c4b5fd !important;
-        font-weight: 700 !important;
+        border: 1px solid rgba(148, 163, 184, 0.15) !important;
+        background: rgba(15, 23, 42, 0.6) !important;
     }
     """
 
-    with gr.Blocks(title="Evidex 2.0 • Clinical Trial AI Extractor", css=custom_css, theme=gr.themes.Base()) as demo:
+    with gr.Blocks(title="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis", css=custom_css, theme=gr.themes.Base()) as demo:
         with gr.Column(elem_id="header-container"):
             gr.HTML(
                 """
-                <div class="header-badge">
-                    <span>✨</span> Next-Generation AI Clinical Trial Extractor
+                <!-- Left Particle Mesh -->
+                <div class="mesh-wave mesh-left">
+                  <svg width="240" height="200" viewBox="0 0 240 200" fill="none" opacity="0.32">
+                    <path d="M -30 20 C 40 40, 70 130, 190 85 C 230 75, 250 120, 290 150" stroke="#00F5D4" stroke-width="1.2" stroke-dasharray="2 3"/>
+                    <path d="M -15 55 C 60 75, 90 160, 210 115" stroke="#00BBF9" stroke-width="1" stroke-dasharray="1 2"/>
+                    <path d="M 0 90 C 80 110, 110 190, 230 145" stroke="#6366F1" stroke-width="1" stroke-dasharray="2 4"/>
+                  </svg>
                 </div>
-                <h1 class="main-title">Evidex 2.0 AI</h1>
-                <p class="sub-title">
-                    World-Class, Verifiable Clinical Trial Data Extraction Platform. Turn any RCT PDF into an audit-ready, 
-                    multi-sheet systematic review database compliant with Cochrane, PRISMA, and top-tier academic medical standards.
-                </p>
-                <div class="badges-row">
-                    <span class="pill-badge pill-purple">⚡ Auto-Calibrated Deep AI Cloud</span>
-                    <span class="pill-badge pill-blue">📊 100% Sample Size Verification</span>
-                    <span class="pill-badge pill-green">⚖️ 4-Operator Atomic Eligibility</span>
-                    <span class="pill-badge pill-amber">📥 Multi-Sheet Excel (.xlsx) & JSON</span>
+
+                <!-- Right Particle Mesh -->
+                <div class="mesh-wave mesh-right">
+                  <svg width="240" height="200" viewBox="0 0 240 200" fill="none" opacity="0.32">
+                    <path d="M -30 20 C 40 40, 70 130, 190 85 C 230 75, 250 120, 290 150" stroke="#6366F1" stroke-width="1.2" stroke-dasharray="2 3"/>
+                    <path d="M -15 55 C 60 75, 90 160, 210 115" stroke="#38BDF8" stroke-width="1" stroke-dasharray="1 2"/>
+                    <path d="M 0 90 C 80 110, 110 190, 230 145" stroke="#00F5D4" stroke-width="1" stroke-dasharray="2 4"/>
+                  </svg>
+                </div>
+
+                <div class="header-content-inner">
+                  <!-- 3D Ribbon Emblem -->
+                  <div class="emblem-wrapper">
+                    <svg width="110" height="80" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 20px rgba(0, 245, 212, 0.45)) drop-shadow(0 0 30px rgba(168, 85, 247, 0.4));">
+                      <defs>
+                        <linearGradient id="m_ribbon_left" x1="15%" y1="90%" x2="55%" y2="10%">
+                          <stop offset="0%" stop-color="#00F5D4"/>
+                          <stop offset="60%" stop-color="#00BBF9"/>
+                          <stop offset="100%" stop-color="#38BDF8"/>
+                        </linearGradient>
+                        <linearGradient id="m_ribbon_right" x1="45%" y1="10%" x2="85%" y2="90%">
+                          <stop offset="0%" stop-color="#38BDF8"/>
+                          <stop offset="35%" stop-color="#6366F1"/>
+                          <stop offset="75%" stop-color="#8B5CF6"/>
+                          <stop offset="100%" stop-color="#A855F7"/>
+                        </linearGradient>
+                        <linearGradient id="m_ribbon_glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stop-color="#2DD4BF"/>
+                          <stop offset="100%" stop-color="#C084FC"/>
+                        </linearGradient>
+                      </defs>
+                      <path d="M 28 74 C 20 54 26 24 46 18 C 58 14 65 30 58 56" stroke="url(#m_ribbon_left)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                      <path d="M 62 56 C 55 30 62 14 74 18 C 94 24 100 54 92 74" stroke="url(#m_ribbon_right)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                      <path d="M 46 20 C 58 28 62 46 60 56" stroke="url(#m_ribbon_glow)" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.95"/>
+                    </svg>
+                  </div>
+
+                  <!-- Geometric Metallic Main Title -->
+                  <h1 class="mandoros-hero-title">
+                    M<span class="mandoros-lambda">Λ</span>NDOROS
+                  </h1>
+
+                  <!-- Acronym Subtitle -->
+                  <div class="mandoros-subtitle">
+                    Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis
+                  </div>
+
+                  <!-- Primary Tagline -->
+                  <div class="mandoros-tagline-container">
+                    <span class="tagline-rule"></span>
+                    <span class="mandoros-tagline">— &nbsp; From Raw Trials to Global Clinical Verdicts. &nbsp; —</span>
+                    <span class="tagline-rule"></span>
+                  </div>
+
+                  <!-- 8-Node Interactive Pipeline Strip (M-A-N-D-O-R-O-S) -->
+                  <div class="mandoros-pipeline-strip">
+                    <!-- Node 1: M -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-1">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00F5D4" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><text x="6.5" y="16.5" fill="#00F5D4" font-size="5.5" font-family="-apple-system, sans-serif" font-weight="bold">PDF</text></svg>
+                      </div>
+                      <div class="node-letter node-letter-1">M</div>
+                      <div class="node-title node-title-1">Meta-Analysis</div>
+                      <div class="node-desc">Combine evidence from multiple studies.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 2: A -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-2">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0-2 3.5c0 1.5.8 2.8 2 3.5v1a4 4 0 0 0 4 4"/><path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1 2 3.5c0 1.5-.8 2.8-2 3.5v1a4 4 0 0 1-4 4"/><circle cx="12" cy="7" r="1.2" fill="#0EA5E9"/><circle cx="12" cy="12" r="1.2" fill="#0EA5E9"/><circle cx="12" cy="17" r="1.2" fill="#0EA5E9"/><line x1="8" y1="12" x2="16" y2="12"/><path d="M9 16h6"/></svg>
+                      </div>
+                      <div class="node-letter node-letter-2">A</div>
+                      <div class="node-title node-title-2">AI & Automation</div>
+                      <div class="node-desc">Extract, process and structure with intelligence.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 3: N -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-3">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2"><circle cx="12" cy="12" r="3.2" fill="#6366F1" fill-opacity="0.3"/><circle cx="5" cy="7" r="2.2"/><circle cx="19" cy="7" r="2.2"/><circle cx="5" cy="17" r="2.2"/><circle cx="19" cy="17" r="2.2"/><line x1="7" y1="8.5" x2="9.8" y2="10.8"/><line x1="17" y1="8.5" x2="14.2" y2="10.8"/><line x1="7" y1="15.5" x2="9.8" y2="13.2"/><line x1="17" y1="15.5" x2="14.2" y2="13.2"/></svg>
+                      </div>
+                      <div class="node-letter node-letter-3">N</div>
+                      <div class="node-title node-title-3">Network</div>
+                      <div class="node-desc">Connect trials, drugs and comparisons.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 4: D -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-4">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><ellipse cx="12" cy="5" rx="7.5" ry="3"/><path d="M4.5 5v5.5c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V5"/><path d="M4.5 10.5V16c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-5.5"/></svg>
+                      </div>
+                      <div class="node-letter node-letter-4">D</div>
+                      <div class="node-title node-title-4">Data</div>
+                      <div class="node-desc">From unstructured PDFs to clean, usable data.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 5: O -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-5">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="1.5" fill="#38BDF8"/></svg>
+                      </div>
+                      <div class="node-letter node-letter-5">O</div>
+                      <div class="node-title node-title-5">Outcomes</div>
+                      <div class="node-desc">Track clinical results and efficacy signals.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 6: R -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-6">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A855F7" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="18" x2="16" y2="18"/><text x="6.5" y="14.5" fill="#A855F7" font-size="5" font-family="-apple-system, sans-serif" font-weight="bold">RCT</text></svg>
+                      </div>
+                      <div class="node-letter node-letter-6">R</div>
+                      <div class="node-title node-title-6">Research</div>
+                      <div class="node-desc">Focus on high-quality clinical trials and real-world evidence.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 7: O -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-7">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      </div>
+                      <div class="node-letter node-letter-7">O</div>
+                      <div class="node-title node-title-7">Optimization</div>
+                      <div class="node-desc">Standardize, clean and improve data quality.</div>
+                    </div>
+
+                    <div class="pipeline-chevron">›</div>
+
+                    <!-- Node 8: S -->
+                    <div class="pipeline-node">
+                      <div class="node-circle node-circle-8">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/><path d="M4 12l6-6 4 4 8-8"/><polyline points="18 2 22 2 22 6"/></svg>
+                      </div>
+                      <div class="node-letter node-letter-8">S</div>
+                      <div class="node-title node-title-8">Synthesis</div>
+                      <div class="node-desc">Build insights, meta-analysis and predictions.</div>
+                    </div>
+                  </div>
+
+                  <!-- Bottom Framing Motto -->
+                  <div class="mandoros-motto-container">
+                    <span class="motto-rule"></span>
+                    <span class="mandoros-motto">— &nbsp; S M A R T E R &nbsp;&nbsp; E V I D E N C E . &nbsp;&nbsp;&nbsp;&nbsp; B E T T E R &nbsp;&nbsp; D E C I S I O N S . &nbsp; —</span>
+                    <span class="motto-rule"></span>
+                  </div>
                 </div>
                 """
             )
@@ -1127,7 +1458,7 @@ def build_app():
             # =========================================================================
             # TAB 2: PHASE 2 MULTI-TRIAL COHORT, META-ANALYSIS & PREDICTIVE DASHBOARD
             # =========================================================================
-            with gr.TabItem("🚀 Multi-Trial Cohort, Meta-Analysis & Predictive Executive Dashboard (Phase 2)"):
+            with gr.TabItem("🚀 MANDOROS Multi-Trial Cohort, Meta-Analysis & Predictive Executive Lab (Phase 2)"):
                 with gr.Row():
                     # Left Column: Cohort Selection & Configuration
                     with gr.Column(scale=1):
@@ -1219,7 +1550,7 @@ def build_app():
                                     max_height=450
                                 )
 
-                            with gr.TabItem("⚠️ Trial Divergence & How Evidex Adapted"):
+                            with gr.TabItem("⚠️ Trial Divergence & How MANDOROS Adapted"):
                                 cohort_divergence_html = gr.HTML(
                                     label="Explicit Divergence & Methodological Adaptation Strategy"
                                 )
@@ -1361,7 +1692,7 @@ def build_app():
         gr.HTML(
             """
             <div style="margin-top: 35px; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: #64748B; font-size: 12px;">
-              <strong style="color: #94A3B8;">Evidex Academic Methodological Standards:</strong>
+              <strong style="color: #94A3B8;">MANDOROS Academic Methodological Standards:</strong>
               Split eligibility operators (<, =, >, between) • Pure parameter names with dedicated race & timepoint columns • 
               100% filled sample sizes across all outcomes • Page-level provenance citations • metafor-grade Fixed/Random Effects (DL & REML) • 
               95% Prediction Intervals (PI) • Full PRISMA / Cochrane compatibility.

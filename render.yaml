@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: evidex-rct-extractor
+    name: mandoros
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
