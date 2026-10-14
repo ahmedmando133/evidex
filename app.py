@@ -56,10 +56,10 @@ def process_pdf(pdf_file, api_key="", model_choice="Google Gemini 3.8 Flash (Ult
         os.makedirs("outputs", exist_ok=True)
 
         # 1. Map Model Choice
-        model_name = None
-        if "3.8" in model_choice:
-            model_name = "gemini-3.8-flash"
-        elif "2.0" in model_choice:
+        model_name = "auto"
+        if "Auto" in model_choice or "auto" in model_choice.lower():
+            model_name = "auto"
+        elif "2.0" in model_choice or "3.8" in model_choice:
             model_name = "gemini-2.0-flash"
         elif "1.5 Pro" in model_choice:
             model_name = "gemini-1.5-pro"
@@ -471,7 +471,7 @@ def build_app():
                     multi-sheet systematic review database compliant with Cochrane, PRISMA, and top-tier academic medical standards.
                 </p>
                 <div class="badges-row">
-                    <span class="pill-badge pill-purple">⚡ Gemini 3.8 Flash Powered</span>
+                    <span class="pill-badge pill-purple">⚡ Auto-Calibrated Deep AI Cloud</span>
                     <span class="pill-badge pill-blue">📊 100% Sample Size Verification</span>
                     <span class="pill-badge pill-green">⚖️ 4-Operator Atomic Eligibility</span>
                     <span class="pill-badge pill-amber">📥 Multi-Sheet Excel (.xlsx) & JSON</span>
@@ -493,8 +493,8 @@ def build_app():
                 model_selector = gr.Dropdown(
                     label="🤖 Deep AI Model Selection (BYOK)",
                     choices=[
-                        "Google Gemini 3.8 Flash (Ultra-Fast Flagship - Recommended)",
-                        "Google Gemini 2.0 Flash",
+                        "⚡ Auto-Detect & Select Best Available Model (Recommended)",
+                        "Google Gemini 2.0 Flash (Fast & Accurate Flagship)",
                         "Google Gemini 1.5 Pro (Deep Clinical Reasoning)",
                         "Google Gemini 1.5 Flash",
                         "Anthropic Claude 3.5 Sonnet (Benchmark Methodological Extraction)",
@@ -503,13 +503,13 @@ def build_app():
                         "OpenAI GPT-4o-mini",
                         "Smart Local Engine (Offline / Reference Benchmark)"
                     ],
-                    value="Google Gemini 3.8 Flash (Ultra-Fast Flagship - Recommended)"
+                    value="⚡ Auto-Detect & Select Best Available Model (Recommended)"
                 )
 
                 api_key_input = gr.Textbox(
                     label="🔑 AI Provider API Key (Google AI Studio / Anthropic / OpenAI)",
                     type="password",
-                    placeholder="Enter GEMINI_API_KEY (AIza...), ANTHROPIC_API_KEY (sk-ant...), or OPENAI_API_KEY (sk-...)"
+                    placeholder="Enter your Gemini Key (AIza...), Claude Key (sk-ant...), or OpenAI Key (sk-...)"
                 )
 
                 extract_btn = gr.Button("🚀 Run Academic Deep Extraction", variant="primary", elem_classes=["extract-btn"])

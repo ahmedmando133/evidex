@@ -2793,90 +2793,168 @@ class RCTExtractor:
                 self.api_error = err_msg
                 return None
 
-        # --- 3. GOOGLE GEMINI ROUTING ---
+        # --- 3. GOOGLE GEMINI ROUTING (Direct High-Performance REST Engine) ---
         else:
-            base_candidates = []
-            if "1.5 pro" in mod_pref or "pro" in mod_pref:
-                base_candidates = [
-                    "gemini-1.5-pro", "gemini-1.5-pro-latest", "gemini-2.0-flash", 
-                    "gemini-1.5-flash", "gemini-1.5-flash-latest"
+            import requests
+
+            # 1. Dynamically discover live models supported by this specific Google AI Studio key
+            discovered_models = []
+            try:
+                disc_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key_str}"
+                d_resp = requests.get(disc_url, timeout=10)
+                if d_resp.status_code == 200:
+                    for m in d_resp.json().get("models", []):
+                        if "generateContent" in m.get("supportedGenerationMethods", []):
+                            m_clean = m.get("name", "").replace("models/", "").strip()
+                            if m_clean:
+                                discovered_models.append(m_clean)
+                elif d_resp.status_code == 400:
+                    err_j = d_resp.json().get("error", {})
+                    self.api_error = f"Google Gemini API: {err_j.get('message', 'Invalid Key')} (Status 400)"
+                    print(f"[!] {self.api_error}")
+                    return None
+            except Exception as disc_err:
+                print(f"[*] Discovery probe notice (v1beta): {disc_err}")
+
+            if not discovered_models:
+                try:
+                    disc_v1 = f"https://generativelanguage.googleapis.com/v1/models?key={key_str}"
+                    d_resp = requests.get(disc_v1, timeout=8)
+                    if d_resp.status_code == 200:
+                        for m in d_resp.json().get("models", []):
+                            if "generateContent" in m.get("supportedGenerationMethods", []):
+                                m_clean = m.get("name", "").replace("models/", "").strip()
+                                if m_clean:
+                                    discovered_models.append(m_clean)
+                except Exception:
+                    pass
+
+            # 2. Build prioritized candidate list based on user selection or auto-optimization
+            if "pro" in mod_pref:
+                preferred_order = [
+                    "gemini-1.5-pro", "gemini-1.5-pro-latest", "gemini-1.5-pro-002", "gemini-1.5-pro-001",
+                    "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"
                 ]
             elif "1.5 flash" in mod_pref:
-                base_candidates = [
-                    "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", 
-                    "gemini-1.5-pro", "gemini-1.5-pro-latest"
+                preferred_order = [
+                    "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash-002", "gemini-1.5-flash-001",
+                    "gemini-2.0-flash", "gemini-1.5-pro"
                 ]
             else:
-                base_candidates = [
-                    "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest", 
-                    "gemini-1.5-pro", "gemini-1.5-pro-latest", "gemini-2.0-flash-exp"
+                # Auto-Detect / Recommended / 2.0:
+                preferred_order = [
+                    "gemini-2.0-flash", "gemini-2.0-flash-exp",
+                    "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash-002", "gemini-1.5-flash-001",
+                    "gemini-1.5-pro", "gemini-1.5-pro-latest", "gemini-1.5-pro-002", "gemini-1.5-pro-001",
+                    "gemini-pro"
                 ]
 
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=key_str)
+            gemini_candidates = []
+            if discovered_models:
+                print(f"[*] Discovered {len(discovered_models)} live models for key: {discovered_models[:6]}")
+                for cand in preferred_order:
+                    if cand in discovered_models and cand not in gemini_candidates:
+                        gemini_candidates.append(cand)
+                for dm in discovered_models:
+                    if ("flash" in dm or "pro" in dm) and dm not in gemini_candidates:
+                        gemini_candidates.append(dm)
+                for dm in discovered_models:
+                    if dm not in gemini_candidates:
+                        gemini_candidates.append(dm)
+            else:
+                gemini_candidates = preferred_order
 
-                # Dynamically discover active models on this user's Google AI Studio account
-                live_models = []
-                try:
-                    for m in genai.list_models():
-                        if "generateContent" in getattr(m, "supported_generation_methods", []):
-                            m_clean = m.name.replace("models/", "")
-                            live_models.append(m_clean)
-                except Exception as list_err:
-                    print(f"[!] list_models discovery note: {list_err}")
+            print(f"[*] Active Gemini candidate models: {gemini_candidates[:4]}")
 
-                gemini_candidates = []
-                if live_models:
-                    print(f"[*] Discovered {len(live_models)} models for this key: {live_models[:6]}")
-                    for cand in base_candidates:
-                        if cand in live_models and cand not in gemini_candidates:
-                            gemini_candidates.append(cand)
-                    for lm in live_models:
-                        if lm not in gemini_candidates and ("flash" in lm or "pro" in lm):
-                            gemini_candidates.append(lm)
+            last_g_err = None
+            full_p = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
 
-                if not gemini_candidates:
-                    gemini_candidates = base_candidates
+            for g_mod in gemini_candidates:
+                # Try v1beta first, then v1
+                for api_ver in ["v1beta", "v1"]:
+                    post_url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{g_mod}:generateContent?key={key_str}"
+                    body = {
+                        "contents": [
+                            {
+                                "role": "user",
+                                "parts": [{"text": full_p}]
+                            }
+                        ],
+                        "generationConfig": {
+                            "temperature": 0.1,
+                            "responseMimeType": "application/json"
+                        }
+                    }
 
-                last_g_err = None
-                for g_mod in gemini_candidates:
                     try:
-                        print(f"[*] Calling Google Gemini API model: {g_mod}...")
-                        model = genai.GenerativeModel(g_mod, generation_config={"response_mime_type": "application/json", "temperature": 0.1})
-                        full_p = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-                        resp = model.generate_content(full_p)
-                        cand_text = None
-                        if resp:
-                            try:
-                                cand_text = resp.text
-                            except Exception:
-                                pass
-                            if not cand_text and hasattr(resp, "candidates") and resp.candidates:
-                                try:
-                                    parts = resp.candidates[0].content.parts
-                                    cand_text = "".join(p.text for p in parts if hasattr(p, "text"))
-                                except Exception:
-                                    pass
-                        if cand_text:
-                            raw_text = cand_text
-                            self.actual_model_used = g_mod
-                            if "3.8" in mod_pref:
-                                self.engine_used = f"Google Gemini 3.8 Flash ({g_mod})"
-                            else:
-                                self.engine_used = f"Google Gemini ({g_mod})"
+                        resp = requests.post(
+                            post_url,
+                            json=body,
+                            headers={"Content-Type": "application/json"},
+                            timeout=60
+                        )
+
+                        # If 400 because responseMimeType is not supported, retry without responseMimeType
+                        if resp.status_code == 400 and ("responseMimeType" in resp.text or "response_mime_type" in resp.text):
+                            body["generationConfig"] = {"temperature": 0.1}
+                            resp = requests.post(
+                                post_url,
+                                json=body,
+                                headers={"Content-Type": "application/json"},
+                                timeout=60
+                            )
+
+                        if resp.status_code == 200:
+                            data_json = resp.json()
+                            cands = data_json.get("candidates", [])
+                            if cands:
+                                p_list = cands[0].get("content", {}).get("parts", [])
+                                txt = "".join(p.get("text", "") for p in p_list if "text" in p)
+                                if txt.strip():
+                                    raw_text = txt
+                                    self.actual_model_used = g_mod
+                                    self.engine_used = f"Google Gemini ({g_mod})"
+                                    print(f"[+] Successfully extracted via Google Gemini REST: {g_mod} ({api_ver})")
+                                    break
+                        elif resp.status_code == 404:
+                            last_g_err = f"{g_mod} ({api_ver}) 404 Not Found"
+                            continue
+                        elif resp.status_code == 429:
+                            last_g_err = f"{g_mod} (429 Rate Limit Exceeded)"
+                            print(f"[!] {last_g_err}")
                             break
-                    except Exception as g_err:
-                        last_g_err = g_err
-                        print(f"[!] Gemini model {g_mod} notice: {g_err}")
+                        else:
+                            last_g_err = f"{g_mod} ({api_ver}) HTTP {resp.status_code}: {resp.text[:120]}"
+                            print(f"[!] {last_g_err}")
+                    except Exception as rest_e:
+                        last_g_err = str(rest_e)
+                        print(f"[!] Network error calling {g_mod} via {api_ver}: {rest_e}")
                         continue
 
-                if not raw_text and last_g_err:
-                    self.api_error = f"Google Gemini API Error: {last_g_err}"
-            except Exception as gen_init_err:
-                self.api_error = f"Google Gemini Init Error: {gen_init_err}"
-                print(f"[!] {self.api_error}")
-                return None
+                if raw_text:
+                    break
+
+            # Secondary fallback: google.generativeai SDK if available and REST was blocked
+            if not raw_text:
+                try:
+                    import google.generativeai as genai
+                    genai.configure(api_key=key_str)
+                    for fallback_mod in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+                        try:
+                            g_model = genai.GenerativeModel(fallback_mod)
+                            g_resp = g_model.generate_content(full_p)
+                            if g_resp and g_resp.text:
+                                raw_text = g_resp.text
+                                self.actual_model_used = fallback_mod
+                                self.engine_used = f"Google Gemini SDK ({fallback_mod})"
+                                break
+                        except Exception as sdk_e:
+                            last_g_err = str(sdk_e)
+                except Exception:
+                    pass
+
+            if not raw_text and last_g_err:
+                self.api_error = f"Google Gemini API Error: {last_g_err}"
 
         if not raw_text:
             return None
