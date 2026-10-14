@@ -55,6 +55,7 @@ class ExcelTrialExporter:
         ws.row_dimensions[1].height = 24
 
     def export(self, output_path: str) -> str:
+        self._build_master_extraction_sheet()
         self._build_studies_sheet()
         self._build_arms_sheet()
         self._build_eligibility_sheet()
@@ -76,6 +77,287 @@ class ExcelTrialExporter:
             print(f"[!] Primary file '{output_path}' is currently OPEN in Excel.")
             print(f"[OK] Saved updated version to: {alt_path}")
             return alt_path
+
+    def _build_master_extraction_sheet(self):
+        """
+        Builds the consolidated, multi-level Master Extraction Sheet (Sheet 1)
+        faithfully replicating the benchmark layout of 'Data minimg (Metformin study).xlsx'
+        and 'orlistat_manual.xlsx'.
+        
+        Header Structure:
+        - Row 1: Merged Main Category Blocks
+                 [STUDY & INTERVENTION ARMS] [ELIGIBILITY CRITERIA] [POPULATION STRATIFICATION] [CLINICAL VARIABLES & OUTCOMES]
+        - Row 2: Variable & Criterion Group Headers
+        - Row 3: Atomic Sub-Columns (<, =, >, Value/Range, Unit, Mean/Events, SD/%, Change, etc.)
+        
+        Rows:
+        - One consolidated row per (Arm, Race/Subgroup, Gender, Timepoint) stratum,
+          integrating protocol arms, eligibility thresholds, demographics, and clinical outcomes side-by-side.
+        """
+        ws = self.wb.create_sheet(title="Master_Extraction_Sheet", index=0)
+        ws.views.sheetView[0].showGridLines = True
+
+        h1_fill = PatternFill(start_color="1B365D", end_color="1B365D", fill_type="solid")
+        h2_fill = PatternFill(start_color="2F5597", end_color="2F5597", fill_type="solid")
+        h3_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+
+        font_h1 = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        font_h2 = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+        font_h3 = Font(name="Calibri", size=9, bold=True, color="1F1F1F")
+        font_data = Font(name="Calibri", size=10)
+
+        align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        align_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+        # 1. Collect unique Eligibility Criteria
+        elig_continuous = []
+        elig_categorical = []
+        seen_criteria = set()
+        for e in self.data.eligibility:
+            c_name = e.criterion_name.replace("_", " ").title()
+            if c_name in seen_criteria:
+                continue
+            seen_criteria.add(c_name)
+            is_num = (e.less_than is not None or e.equal is not None or e.greater_than is not None 
+                      or e.between is not None or e.value is not None or e.min_value is not None)
+            if is_num:
+                elig_continuous.append((c_name, e))
+            else:
+                elig_categorical.append((c_name, e))
+
+        # 2. Collect unique Clinical Outcome Parameters
+        outcome_params = []
+        seen_params = set()
+        for o in self.data.outcomes:
+            p_name = o.parameter_name.strip()
+            if p_name not in seen_params:
+                seen_params.add(p_name)
+                outcome_params.append(p_name)
+
+        col_idx = 1
+
+        # Block 1: Study & Arms (10 columns)
+        arm_start_col = col_idx
+        arm_end_col = col_idx + 9
+        col_idx += 10
+
+        # Block 2: Eligibility Criteria
+        elig_start_col = col_idx
+        elig_col_map = {}
+        for c_name, e_obj in elig_continuous:
+            elig_col_map[c_name] = (col_idx, True, e_obj)
+            col_idx += 5
+        for c_name, e_obj in elig_categorical:
+            elig_col_map[c_name] = (col_idx, False, e_obj)
+            col_idx += 1
+        elig_end_col = col_idx - 1 if col_idx > elig_start_col else elig_start_col
+
+        # Block 3: Population Stratification (4 columns)
+        pop_start_col = col_idx
+        pop_end_col = col_idx + 3
+        col_idx += 4
+
+        # Block 4: Clinical Variables & Outcomes
+        out_start_col = col_idx
+        out_col_map = {}
+        for p_name in outcome_params:
+            out_col_map[p_name] = col_idx
+            col_idx += 4
+        out_end_col = col_idx - 1 if col_idx > out_start_col else out_start_col
+
+        total_cols = col_idx - 1
+
+        ws.row_dimensions[1].height = 28
+        ws.row_dimensions[2].height = 24
+        ws.row_dimensions[3].height = 20
+
+        def format_range(sheet, start_c, end_c, row, val, font, fill):
+            if end_c > start_c:
+                sheet.merge_cells(start_row=row, start_column=start_c, end_row=row, end_column=end_c)
+            for c in range(start_c, end_c + 1):
+                cell = sheet.cell(row=row, column=c)
+                cell.fill = fill
+                cell.font = font
+                cell.alignment = align_center
+                cell.border = self.border_thin
+            sheet.cell(row=row, column=start_c, value=val)
+
+        format_range(ws, arm_start_col, arm_end_col, 1, "STUDY & INTERVENTION ARMS", font_h1, h1_fill)
+        if elig_end_col >= elig_start_col:
+            format_range(ws, elig_start_col, elig_end_col, 1, "ELIGIBILITY CRITERIA", font_h1, h1_fill)
+        format_range(ws, pop_start_col, pop_end_col, 1, "POPULATION STRATIFICATION", font_h1, h1_fill)
+        if out_end_col >= out_start_col:
+            format_range(ws, out_start_col, out_end_col, 1, "CLINICAL VARIABLES & OUTCOMES", font_h1, h1_fill)
+
+        # Write Row 2 & Row 3:
+        study_headers_r2 = [
+            ("Study ID", 1), ("Group / Arm Name", 1), ("Intervention Type", 1),
+            ("Dose", 1), ("Frequency", 1), ("Study Phase", 1),
+            ("Period of Study", 2), ("Total Cohort (N)", 1), ("Arm Sample Size (N)", 1)
+        ]
+        curr_c = arm_start_col
+        for title, span in study_headers_r2:
+            format_range(ws, curr_c, curr_c + span - 1, 2, title, font_h2, h2_fill)
+            if span == 2:
+                ws.cell(row=3, column=curr_c, value="Number")
+                ws.cell(row=3, column=curr_c + 1, value="Unit")
+                for c in range(curr_c, curr_c + 2):
+                    cell = ws.cell(row=3, column=c)
+                    cell.fill = h3_fill
+                    cell.font = font_h3
+                    cell.alignment = align_center
+                    cell.border = self.border_thin
+            else:
+                cell = ws.cell(row=3, column=curr_c, value="")
+                cell.fill = h3_fill
+                cell.border = self.border_thin
+            curr_c += span
+
+        for c_name, (start_c, is_num, e_obj) in elig_col_map.items():
+            if is_num:
+                format_range(ws, start_c, start_c + 4, 2, c_name, font_h2, h2_fill)
+                sub_labels = ["<", "=", ">", "Value / Range", "Unit"]
+                for i, sub_lab in enumerate(sub_labels):
+                    cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
+                    cell.fill = h3_fill
+                    cell.font = font_h3
+                    cell.alignment = align_center
+                    cell.border = self.border_thin
+            else:
+                format_range(ws, start_c, start_c, 2, c_name, font_h2, h2_fill)
+                cell = ws.cell(row=3, column=start_c, value="Status / Condition")
+                cell.fill = h3_fill
+                cell.font = font_h3
+                cell.alignment = align_center
+                cell.border = self.border_thin
+
+        format_range(ws, pop_start_col, pop_start_col, 2, "Race / Ethnicity", font_h2, h2_fill)
+        cell = ws.cell(row=3, column=pop_start_col, value="")
+        cell.fill = h3_fill
+        cell.border = self.border_thin
+
+        format_range(ws, pop_start_col + 1, pop_start_col + 1, 2, "Gender", font_h2, h2_fill)
+        cell = ws.cell(row=3, column=pop_start_col + 1, value="")
+        cell.fill = h3_fill
+        cell.border = self.border_thin
+
+        format_range(ws, pop_start_col + 2, pop_start_col + 3, 2, "Timepoint", font_h2, h2_fill)
+        ws.cell(row=3, column=pop_start_col + 2, value="Value")
+        ws.cell(row=3, column=pop_start_col + 3, value="Unit")
+        for c in range(pop_start_col + 2, pop_start_col + 4):
+            cell = ws.cell(row=3, column=c)
+            cell.fill = h3_fill
+            cell.font = font_h3
+            cell.alignment = align_center
+            cell.border = self.border_thin
+
+        for p_name, start_c in out_col_map.items():
+            format_range(ws, start_c, start_c + 3, 2, p_name, font_h2, h2_fill)
+            sub_labels = ["Value / Mean / Events", "SD / %", "Change", "Unit"]
+            for i, sub_lab in enumerate(sub_labels):
+                cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
+                cell.fill = h3_fill
+                cell.font = font_h3
+                cell.alignment = align_center
+                cell.border = self.border_thin
+
+        s = self.data.study
+        arm_strata = {a.arm_id: set() for a in self.data.arms}
+
+        for o in self.data.outcomes:
+            if o.arm_id in arm_strata:
+                r = o.race or "Overall"
+                g = "Overall"
+                tp_v = o.timepoint_value or ("0" if s.duration_value else "")
+                tp_u = o.timepoint_unit or (s.duration_unit or "")
+                arm_strata[o.arm_id].add((r, g, tp_v, tp_u))
+
+        current_row = 4
+        is_even = False
+
+        for a in self.data.arms:
+            strata_list = sorted(list(arm_strata.get(a.arm_id, set())))
+            if not strata_list:
+                strata_list = [
+                    ("Overall", "Overall", "0", s.duration_unit or "weeks"),
+                    ("Overall", "Overall", str(s.duration_value or ""), s.duration_unit or "weeks")
+                ]
+
+            for (race_val, gender_val, tp_v, tp_u) in strata_list:
+                is_even = not is_even
+                row_fill = zebra_fill if is_even else None
+
+                ws.cell(row=current_row, column=1, value=s.study_id)
+                ws.cell(row=current_row, column=2, value=a.arm_name)
+                ws.cell(row=current_row, column=3, value=a.intervention_type)
+                ws.cell(row=current_row, column=4, value=f"{a.dose_value or ''} {a.dose_unit or ''}".strip())
+                ws.cell(row=current_row, column=5, value=f"{a.frequency_number or ''} {a.frequency_unit or ''}".strip())
+                ws.cell(row=current_row, column=6, value=s.study_phase)
+                ws.cell(row=current_row, column=7, value=s.duration_value)
+                ws.cell(row=current_row, column=8, value=s.duration_unit)
+                ws.cell(row=current_row, column=9, value=s.total_sample_size)
+                ws.cell(row=current_row, column=10, value=a.sample_size_analyzed or a.sample_size_allocated)
+
+                for c_name, (start_c, is_num, e_obj) in elig_col_map.items():
+                    if is_num:
+                        ws.cell(row=current_row, column=start_c, value=e_obj.less_than)
+                        ws.cell(row=current_row, column=start_c + 1, value=e_obj.equal)
+                        ws.cell(row=current_row, column=start_c + 2, value=e_obj.greater_than)
+                        v_str = f"{e_obj.min_value} – {e_obj.max_value}" if e_obj.between else e_obj.value
+                        ws.cell(row=current_row, column=start_c + 3, value=v_str)
+                        ws.cell(row=current_row, column=start_c + 4, value=e_obj.unit)
+                    else:
+                        cat_status = f"{e_obj.criterion_type.title()} ({'Prohibited' if e_obj.criterion_type == 'exclusion' else 'Required'})"
+                        ws.cell(row=current_row, column=start_c, value=cat_status)
+
+                ws.cell(row=current_row, column=pop_start_col, value=race_val)
+                ws.cell(row=current_row, column=pop_start_col + 1, value=gender_val)
+                ws.cell(row=current_row, column=pop_start_col + 2, value=tp_v)
+                ws.cell(row=current_row, column=pop_start_col + 3, value=tp_u)
+
+                for p_name, start_c in out_col_map.items():
+                    matched_o = None
+                    for o in self.data.outcomes:
+                        if (o.arm_id == a.arm_id and 
+                            o.parameter_name.strip() == p_name and
+                            (o.race or "Overall") == race_val and
+                            (o.timepoint_value or "") == tp_v):
+                            matched_o = o
+                            break
+
+                    if matched_o:
+                        m_val = matched_o.mean if matched_o.mean is not None else (matched_o.events if matched_o.events is not None else matched_o.percentage)
+                        sd_val = matched_o.sd if matched_o.sd is not None else (matched_o.percentage if matched_o.mean is not None else None)
+                        ws.cell(row=current_row, column=start_c, value=m_val)
+                        ws.cell(row=current_row, column=start_c + 1, value=sd_val)
+                        ws.cell(row=current_row, column=start_c + 2, value=matched_o.change_value)
+                        ws.cell(row=current_row, column=start_c + 3, value=matched_o.unit)
+
+                ws.row_dimensions[current_row].height = 20
+                for c in range(1, total_cols + 1):
+                    cell = ws.cell(row=current_row, column=c)
+                    cell.font = font_data
+                    cell.border = self.border_thin
+                    if row_fill:
+                        cell.fill = row_fill
+                    if c in [1, 2, 6] or c in [sc for sc, is_n, _ in elig_col_map.values() if not is_n]:
+                        cell.alignment = align_left
+                    else:
+                        cell.alignment = align_center
+
+                current_row += 1
+
+        ws.freeze_panes = "A4"
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                val_str = str(cell.value or "")
+                if len(val_str) > max_len:
+                    max_len = len(val_str)
+            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 38)
 
     def _build_studies_sheet(self):
         ws = self.wb.create_sheet(title="Studies")

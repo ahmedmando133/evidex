@@ -16,9 +16,9 @@ from src.extractor import RCTExtractor
 from src.exporter import ExcelTrialExporter
 
 
-def process_pdf(pdf_file, api_key="", model_choice="Gemini 3.8 Flash (Deep Academic Extraction - Recommended)"):
+def process_pdf(pdf_file, api_key="", model_choice="Google Gemini 3.8 Flash (Ultra-Fast Flagship - Recommended)"):
     if pdf_file is None:
-        return None, None, "⚠️ **Please upload a clinical trial PDF file to begin extraction.**", None, None, None
+        return None, None, "⚠️ **Please upload a clinical trial PDF file to begin extraction.**", None, None, None, None
 
     pdf_path = pdf_file.name if hasattr(pdf_file, "name") else str(pdf_file)
     if hasattr(pdf_file, "orig_name") and pdf_file.orig_name:
@@ -30,7 +30,7 @@ def process_pdf(pdf_file, api_key="", model_choice="Gemini 3.8 Flash (Deep Acade
     json_path = f"outputs/{base_name}_extracted.json"
     os.makedirs("outputs", exist_ok=True)
 
-    # Map model choice
+    # 1. Map Model Choice
     model_name = None
     if "3.8" in model_choice:
         model_name = "gemini-3.8-flash"
@@ -40,33 +40,64 @@ def process_pdf(pdf_file, api_key="", model_choice="Gemini 3.8 Flash (Deep Acade
         model_name = "gemini-1.5-pro"
     elif "1.5 Flash" in model_choice:
         model_name = "gemini-1.5-flash"
+    elif "Sonnet" in model_choice or "sonnet" in model_choice.lower():
+        model_name = "claude-3-5-sonnet-20241022"
+    elif "Haiku" in model_choice or "haiku" in model_choice.lower():
+        model_name = "claude-3-5-haiku-20241022"
     elif "GPT-4o-mini" in model_choice:
         model_name = "gpt-4o-mini"
     elif "GPT-4o" in model_choice:
         model_name = "gpt-4o"
+    elif "Local" in model_choice:
+        model_name = "smart-local"
 
-    # 1. Run extraction (Deep AI if api_key provided, else Smart Local Engine)
+    # 2. Run Multi-Stage AI Extraction
     extractor = RCTExtractor(pdf_path, api_key=api_key.strip() if api_key else None, model_name=model_name)
     data = extractor.extract_all()
 
-    # 2. Export to Excel
+    # 3. Export to Standardized Multi-Sheet Excel (with Master_Extraction_Sheet as Sheet 1)
     exporter = ExcelTrialExporter(data)
     saved_excel = exporter.export(excel_path)
 
-    # 3. Export to JSON
+    # 4. Export to JSON
     with open(json_path, "w", encoding="utf-8") as jf:
         json.dump(data.model_dump(), jf, indent=2, default=str)
 
-    # 4. Create summary KPIs in Radiant Modern HTML
+    # 5. Build KPI Summary & AI Diagnostics
     engine_badge = extractor.engine_used
     inc_count = sum(1 for e in data.eligibility if e.criterion_type == "inclusion")
     exc_count = sum(1 for e in data.eligibility if e.criterion_type == "exclusion")
     arms_str = ", ".join([a.arm_name for a in data.arms])
     total_sample_str = f"{data.study.total_sample_size:,}" if data.study.total_sample_size else "Reported in Arms"
 
+    # AI Status Banner
+    diagnostic_banner = ""
+    if extractor.api_error:
+        diagnostic_banner = f"""
+        <div style="background: rgba(239, 68, 68, 0.12); border: 1.5px solid #EF4444; border-radius: 14px; padding: 14px 20px; margin-bottom: 20px; color: #FCA5A5;">
+          <div style="font-weight: 800; font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <span>⚠️</span> AI Provider Diagnostic Notice
+          </div>
+          <div style="font-size: 12px; color: #FEE2E2; font-family: monospace;">
+            {extractor.api_error}
+          </div>
+          <div style="font-size: 11px; color: #94A3B8; margin-top: 6px;">
+            The analysis seamlessly completed using the Smart Pharmacology Local Engine to guarantee zero workflow interruption. Please check your provider account quota or billing limits.
+          </div>
+        </div>
+        """
+    elif extractor.api_key:
+        diagnostic_banner = f"""
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1.5px solid #10B981; border-radius: 14px; padding: 10px 18px; margin-bottom: 20px; color: #34D399; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <span>✨</span> Verified AI Cloud Execution: Successfully ran multi-stage clinical extraction using <u>{engine_badge}</u>.
+        </div>
+        """
+
     summary_md = f"""
 <div style="background: linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(30,27,75,0.94) 50%, rgba(15,23,42,0.92) 100%); border: 1px solid rgba(99,102,241,0.35); border-radius: 20px; padding: 26px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.15); margin-bottom: 24px; backdrop-filter: blur(20px);">
   
+  {diagnostic_banner}
+
   <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 18px; margin-bottom: 20px; gap: 14px;">
     <div style="max-width: 75%;">
       <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;">
@@ -136,24 +167,44 @@ def process_pdf(pdf_file, api_key="", model_choice="Gemini 3.8 Flash (Deep Acade
 </div>
 """
 
-    # 5. Preview DataFrames
-    # Outcomes DataFrame
-    outcomes_rows = []
-    for o in data.outcomes:
-        outcomes_rows.append({
-            "Parameter": o.parameter_name,
-            "Arm": o.arm_id,
-            "Race/Subgroup": o.race or "Overall",
-            "Sample Size (N)": o.sample_size,
-            "Timepoint": f"{o.timepoint_value} {o.timepoint_unit}".strip(),
-            "Mean / Events": o.mean if o.mean is not None else o.events,
-            "SD / %": o.sd if o.sd is not None else o.percentage,
-            "Unit": o.unit or "",
-            "Page": o.source_page
-        })
-    df_outcomes = pd.DataFrame(outcomes_rows)
+    # 6. Preview DataFrames:
+    # A. Master Extraction Sheet Preview (Sheet 1 from Excel)
+    try:
+        raw_master = pd.read_excel(saved_excel, sheet_name="Master_Extraction_Sheet", header=None)
+        r2 = raw_master.iloc[1].fillna('')
+        r3 = raw_master.iloc[2].fillna('')
+        r2_filled = []
+        last_r2 = ''
+        for idx, val in enumerate(r2):
+            if val != '':
+                last_r2 = str(val)
+                r2_filled.append(last_r2)
+            else:
+                if r3.iloc[idx] != '':
+                    r2_filled.append(last_r2)
+                else:
+                    r2_filled.append('')
 
-    # Variables Matrix preview (Horizontal Cross-Arm Comparison)
+        composite_cols = []
+        for c in range(raw_master.shape[1]):
+            g = str(r2_filled[c]).strip()
+            sub = str(r3.iloc[c]).strip()
+            if g and sub:
+                col_title = f"{g} ({sub})"
+            elif g:
+                col_title = g
+            else:
+                col_title = f"Col_{c+1}"
+            composite_cols.append(col_title)
+
+        df_master = raw_master.iloc[3:].copy()
+        df_master.columns = composite_cols
+        df_master.reset_index(drop=True, inplace=True)
+    except Exception as m_err:
+        print(f"[!] Master sheet preview notice: {m_err}")
+        df_master = pd.DataFrame()
+
+    # B. Variables Matrix preview (Horizontal Cross-Arm Comparison)
     arms_dict = {a.arm_id: a for a in data.arms}
     rows_map = {}
     for o in data.outcomes:
@@ -171,10 +222,25 @@ def process_pdf(pdf_file, api_key="", model_choice="Gemini 3.8 Flash (Deep Acade
             }
         val = o.mean if o.mean is not None else (o.percentage if o.percentage is not None else o.change_value)
         rows_map[k][cname] = val
-
     df_matrix = pd.DataFrame(list(rows_map.values()))
 
-    # Eligibility Criteria Matrix preview
+    # C. Granular Outcomes DataFrame
+    outcomes_rows = []
+    for o in data.outcomes:
+        outcomes_rows.append({
+            "Parameter": o.parameter_name,
+            "Arm": o.arm_id,
+            "Race/Subgroup": o.race or "Overall",
+            "Sample Size (N)": o.sample_size,
+            "Timepoint": f"{o.timepoint_value} {o.timepoint_unit}".strip(),
+            "Mean / Events": o.mean if o.mean is not None else o.events,
+            "SD / %": o.sd if o.sd is not None else o.percentage,
+            "Unit": o.unit or "",
+            "Page": o.source_page
+        })
+    df_outcomes = pd.DataFrame(outcomes_rows)
+
+    # D. Eligibility Criteria Matrix preview
     elig_rows = []
     for e in data.eligibility:
         op_display = ""
@@ -212,7 +278,7 @@ def process_pdf(pdf_file, api_key="", model_choice="Gemini 3.8 Flash (Deep Acade
         })
     df_elig = pd.DataFrame(elig_rows)
 
-    return saved_excel, json_path, summary_md, df_matrix, df_outcomes, df_elig
+    return saved_excel, json_path, summary_md, df_master, df_matrix, df_outcomes, df_elig
 
 
 def build_app():
@@ -373,23 +439,25 @@ def build_app():
 
                 gr.Markdown("### ⚡ Step 2: Configure AI Engine")
                 model_selector = gr.Dropdown(
-                    label="Deep AI Model Architecture",
+                    label="🤖 Deep AI Model Selection (BYOK)",
                     choices=[
-                        "Gemini 3.8 Flash (Deep Academic Extraction - Recommended)",
-                        "Gemini 2.0 Flash (Ultra-Fast Flagship)",
-                        "Gemini 1.5 Pro (Deep Clinical Reasoning)",
-                        "Gemini 1.5 Flash",
+                        "Google Gemini 3.8 Flash (Ultra-Fast Flagship - Recommended)",
+                        "Google Gemini 2.0 Flash",
+                        "Google Gemini 1.5 Pro (Deep Clinical Reasoning)",
+                        "Google Gemini 1.5 Flash",
+                        "Anthropic Claude 3.5 Sonnet (Benchmark Methodological Extraction)",
+                        "Anthropic Claude 3.5 Haiku",
                         "OpenAI GPT-4o (Clinical Reasoning)",
                         "OpenAI GPT-4o-mini",
-                        "Auto-Select Best Model"
+                        "Smart Local Engine (Offline / Reference Benchmark)"
                     ],
-                    value="Gemini 3.8 Flash (Deep Academic Extraction - Recommended)"
+                    value="Google Gemini 3.8 Flash (Ultra-Fast Flagship - Recommended)"
                 )
 
                 api_key_input = gr.Textbox(
-                    label="🔑 AI API Key (Google Gemini or OpenAI)",
+                    label="🔑 AI Provider API Key (Google AI Studio / Anthropic / OpenAI)",
                     type="password",
-                    placeholder="Paste GEMINI_API_KEY or OPENAI_API_KEY (Leave blank for Smart Local Engine)"
+                    placeholder="Enter GEMINI_API_KEY (AIza...), ANTHROPIC_API_KEY (sk-ant...), or OPENAI_API_KEY (sk-...)"
                 )
 
                 extract_btn = gr.Button("🚀 Run Academic Deep Extraction", variant="primary", elem_classes=["extract-btn"])
@@ -411,6 +479,13 @@ def build_app():
                 )
 
                 with gr.Tabs():
+                    with gr.TabItem("📑 Master Extraction Sheet (Sheet 1 - Consolidated)"):
+                        master_table = gr.DataFrame(
+                            label="Consolidated Multi-Level Mining Table (Replicating Benchmark)",
+                            interactive=False,
+                            wrap=True
+                        )
+
                     with gr.TabItem("📊 Variables Matrix (Cross-Arm Comparison)"):
                         matrix_table = gr.DataFrame(
                             label="Horizontal Cross-Trial Variable Matrix",
@@ -435,7 +510,7 @@ def build_app():
         extract_btn.click(
             fn=process_pdf,
             inputs=[pdf_input, api_key_input, model_selector],
-            outputs=[excel_output, json_output, summary_output, matrix_table, outcomes_table, eligibility_table]
+            outputs=[excel_output, json_output, summary_output, master_table, matrix_table, outcomes_table, eligibility_table]
         )
 
         gr.HTML(
