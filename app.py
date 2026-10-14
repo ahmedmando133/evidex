@@ -6,19 +6,40 @@ Upload any RCT PDF and get a standardized, audit-verified multi-sheet Excel and 
 import os
 import sys
 import json
-import pandas as pd
+import functools
+from typing import Any
 import gradio as gr
 
 # Ensure workspace root in path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.extractor import RCTExtractor
-from src.exporter import ExcelTrialExporter
+
+@functools.lru_cache(maxsize=4)
+def get_cached_schema(path: str = "schema/extraction_schema.json") -> dict:
+    """Cached accessor for extraction schema JSON to eliminate startup disk I/O."""
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 
-def deduplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+@functools.lru_cache(maxsize=4)
+def get_cached_data_dictionary(path: str = "schema/data_dictionary.csv") -> list:
+    """Cached accessor for standardized data dictionary CSV to eliminate startup disk I/O."""
+    import csv
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8", newline="") as f:
+            return list(csv.DictReader(f))
+    return []
+
+
+def deduplicate_columns(df) -> Any:
     """Guarantees 100% unique column names and cleans NaN values for Gradio JSON serialization."""
-    if df is None or df.empty:
+    if df is None:
+        import pandas as pd
+        return pd.DataFrame()
+    import pandas as pd
+    if not isinstance(df, pd.DataFrame) or df.empty:
         return pd.DataFrame()
     seen = {}
     new_cols = []
@@ -35,9 +56,20 @@ def deduplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
     return res.infer_objects(copy=False).fillna("")
 
 
-def process_pdf(pdf_file, api_key="", model_choice="Google Gemini 3.8 Flash (Ultra-Fast Flagship - Recommended)"):
+def process_pdf(
+    pdf_file, 
+    api_key="", 
+    model_choice="⚡ Auto-Detect & Select Best Available Model (Recommended)",
+    progress=gr.Progress(track_tqdm=True)
+):
+    import pandas as pd
+    from src.extractor import RCTExtractor
+    from src.exporter import ExcelTrialExporter
+
     if pdf_file is None:
         return None, None, "⚠️ **Please upload a clinical trial PDF file to begin extraction.**", pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+    progress(0.05, desc="📄 Parsing clinical trial document & discovering layout...")
 
     try:
         pdf_path = pdf_file.name if hasattr(pdf_file, "name") else str(pdf_file)
@@ -77,10 +109,12 @@ def process_pdf(pdf_file, api_key="", model_choice="Google Gemini 3.8 Flash (Ult
             model_name = "smart-local"
 
         # 2. Run Multi-Stage AI Extraction
+        progress(0.20, desc="🔍 Extracting protocol, randomized arms, eligibility & clinical outcomes...")
         extractor = RCTExtractor(pdf_path, api_key=api_key.strip() if api_key else None, model_name=model_name)
         data = extractor.extract_all()
 
         # 3. Export to Standardized Multi-Sheet Excel (with Master_Extraction_Sheet as Sheet 1)
+        progress(0.80, desc="📑 Generating standardized multi-sheet Excel & JSON archives...")
         exporter = ExcelTrialExporter(data)
         saved_excel = exporter.export(excel_path)
 
@@ -303,11 +337,13 @@ def process_pdf(pdf_file, api_key="", model_choice="Google Gemini 3.8 Flash (Ult
             })
         df_elig = pd.DataFrame(elig_rows)
 
-        # Clean all DataFrames to have strictly unique column headers and filled NaNs
-        df_master = deduplicate_columns(df_master)
-        df_matrix = deduplicate_columns(df_matrix)
-        df_outcomes = deduplicate_columns(df_outcomes)
-        df_elig = deduplicate_columns(df_elig)
+        # Clean all DataFrames to have strictly unique column headers and bounded preview rows for snappy DOM rendering
+        progress(0.95, desc="📊 Rendering interactive dashboard previews...")
+        MAX_PREVIEW_ROWS = 150
+        df_master = deduplicate_columns(df_master.head(MAX_PREVIEW_ROWS) if not df_master.empty else df_master)
+        df_matrix = deduplicate_columns(df_matrix.head(MAX_PREVIEW_ROWS) if not df_matrix.empty else df_matrix)
+        df_outcomes = deduplicate_columns(df_outcomes.head(MAX_PREVIEW_ROWS) if not df_outcomes.empty else df_outcomes)
+        df_elig = deduplicate_columns(df_elig.head(MAX_PREVIEW_ROWS) if not df_elig.empty else df_elig)
 
         return saved_excel, json_path, summary_md, df_master, df_matrix, df_outcomes, df_elig
 
@@ -535,34 +571,39 @@ def build_app():
                         master_table = gr.DataFrame(
                             label="Consolidated Multi-Level Mining Table (Replicating Benchmark)",
                             interactive=False,
-                            wrap=True
+                            wrap=True,
+                            max_height=500
                         )
 
                     with gr.TabItem("📊 Variables Matrix (Cross-Arm Comparison)"):
                         matrix_table = gr.DataFrame(
                             label="Horizontal Cross-Trial Variable Matrix",
                             interactive=False,
-                            wrap=True
+                            wrap=True,
+                            max_height=500
                         )
 
                     with gr.TabItem("📋 Granular Outcomes (100% Sample Sizes)"):
                         outcomes_table = gr.DataFrame(
                             label="Normalized Clinical & Safety Outcomes",
                             interactive=False,
-                            wrap=True
+                            wrap=True,
+                            max_height=500
                         )
 
                     with gr.TabItem("⚖️ Eligibility Criteria Matrix (4 Operators)"):
                         eligibility_table = gr.DataFrame(
                             label="Atomic Inclusion & Exclusion Criteria",
                             interactive=False,
-                            wrap=True
+                            wrap=True,
+                            max_height=500
                         )
 
         extract_btn.click(
             fn=process_pdf,
             inputs=[pdf_input, api_key_input, model_selector],
-            outputs=[excel_output, json_output, summary_output, master_table, matrix_table, outcomes_table, eligibility_table]
+            outputs=[excel_output, json_output, summary_output, master_table, matrix_table, outcomes_table, eligibility_table],
+            show_progress="full"
         )
 
         gr.HTML(
@@ -580,5 +621,6 @@ def build_app():
 
 if __name__ == "__main__":
     demo = build_app()
+    demo.queue(default_concurrency_limit=5, max_size=25)
     port = int(os.environ.get("PORT", 7860))
     demo.launch(server_name="0.0.0.0", server_port=port)

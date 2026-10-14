@@ -10,6 +10,9 @@ ENTITY_SHEET_ORDER = ["Studies", "Arms", "Eligibility", "Outcomes", "Provenance"
 ENTITY_JSON_KEY = {e: e.lower() for e in ENTITY_SHEET_ORDER}
 
 
+import functools
+
+
 def read_pdf_pages(path: str | Path) -> list[str]:
     """Return one string per page using pypdf (pure-python, always available)."""
     from pypdf import PdfReader
@@ -21,8 +24,9 @@ def read_pdf_pages(path: str | Path) -> list[str]:
     return pages
 
 
+@functools.lru_cache(maxsize=32)
 def read_data_dictionary(path: str | Path) -> list[dict[str, str]]:
-    with open(path, encoding="utf-8", newline="") as fh:
+    with open(str(path), encoding="utf-8", newline="") as fh:
         return list(csv.DictReader(fh))
 
 
@@ -32,8 +36,9 @@ def write_json(data: Any, path: str | Path) -> None:
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+@functools.lru_cache(maxsize=32)
 def read_json(path: str | Path) -> Any:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return json.loads(Path(str(path)).read_text(encoding="utf-8"))
 
 
 def write_csv(rows: Iterable[dict[str, Any]], path: str | Path, fieldnames=None) -> None:
