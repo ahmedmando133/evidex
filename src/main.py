@@ -23,7 +23,7 @@ from src.extractor import RCTExtractor
 from src.exporter import ExcelTrialExporter
 
 
-def process_single_trial(pdf_path: str, output_path: str):
+def process_single_trial(pdf_path: str, output_path: str, api_key: str = None, model: str = None):
     print(f"\n=======================================================")
     print(f"[*] Processing Clinical Trial PDF: {pdf_path}")
     print(f"=======================================================")
@@ -33,10 +33,11 @@ def process_single_trial(pdf_path: str, output_path: str):
         return
 
     # 1. Extraction
-    extractor = RCTExtractor(pdf_path)
+    extractor = RCTExtractor(pdf_path, api_key=api_key, model_name=model)
     data = extractor.extract_all()
     
     print(f"[+] Extraction complete for Study ID: {data.study.study_id}")
+    print(f"    - Engine Used: {extractor.engine_used}")
     print(f"    - Title: {data.study.title[:60]}...")
     print(f"    - Treatment Arms: {len(data.arms)}")
     print(f"    - Eligibility Criteria: {len(data.eligibility)}")
@@ -54,9 +55,11 @@ def process_single_trial(pdf_path: str, output_path: str):
 
 def main():
     parser = argparse.ArgumentParser(description="AI-assisted Structured RCT Extraction Pipeline")
-    parser.add_argument("--input", type=str, help="Path to input trial PDF")
-    parser.add_argument("--output", type=str, help="Path to output Excel file")
-    parser.add_argument("--all", action="store_true", help="Process all PDFs in data/raw/")
+    parser.add_argument("--input", type=str, help="Path to input trial PDF (e.g. data/raw/my_trial.pdf)")
+    parser.add_argument("--output", type=str, help="Path to output Excel file (optional)")
+    parser.add_argument("--api-key", type=str, help="AI API Key (optional, Gemini/OpenAI/Claude)")
+    parser.add_argument("--model", type=str, help="AI Model name (optional, e.g. gemini-2.0-flash, gpt-4o)")
+    parser.add_argument("--all", action="store_true", help="Process all default benchmark PDFs in data/raw/")
     args = parser.parse_args()
 
     if args.all or (not args.input and not args.output):
@@ -67,10 +70,10 @@ def main():
             ("data/raw/Dabagliflozin.pdf", "outputs/dapagliflozin_structured_extracted.xlsx")
         ]
         for pdf, out in trials:
-            process_single_trial(pdf, out)
+            process_single_trial(pdf, out, api_key=args.api_key, model=args.model)
     else:
         out = args.output or f"outputs/{os.path.splitext(os.path.basename(args.input))[0]}_extracted.xlsx"
-        process_single_trial(args.input, out)
+        process_single_trial(args.input, out, api_key=args.api_key, model=args.model)
 
 
 if __name__ == "__main__":
