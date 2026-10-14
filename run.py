@@ -104,6 +104,9 @@ def cmd_analyze_cohort(args) -> None:
     print(f"[*] Total Patients: {res['total_patients']:,}")
     print(f"[*] Master Excel: {res['excel_path']}")
     print(f"[*] Executive Dashboard: {res['html_path']}")
+    print(f"[*] Individual Stage-1 Excels: {len(res.get('individual_excels', []))} workbooks")
+    if res.get("zip_path"):
+        print(f"[*] Stage-1 Excels Bundle (.zip): {res['zip_path']}")
     print("=" * 50 + "\n")
 
 

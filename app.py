@@ -837,6 +837,8 @@ def process_cohort(
             pred_df,
             res["excel_path"],
             res["html_path"],
+            res.get("zip_path"),
+            res.get("individual_excels", []),
             gr.update(choices=drug_choices, value=drug_choices[0]),
             gr.update(choices=all_param_choices, value=all_param_choices[0]),
             init_sim_html
@@ -872,6 +874,8 @@ def process_cohort(
             pd.DataFrame(),
             None,
             None,
+            None,
+            [],
             gr.update(),
             gr.update(),
             ""
@@ -1182,6 +1186,11 @@ def build_app():
                         gr.Markdown("### 📥 Step 3: Executive Deliverables")
                         cohort_excel_file = gr.File(label="📊 Master Comparison & Meta-Analysis Excel (.xlsx)")
                         cohort_html_file = gr.File(label="🌐 Standalone Interactive HTML Executive Dashboard (.html)")
+                        cohort_zip_file = gr.File(label="📦 Download All Individual Trial Excels Bundle (.zip)")
+                        cohort_individual_files = gr.File(
+                            label="📑 Individual Stage-1 Extracted Excels (Download Individually)",
+                            file_count="multiple"
+                        )
 
                     # Right Column: Visual Dashboard, Meta-Analysis & Virtual Trial Simulator
                     with gr.Column(scale=2):
@@ -1326,6 +1335,8 @@ def build_app():
                         cohort_pred_table,
                         cohort_excel_file,
                         cohort_html_file,
+                        cohort_zip_file,
+                        cohort_individual_files,
                         sim_drug_dropdown,
                         sim_param_dropdown,
                         sim_result_html

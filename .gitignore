@@ -11,6 +11,8 @@ outputs/*.xlsx
 outputs/*.json
 outputs/*.csv
 outputs/pdf_text/
+outputs/*.zip
+outputs/analysis/
 !outputs/orlistat_structured_extracted.xlsx
 !outputs/metformin_structured_extracted.xlsx
 !outputs/semaglutide_structured_extracted.xlsx

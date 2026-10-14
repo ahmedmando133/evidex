@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 import math
+import shutil
 import openpyxl
 
 from src.meta_predictive import (
@@ -170,3 +171,96 @@ def test_mixed_metabolic_cohort_pipeline():
     assert "Trial Divergence & How Evidex Adapted" in html_text
     assert "Cross-Drug / Cross-Trial Domain Comparison & Ranking" in html_text
     assert "Multi-Drug Shared-Indication Cohort" in html_text
+
+    # Check Stage-1 Packaging
+    assert res.get("zip_path") is not None
+    assert Path(res["zip_path"]).exists()
+    assert len(res.get("individual_excels", [])) == 4
+    import zipfile
+    with zipfile.ZipFile(res["zip_path"], "r") as zf:
+        namelist = zf.namelist()
+        assert any("DPP_Metformin" in n for n in namelist)
+        assert any("Orlistat" in n for n in namelist)
+
+
+def test_raw_pdf_cohort_stage1_enforcement(tmp_path, monkeypatch):
+    """
+    Strict Pipeline Law Verification:
+    Ensures that when a raw PDF is present in a cohort folder:
+    1. Stage-1 extraction runs and produces <study_id>_structured_extracted.xlsx in extracted_trials/
+    2. Stage-1 workbook is copied to root outputs/
+    3. All individual Stage-1 workbooks are zipped into a .zip archive accessible via zip_path
+    4. Individual excels are exposed in individual_excels list
+    """
+    from unittest.mock import MagicMock
+    from src.models import (
+        StudyMetadata, TreatmentArm, EligibilityCriterion,
+        OutcomeMeasurement, ExtractedTrialData
+    )
+    import zipfile
+
+    cohort_name = "Test_Raw_PDF_Cohort"
+    cohort_dir = Path("analysis") / cohort_name
+    cohort_dir.mkdir(parents=True, exist_ok=True)
+    pdf_dummy = cohort_dir / "Trial_Alpha_Raw.pdf"
+    pdf_dummy.write_text("Mock PDF content for testing Stage-1 extraction")
+
+    mock_data = ExtractedTrialData(
+        study=StudyMetadata(
+            study_id="Trial_Alpha_Raw",
+            title="Trial Alpha Random Controlled Trial",
+            total_sample_size=200,
+            study_phase="Phase 3"
+        ),
+        arms=[
+            TreatmentArm(study_id="Trial_Alpha_Raw", arm_id="ARM1", arm_name="Drug A 500mg", sample_size_allocated=100, intervention_type="experimental", dose_value=500.0, dose_unit="mg"),
+            TreatmentArm(study_id="Trial_Alpha_Raw", arm_id="ARM2", arm_name="Placebo", sample_size_allocated=100, intervention_type="placebo")
+        ],
+        eligibility=[
+            EligibilityCriterion(study_id="Trial_Alpha_Raw", criterion_id="CRIT1", criterion_type="inclusion", domain="Age", criterion_name="age_min", value=18.0, unit="years", greater_than=">", equal="=")
+        ],
+        outcomes=[
+            OutcomeMeasurement(study_id="Trial_Alpha_Raw", outcome_id="OUT1", parameter_name="HbA1c", arm_id="ARM1", timepoint_value="12", timepoint_unit="weeks", mean=-0.8, sd=0.3, sample_size=100, unit="%"),
+            OutcomeMeasurement(study_id="Trial_Alpha_Raw", outcome_id="OUT2", parameter_name="HbA1c", arm_id="ARM2", timepoint_value="12", timepoint_unit="weeks", mean=-0.1, sd=0.3, sample_size=100, unit="%")
+        ]
+    )
+
+    mock_extractor_cls = MagicMock()
+    mock_extractor_instance = MagicMock()
+    mock_extractor_instance.extract_all.return_value = mock_data
+    mock_extractor_cls.return_value = mock_extractor_instance
+
+    monkeypatch.setattr("src.extractor.RCTExtractor", mock_extractor_cls)
+
+    pipeline = None
+    try:
+        pipeline = ActiveIngredientCohortPipeline(cohort_name=cohort_name, force_extract=True)
+        res = pipeline.run_all()
+
+        # 1. Verify individual Excel generated in extracted_trials/
+        extracted_excel = pipeline.extracted_trials_dir / "Trial_Alpha_Raw_structured_extracted.xlsx"
+        assert extracted_excel.exists()
+
+        # 2. Verify individual Excel copied to root outputs/
+        root_excel = Path("outputs") / "Trial_Alpha_Raw_structured_extracted.xlsx"
+        assert root_excel.exists()
+
+        # 3. Verify .zip bundle generated and contains the workbook
+        assert res["zip_path"] is not None
+        zip_path = Path(res["zip_path"])
+        assert zip_path.exists()
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            assert "Trial_Alpha_Raw_structured_extracted.xlsx" in zf.namelist()
+
+        # 4. Verify individual_excels list
+        assert len(res["individual_excels"]) >= 1
+        assert any("Trial_Alpha_Raw_structured_extracted.xlsx" in p for p in res["individual_excels"])
+    finally:
+        shutil.rmtree(cohort_dir, ignore_errors=True)
+        if pipeline and pipeline.output_dir.exists():
+            shutil.rmtree(pipeline.output_dir, ignore_errors=True)
+        if (Path("outputs") / "Trial_Alpha_Raw_structured_extracted.xlsx").exists():
+            (Path("outputs") / "Trial_Alpha_Raw_structured_extracted.xlsx").unlink(missing_ok=True)
+        if (Path("outputs") / f"{cohort_name}_Individual_Stage1_Trial_Excels.zip").exists():
+            (Path("outputs") / f"{cohort_name}_Individual_Stage1_Trial_Excels.zip").unlink(missing_ok=True)
+

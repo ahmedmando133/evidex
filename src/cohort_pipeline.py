@@ -80,7 +80,8 @@ class ActiveIngredientCohortPipeline:
         base_dir: str = "analysis",
         output_dir: str = "outputs/analysis",
         api_key: Optional[str] = None,
-        model_name: Optional[str] = None
+        model_name: Optional[str] = None,
+        force_extract: bool = False
     ):
         self.cohort_name = cohort_name.strip()
         self.input_dir = Path(base_dir) / self.cohort_name
@@ -88,6 +89,9 @@ class ActiveIngredientCohortPipeline:
         self.extracted_trials_dir = self.output_dir / "extracted_trials"
         self.api_key = api_key
         self.model_name = model_name
+        self.force_extract = force_extract
+        self.zip_path: Optional[Path] = None
+        self.individual_excels: List[str] = []
 
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.extracted_trials_dir.mkdir(parents=True, exist_ok=True)
@@ -135,6 +139,9 @@ class ActiveIngredientCohortPipeline:
 
         if self.studies_df.empty or self.arms_df.empty or self.outcomes_df.empty:
             raise ValueError(f"No valid clinical trial data found in {self.input_dir} or {self.extracted_trials_dir}.")
+
+        # Step 2C: Package all Stage-1 individual trial Excels into .zip bundle
+        self._package_individual_excels()
 
         # Step 2B: Automatic Cohort Mode Detection & Regimen Normalization
         if progress_callback:
@@ -187,6 +194,8 @@ class ActiveIngredientCohortPipeline:
             "total_patients": int(self.studies_df["total_sample_size"].sum()) if "total_sample_size" in self.studies_df else 0,
             "excel_path": str(excel_path),
             "html_path": str(html_path),
+            "zip_path": str(self.zip_path) if self.zip_path else None,
+            "individual_excels": self.individual_excels,
             "meta_results": self.meta_results,
             "domain_meta_results": self.domain_meta_results,
             "sucra_rankings": self.sucra_rankings,
@@ -201,14 +210,24 @@ class ActiveIngredientCohortPipeline:
     # --- STEP 1: AUTO-EXTRACTION ---
 
     def _auto_extract_raw_pdfs(self, progress_callback=None):
-        """Scans input folder for PDFs and pre-extracted Excels, running Phase 1 on PDFs as needed."""
+        """
+        Scans input folder for PDFs and pre-extracted Excels, running Stage-1 on PDFs as needed.
+        STRICT LAW: Every raw PDF must be extracted individually to a full 7-sheet Stage-1
+        workbook (<study_id>_structured_extracted.xlsx) inside extracted_trials/ AND copied to outputs/.
+        """
+        out_root = Path("outputs")
+        out_root.mkdir(parents=True, exist_ok=True)
+
         # Check for pre-existing .xlsx files placed directly in the cohort folder
         for xf in self.input_dir.glob("*.xlsx"):
             target_dst = self.extracted_trials_dir / xf.name
             if not target_dst.exists():
                 shutil.copy2(xf, target_dst)
+            root_dst = out_root / xf.name
+            if not root_dst.exists():
+                shutil.copy2(xf, root_dst)
 
-        pdf_files = list(self.input_dir.glob("*.pdf"))
+        pdf_files = sorted(list(self.input_dir.glob("*.pdf")))
         total_pdfs = len(pdf_files)
 
         if total_pdfs > 0:
@@ -218,21 +237,41 @@ class ActiveIngredientCohortPipeline:
             for idx, pdf_path in enumerate(pdf_files):
                 clean_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', pdf_path.stem).strip('_')
                 out_excel = self.extracted_trials_dir / f"{clean_stem}_structured_extracted.xlsx"
+                root_excel = out_root / f"{clean_stem}_structured_extracted.xlsx"
+                out_json = self.extracted_trials_dir / f"{clean_stem}_extracted.json"
+                root_json = out_root / f"{clean_stem}_extracted.json"
 
-                if not out_excel.exists():
+                needs_extraction = (
+                    getattr(self, "force_extract", False)
+                    or not out_excel.exists()
+                    or pdf_path.stat().st_mtime > out_excel.stat().st_mtime
+                )
+
+                if needs_extraction:
                     if progress_callback:
                         progress_callback(
                             0.05 + (0.30 * (idx / total_pdfs)),
-                            f"🩺 Auto-extracting trial {idx+1}/{total_pdfs}: {pdf_path.name}..."
+                            f"🩺 Running Stage-1 Extraction on Trial {idx+1}/{total_pdfs}: {pdf_path.name}..."
                         )
-                    print(f"[*] Auto-extracting cohort PDF: {pdf_path.name} -> {out_excel.name}...")
+                    print(f"[*] Stage-1 auto-extracting cohort PDF: {pdf_path.name} -> {out_excel.name}...")
                     try:
                         ext = RCTExtractor(str(pdf_path), api_key=self.api_key, model_name=self.model_name)
                         trial_data = ext.extract_all()
                         exporter = ExcelTrialExporter(trial_data)
                         exporter.export(str(out_excel))
+
+                        # Save structured JSON
+                        with open(out_json, "w", encoding="utf-8") as jf:
+                            json.dump(trial_data.model_dump(), jf, indent=2, default=str)
+
+                        # Copy to root outputs/ so it is always preserved exactly like Stage 1
+                        shutil.copy2(out_excel, root_excel)
+                        shutil.copy2(out_json, root_json)
                     except Exception as e:
                         print(f"[!] Warning: failed extracting {pdf_path.name}: {e}")
+                else:
+                    if not root_excel.exists():
+                        shutil.copy2(out_excel, root_excel)
 
     # --- STEP 2: INGESTION & HARMONIZATION ---
 
@@ -310,6 +349,41 @@ class ActiveIngredientCohortPipeline:
             self.outcomes_df = pd.DataFrame(harmonized_list)
         if val_list:
             self.validation_df = pd.concat(val_list, ignore_index=True)
+
+    def _package_individual_excels(self):
+        """
+        Packages all individual Stage-1 extracted Excel workbooks into a .zip archive
+        saved to outputs/analysis/<Cohort_Name>/<Cohort_Name>_Individual_Stage1_Trial_Excels.zip
+        and also copied to outputs/ so it is readily accessible everywhere.
+        """
+        import zipfile
+
+        self.individual_excels = [str(p.resolve()) for p in self.trial_workbooks]
+
+        if not self.trial_workbooks:
+            self.zip_path = None
+            return
+
+        clean_cohort = re.sub(r'[^a-zA-Z0-9_\-]', '_', self.cohort_name).strip('_') or "Cohort"
+        zip_filename = f"{clean_cohort}_Individual_Stage1_Trial_Excels.zip"
+        zip_out = self.output_dir / zip_filename
+        root_zip = Path("outputs") / zip_filename
+
+        with zipfile.ZipFile(zip_out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for wb_path in self.trial_workbooks:
+                if wb_path.exists():
+                    zf.write(wb_path, arcname=wb_path.name)
+                    # Also include json if available
+                    json_name = wb_path.stem.replace("_structured_extracted", "_extracted") + ".json"
+                    json_path = wb_path.with_name(json_name)
+                    if json_path.exists():
+                        zf.write(json_path, arcname=json_path.name)
+
+        try:
+            shutil.copy2(zip_out, root_zip)
+            self.zip_path = root_zip
+        except Exception:
+            self.zip_path = zip_out
 
     # --- STEP 2B: COHORT MODE DETECTION & REGIMEN NORMALIZATION ---
 
