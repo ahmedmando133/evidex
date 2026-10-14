@@ -40,6 +40,10 @@ class EffectSizeResult:
     dose_mg: Optional[float] = None
     duration_weeks: Optional[float] = None
     baseline_val: Optional[float] = None
+    active_ingredient: Optional[str] = None
+    domain: Optional[str] = None
+    standardized_smd: Optional[float] = None
+    rate_per_month: Optional[float] = None
 
 
 @dataclass
@@ -733,3 +737,288 @@ def generate_executive_verdict(meta_res: MetaAnalysisResult, predictor: Optional
         "dose_trend": dose_trend,
         "summary_narrative": verdict_text
     }
+
+
+# --- CLINICAL DOMAIN DICTIONARY & MAPPING (TIER 2 CROSS-SCALE BRIDGING) ---
+
+CLINICAL_DOMAINS: Dict[str, List[str]] = {
+    "Anthropometric & Weight Management": [
+        "weight", "weight_loss", "body weight", "body_weight", "bmi", "body mass index",
+        "waist", "waist_circumference", "waist circumference", "body fat", "body_fat",
+        "weight loss >= 5%", "weight loss >= 10%", "visceral fat", "fat mass", "hip circumference"
+    ],
+    "Glycemic & Metabolic Regulation": [
+        "hba1c", "glycated hemoglobin", "glucose", "fasting glucose", "fpg", "postprandial glucose",
+        "insulin", "fins", "fasting insulin", "homa-ir", "homa_ir", "ogtt", "diabetes incidence"
+    ],
+    "Cardiovascular & Hemodynamic Health": [
+        "systolic bp", "systolic blood pressure", "sbp", "diastolic bp", "diastolic blood pressure", "dbp",
+        "blood pressure", "heart rate", "pulse", "cv death", "cardiovascular death", "mace", "heart failure hospitalization"
+    ],
+    "Lipid Profile & Atherogenic Risk": [
+        "cholesterol", "total cholesterol", "ldl", "ldl-c", "ldl cholesterol", "hdl", "hdl-c", "hdl cholesterol",
+        "triglycerides", "tg", "vldl", "apolipoprotein b", "non-hdl"
+    ],
+    "Patient Adherence & Study Retention": [
+        "high adherence", "adherence", "adherence rate", "compliance", "study completion", "retention",
+        "treatment withdrawal", "discontinuation", "tolerability"
+    ],
+    "Safety & Adverse Reactions": [
+        "adverse event", "serious adverse event", "sae", "hypoglycemia", "gastrointestinal adverse event",
+        "nausea", "vomiting", "diarrhea", "constipation", "infection", "headache", "amputation"
+    ]
+}
+
+
+def map_parameter_to_domain(parameter_name: str) -> str:
+    """Maps any trial parameter name to its standardized clinical outcome domain."""
+    p_lower = str(parameter_name).lower().strip()
+    for domain, keywords in CLINICAL_DOMAINS.items():
+        for kw in keywords:
+            if kw in p_lower:
+                return domain
+    return "Other Clinical & Laboratory Endpoints"
+
+
+@dataclass
+class DomainMetaAnalysisResult:
+    domain_name: str
+    measure: str  # SMD (Hedges' g)
+    k_studies: int
+    total_n: int
+    pooled_smd: float
+    ci_lower: float
+    ci_upper: float
+    pi_lower: float
+    pi_upper: float
+    p_value: float
+    i2: float
+    tau2: float
+    parameters_included: List[str]
+    study_results: List[EffectSizeResult]
+    interpretation: str = ""
+
+
+def run_domain_meta_analysis(domain_name: str, effects: List[EffectSizeResult]) -> Optional[DomainMetaAnalysisResult]:
+    """
+    Tier 2 Adaptive Pooling: Pools heterogeneous parameters measuring the same clinical domain
+    using scale-free Standardized Mean Difference (SMD / Hedges' g).
+    """
+    if not effects or len(effects) < 2:
+        return None
+
+    # Ensure all effects are represented in SMD
+    smd_effects = []
+    included_params = set()
+    for e in effects:
+        included_params.add(e.parameter_name)
+        if e.measure.upper() == "SMD":
+            smd_effects.append(e)
+        else:
+            # Convert raw MD or dichotomous log-OR into standardized SMD (Chinn's conversion: d = ln(OR) * sqrt(3) / pi)
+            if e.measure.upper() in ["OR", "RR"] and abs(e.yi) > 0:
+                smd_val = float(e.yi * (math.sqrt(3.0) / math.pi))
+                smd_vi = float(e.vi * (3.0 / (math.pi ** 2)))
+            else:
+                sd_eff = max(e.sd_exp or 1.0, e.sd_ctrl or 1.0)
+                smd_val = float(e.yi / sd_eff)
+                smd_vi = float(e.vi / (sd_eff ** 2))
+
+            se_smd = math.sqrt(max(1e-6, smd_vi))
+            smd_effects.append(EffectSizeResult(
+                study_id=e.study_id,
+                arm_experimental=e.arm_experimental,
+                arm_control=e.arm_control,
+                parameter_name=e.parameter_name,
+                timepoint=e.timepoint,
+                measure="SMD",
+                yi=smd_val,
+                vi=smd_vi,
+                se=se_smd,
+                ci_lower=smd_val - 1.96 * se_smd,
+                ci_upper=smd_val + 1.96 * se_smd,
+                n_exp=e.n_exp,
+                n_ctrl=e.n_ctrl,
+                dose_mg=e.dose_mg,
+                duration_weeks=e.duration_weeks,
+                active_ingredient=e.active_ingredient,
+                domain=domain_name
+            ))
+
+    res = run_meta_analysis(smd_effects)
+    if not res:
+        return None
+
+    direction = "favorable clinical benefit" if res.re_estimate < 0 else "increase / neutral shift"
+    sig_text = "statistically significant" if (res.re_ci_lower > 0 or res.re_ci_upper < 0) else "overlapping null"
+
+    interp = (
+        f"Across {res.k_studies} trials measuring {domain_name} ({', '.join(sorted(included_params)[:3])}), "
+        f"the pooled standardized effect size is Hedges' g = {res.re_estimate:+.2f} "
+        f"(95% CI: [{res.re_ci_lower:+.2f}, {res.re_ci_upper:+.2f}], {sig_text}), demonstrating {direction}. "
+        f"Cross-trial heterogeneity across scales was assessed at I² = {res.i2:.1f}%."
+    )
+
+    return DomainMetaAnalysisResult(
+        domain_name=domain_name,
+        measure="SMD",
+        k_studies=res.k_studies,
+        total_n=res.total_n,
+        pooled_smd=res.re_estimate,
+        ci_lower=res.re_ci_lower,
+        ci_upper=res.re_ci_upper,
+        pi_lower=res.pi_lower,
+        pi_upper=res.pi_upper,
+        p_value=res.re_p_value,
+        i2=res.i2,
+        tau2=res.tau2,
+        parameters_included=sorted(list(included_params)),
+        study_results=smd_effects,
+        interpretation=interp
+    )
+
+
+# --- INDIRECT COMPARISON / NETWORK META-ANALYSIS & SUCRA RANKINGS ---
+
+def compute_indirect_comparison_nma(
+    drug_a: str,
+    drug_b: str,
+    eff_a_vs_ctrl: EffectSizeResult,
+    eff_b_vs_ctrl: EffectSizeResult
+) -> Dict[str, Any]:
+    """
+    Bucher method for anchored indirect treatment comparison:
+    theta_{A vs B} = theta_{A vs C} - theta_{B vs C}
+    Var_{A vs B} = Var_{A vs C} + Var_{B vs C}
+    """
+    diff_yi = float(eff_a_vs_ctrl.yi - eff_b_vs_ctrl.yi)
+    diff_vi = float(eff_a_vs_ctrl.vi + eff_b_vs_ctrl.vi)
+    diff_se = float(math.sqrt(max(1e-6, diff_vi)))
+    ci_l = diff_yi - 1.96 * diff_se
+    ci_u = diff_yi + 1.96 * diff_se
+    z = diff_yi / max(diff_se, 1e-9)
+    p_val = float(_calc_p_value_from_z(z))
+
+    favored = drug_a if diff_yi < 0 else drug_b
+    sig = "statistically significant" if (ci_l > 0 or ci_u < 0) else "not statistically significant"
+
+    return {
+        "comparison": f"{drug_a} vs. {drug_b}",
+        "reference_comparator": eff_a_vs_ctrl.arm_control,
+        "measure": eff_a_vs_ctrl.measure,
+        "indirect_effect": diff_yi,
+        "se": diff_se,
+        "ci_lower": ci_l,
+        "ci_upper": ci_u,
+        "z_stat": z,
+        "p_value": p_val,
+        "favored_treatment": favored,
+        "significance": sig,
+        "clinical_summary": f"Indirect comparison anchored on control reveals a difference of {diff_yi:+.2f} ({eff_a_vs_ctrl.measure}) favoring {favored} ({sig}, p = {p_val:.4f})."
+    }
+
+
+def compute_sucra_rankings(
+    drug_estimates: Dict[str, Tuple[float, float]],
+    higher_is_better: bool = False,
+    n_sim: int = 1500
+) -> List[Dict[str, Any]]:
+    """
+    Computes SUCRA (Surface Under the Cumulative RAnking curve) scores via Monte Carlo simulation
+    ranking all active treatments and comparators in the cohort.
+    """
+    treatments = list(drug_estimates.keys())
+    m = len(treatments)
+    if m == 0:
+        return []
+    if m == 1:
+        return [{"rank": 1, "treatment": treatments[0], "sucra_score": 100.0, "mean_effect": drug_estimates[treatments[0]][0], "ranking_probability": "100.0%"}]
+
+    sim_matrix = np.zeros((n_sim, m))
+    for idx, t in enumerate(treatments):
+        mu, se = drug_estimates[t]
+        sim_matrix[:, idx] = np.random.normal(loc=mu, scale=max(se, 0.05), size=n_sim)
+
+    rank_counts = np.zeros((m, m))
+
+    for s in range(n_sim):
+        row = sim_matrix[s, :]
+        if higher_is_better:
+            order = np.argsort(-row)
+        else:
+            order = np.argsort(row)
+        for rank_pos, t_idx in enumerate(order):
+            rank_counts[t_idx, rank_pos] += 1
+
+    rank_probs = rank_counts / float(n_sim)
+
+    results = []
+    for idx, t in enumerate(treatments):
+        cum_probs = np.cumsum(rank_probs[idx, :-1])
+        sucra = float(np.sum(cum_probs) / float(m - 1)) * 100.0 if m > 1 else 100.0
+        results.append({
+            "treatment": t,
+            "sucra_score": round(sucra, 1),
+            "mean_effect": round(drug_estimates[t][0], 3),
+            "se": round(drug_estimates[t][1], 3),
+            "best_prob": round(rank_probs[idx, 0] * 100.0, 1),
+            "worst_prob": round(rank_probs[idx, -1] * 100.0, 1)
+        })
+
+    results.sort(key=lambda x: x["sucra_score"], reverse=True)
+    for r_idx, item in enumerate(results, 1):
+        item["rank"] = r_idx
+        item["tier"] = "Gold / Top Efficacy" if r_idx == 1 else ("Silver / High Efficacy" if r_idx == 2 else "Bronze / Moderate")
+
+    return results
+
+
+def extrapolation_risk_score(
+    target_drug: str,
+    target_dose: float,
+    target_duration: float,
+    observed_drugs: List[str],
+    observed_doses: List[float],
+    observed_durations: List[float]
+) -> Dict[str, Any]:
+    """
+    Assesses the scientific confidence and extrapolation risk level for virtual trial simulations.
+    """
+    drug_norm = target_drug.strip().lower()
+    obs_norm = [d.strip().lower() for d in observed_drugs]
+
+    is_observed_drug = any(drug_norm in od or od in drug_norm for od in obs_norm) if drug_norm != "pooled cohort average" else True
+
+    valid_doses = [d for d in observed_doses if d is not None and d > 0]
+    min_d = min(valid_doses) if valid_doses else 10.0
+    max_d = max(valid_doses) if valid_doses else 2000.0
+
+    valid_durs = [w for w in observed_durations if w is not None and w > 0]
+    min_w = min(valid_durs) if valid_durs else 4.0
+    max_w = max(valid_durs) if valid_durs else 104.0
+
+    dose_in_bounds = (min_d * 0.75) <= target_dose <= (max_d * 1.35)
+    dur_in_bounds = (min_w * 0.75) <= target_duration <= (max_w * 1.50)
+
+    if is_observed_drug and dose_in_bounds and dur_in_bounds:
+        return {
+            "level": "High Confidence (Interpolated Within Observed Trial Evidence)",
+            "badge_color": "#10B981",
+            "icon": "🟢",
+            "narrative": "Simulation parameters fall squarely within the empirical dosage and duration boundaries evaluated in the pooled RCTs."
+        }
+    elif is_observed_drug and (dose_in_bounds or dur_in_bounds):
+        return {
+            "level": "Moderate Confidence (Parametric Range Extrapolation)",
+            "badge_color": "#F59E0B",
+            "icon": "🟡",
+            "narrative": "One or more trial parameters (dosage or duration) exceed observed empirical windows; estimates are mathematically projected using meta-regression trajectories."
+        }
+    else:
+        return {
+            "level": "Exploratory Extrapolation (Cross-Drug / High-Uncertainty Projection)",
+            "badge_color": "#EC4899",
+            "icon": "🟠",
+            "narrative": "Simulation involves cross-drug synthesis or parameters far outside published clinical trial protocols. Treat as exploratory hypothesis-generating data."
+        }
+

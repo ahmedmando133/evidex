@@ -396,10 +396,19 @@ def refresh_cohorts():
     return gr.update(choices=choices, value=choices[0] if choices else None)
 
 
-def simulate_virtual_trial_ui(mode: str, cohort_dropdown: str, custom_drug_name: str, param_name: str, dose: float, duration: float) -> str:
-    """Interactively simulates a virtual trial for a specified dose and duration."""
+def simulate_virtual_trial_ui(
+    mode: str,
+    cohort_dropdown: str,
+    custom_drug_name: str,
+    drug_profile: str = "Pooled Cohort Average",
+    param_name: str = "HbA1c",
+    dose: float = 1000.0,
+    duration: float = 24.0
+) -> str:
+    """Interactively simulates a virtual trial for a specified dose and duration with extrapolation risk rating."""
     import html
     from src.cohort_pipeline import ActiveIngredientCohortPipeline
+    from src.meta_predictive import extrapolation_risk_score
 
     if "Upload" in str(mode) and custom_drug_name:
         cohort_name = custom_drug_name.strip()
@@ -415,11 +424,15 @@ def simulate_virtual_trial_ui(mode: str, cohort_dropdown: str, custom_drug_name:
         except Exception as e:
             return f"<div style='background: rgba(239,68,68,0.1); border: 1px solid #EF4444; border-radius: 10px; color: #FCA5A5; padding: 14px;'>Simulation Notice: {html.escape(str(e))}</div>"
 
-    predictor = pipeline.predictors.get(param_name)
+    clean_param = param_name
+    if param_name and param_name.startswith("Domain: "):
+        clean_param = param_name.replace("Domain: ", "").strip()
+
+    predictor = pipeline.predictors.get(clean_param)
     if not predictor:
         if pipeline.predictors:
-            param_name = list(pipeline.predictors.keys())[0]
-            predictor = pipeline.predictors[param_name]
+            clean_param = list(pipeline.predictors.keys())[0]
+            predictor = pipeline.predictors[clean_param]
         else:
             return f"<div style='background: rgba(245,158,11,0.1); border: 1px solid #F59E0B; border-radius: 10px; color: #FBBF24; padding: 14px;'>No meta-regression models available for parameter: {html.escape(str(param_name))}</div>"
 
@@ -429,15 +442,33 @@ def simulate_virtual_trial_ui(mode: str, cohort_dropdown: str, custom_drug_name:
     direction_color = "#10B981" if proj.predicted_effect < 0 else "#38BDF8"
     signif_badge = "Statistically Significant" if (proj.ci_lower > 0 or proj.ci_upper < 0) else "Neutral / Overlapping Null"
 
+    # Extrapolation confidence assessment
+    obs_drugs = getattr(pipeline, "normalized_drugs", [])
+    obs_doses = [float(e.dose_mg) for e in predictor.effects if e.dose_mg is not None]
+    obs_durs = [float(e.duration_weeks) for e in predictor.effects if e.duration_weeks is not None]
+    risk_info = extrapolation_risk_score(
+        target_drug=drug_profile or "Pooled Cohort Average",
+        target_dose=float(dose),
+        target_duration=float(duration),
+        observed_drugs=obs_drugs,
+        observed_doses=obs_doses,
+        observed_durations=obs_durs
+    )
+
     return f"""
     <div style="background: linear-gradient(135deg, rgba(30,27,75,0.92) 0%, rgba(15,23,42,0.96) 100%); border: 1.5px solid #EC4899; border-radius: 18px; padding: 22px; margin: 15px 0; box-shadow: 0 10px 30px rgba(236,72,153,0.25);">
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px; gap: 10px;">
         <div>
-          <span style="background: #EC4899; color: white; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">
-            Virtual Trial Simulation Result
-          </span>
-          <h3 style="color: #F8FAFC; margin: 6px 0 0 0; font-size: 20px; font-weight: 800;">
-            {param_name} @ {dose:.0f} mg/day for {duration:.0f} weeks
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="background: #EC4899; color: white; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">
+              Virtual Trial Simulation
+            </span>
+            <span style="background: {risk_info['badge_color']}22; border: 1px solid {risk_info['badge_color']}; color: #FFFFFF; padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+              {risk_info['icon']} {risk_info['level']}
+            </span>
+          </div>
+          <h3 style="color: #F8FAFC; margin: 0; font-size: 20px; font-weight: 800;">
+            {clean_param} • {drug_profile or 'Pooled Cohort'} @ {dose:.0f} mg/day ({duration:.0f} weeks)
           </h3>
         </div>
         <div>
@@ -463,8 +494,11 @@ def simulate_virtual_trial_ui(mode: str, cohort_dropdown: str, custom_drug_name:
           <div style="color: #FBBF24; font-size: 11px; font-weight: 600;">Extrapolated Range for Future Trial</div>
         </div>
       </div>
-      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 14px; font-size: 13px; color: #E2E8F0; line-height: 1.5;">
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 14px; font-size: 13px; color: #E2E8F0; line-height: 1.5; margin-bottom: 8px;">
         💡 <strong>Executive Clinical Takeaway:</strong> {proj.clinical_interpretation}
+      </div>
+      <div style="font-size: 12px; color: #94A3B8; padding-left: 4px;">
+        🔬 <strong>Methodological Risk Notice:</strong> {risk_info['narrative']}
       </div>
     </div>
     """
@@ -536,8 +570,15 @@ def process_cohort(
         res = pipeline.run_all(progress_callback=progress)
         CACHED_COHORT_PIPELINES[cohort_name] = pipeline
 
-        # Extract Primary Verdict
-        primary_param = list(res["meta_results"].keys())[0] if res["meta_results"] else "Overall Cohort"
+        # Extract Cohort Mode & Primary Verdict
+        cohort_mode = res.get("cohort_mode", "Homogeneous Single-Drug Cohort")
+        badge_color = res.get("cohort_badge_color", "#6366F1")
+        badge_icon = res.get("cohort_badge_icon", "🧬")
+        badge_desc = res.get("cohort_mode_description", "")
+
+        primary_param = list(res["meta_results"].keys())[0] if res["meta_results"] else (
+            list(res.get("domain_meta_results", {}).keys())[0] if res.get("domain_meta_results") else "Overall Cohort"
+        )
         verdict = res["verdicts"].get(primary_param, {})
 
         # Build Top Executive Verdict & KPI Card
@@ -557,6 +598,9 @@ def process_cohort(
               <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                 <span style="background: linear-gradient(90deg, #10B981, #059669); color: white; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: 0 0 12px rgba(16,185,129,0.5);">
                   {evidence_badge}
+                </span>
+                <span style="background: {badge_color}25; border: 1.5px solid {badge_color}; color: #FFFFFF; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+                  {badge_icon} {cohort_mode}
                 </span>
                 <span style="background: rgba(99,102,241,0.15); border: 1px solid #6366F1; color: #A5B4FC; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
                   Cohort: {cohort_name}
@@ -605,6 +649,54 @@ def process_cohort(
         </div>
         """
 
+        # Build Divergence Disclosure Panel
+        div_rep = res.get("divergence_report", {})
+        df_reg = div_rep.get("df_regimens", pd.DataFrame())
+        df_dur = div_rep.get("df_durations", pd.DataFrame())
+        exact_p = div_rep.get("exact_parameters", [])
+        dom_p = div_rep.get("domain_bridged_parameters", [])
+        uniq_map = div_rep.get("unique_parameters_by_trial", {})
+        narrative = div_rep.get("adaptation_narrative", "")
+
+        reg_html = df_reg.to_html(classes="comp-table", index=False) if not df_reg.empty else "<p style='color: #94A3B8;'>No regimen divergence.</p>"
+        dur_html = df_dur.to_html(classes="comp-table", index=False) if not df_dur.empty else "<p style='color: #94A3B8;'>No duration divergence.</p>"
+
+        uniq_items = []
+        for s_id, u_list in uniq_map.items():
+            uniq_str = ", ".join(u_list) if u_list else "All parameters overlap with other trials"
+            uniq_items.append(f"<li><strong style='color: #F8FAFC;'>{s_id}:</strong> {uniq_str}</li>")
+        uniq_html = f"<ul style='margin: 6px 0 0 18px; padding: 0; color: #cbd5e1; font-size: 12px;'>{''.join(uniq_items)}</ul>"
+
+        cohort_divergence_html = f"""
+        <div style="background: rgba(30, 41, 59, 0.75); border: 1.5px solid {badge_color}66; border-radius: 16px; padding: 22px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">🔍 Trial Differences & Adaptation Disclosure</h3>
+            <span style="background: {badge_color}33; color: #FFFFFF; border: 1px solid {badge_color}; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px;">
+              {badge_icon} {cohort_mode}
+            </span>
+          </div>
+          <p style="color: #E2E8F0; font-size: 13px; line-height: 1.6; margin-bottom: 16px; background: rgba(15,23,42,0.6); padding: 12px 16px; border-radius: 10px; border-left: 3px solid {badge_color};">
+            <strong>Methodological Adaptation Strategy:</strong> {narrative}
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div style="background: rgba(15,23,42,0.5); padding: 12px; border-radius: 10px; overflow-x: auto;">
+              <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">1. Regimen & Treatment Arms</h4>
+              {reg_html}
+            </div>
+            <div style="background: rgba(15,23,42,0.5); padding: 12px; border-radius: 10px; overflow-x: auto;">
+              <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">2. Follow-Up Horizons & Populations</h4>
+              {dur_html}
+            </div>
+          </div>
+          <div style="background: rgba(15,23,42,0.6); padding: 14px 16px; border-radius: 10px; font-size: 13px;">
+            <h4 style="color: #94A3B8; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">3. Endpoint Categorization Across Trials</h4>
+            <div style="margin-bottom: 6px;"><strong style="color: #38BDF8;">Exact Harmonized Parameters (Tier 1):</strong> {', '.join(exact_p) if exact_p else 'None (Cross-scale domain bridging applied)'}</div>
+            <div style="margin-bottom: 6px;"><strong style="color: #A78BFA;">Clinical Domains Bridged (Tier 2 SMD):</strong> {', '.join(dom_p) if dom_p else 'None'}</div>
+            <div><strong style="color: #F59E0B;">Trial-Specific Unique Parameters:</strong> {uniq_html}</div>
+          </div>
+        </div>
+        """
+
         # DataFrames: Comparison & Heatmap
         comp_df = deduplicate_columns(res["comparison_matrix"])
         heatmap_df = deduplicate_columns(res["heatmap"])
@@ -631,12 +723,46 @@ def process_cohort(
             })
         meta_df = deduplicate_columns(pd.DataFrame(meta_rows))
 
+        # Domain-Level Bridging DataFrame
+        domain_rows = []
+        for d_name, d_res in res.get("domain_meta_results", {}).items():
+            domain_rows.append({
+                "Clinical Domain": d_name,
+                "Measure": d_res.measure,
+                "Trials (k)": d_res.k_studies,
+                "Patients (N)": d_res.total_n,
+                "Pooled SMD (Hedges' g)": round(d_res.pooled_smd, 3),
+                "95% CI Lower": round(d_res.ci_lower, 3),
+                "95% CI Upper": round(d_res.ci_upper, 3),
+                "95% Prediction Interval": f"[{d_res.pi_lower:+.2f}, {d_res.pi_upper:+.2f}]",
+                "p-value": round(d_res.p_value, 5),
+                "I² (%)": f"{d_res.i2:.1f}%",
+                "Bridged Endpoints": ", ".join(d_res.parameters_included),
+                "Clinical Interpretation": d_res.interpretation
+            })
+        domain_df = deduplicate_columns(pd.DataFrame(domain_rows))
+
+        # SUCRA Hierarchy DataFrame
+        sucra_rows = []
+        for s in res.get("sucra_rankings", []):
+            sucra_rows.append({
+                "Rank": f"#{s.get('rank', 1)}",
+                "Treatment / Drug": s.get("treatment", ""),
+                "SUCRA Score (%)": f"{s.get('sucra_score', 0):.1f}%",
+                "Mean Standardized Effect": round(s.get("mean_effect", 0.0), 3),
+                "Standard Error": round(s.get("se", 0.0), 3),
+                "Best Treatment Prob (%)": f"{s.get('best_prob', 0):.1f}%",
+                "Worst Treatment Prob (%)": f"{s.get('worst_prob', 0):.1f}%",
+                "Efficacy Tier": s.get("tier", "Evaluated")
+            })
+        sucra_df = deduplicate_columns(pd.DataFrame(sucra_rows))
+
         # Predictive Projections Matrix
         pred_rows = []
         for p_name, pred_eng in pipeline.predictors.items():
             for proj in pred_eng.generate_dose_duration_grid():
                 pred_rows.append({
-                    "Parameter": p_name,
+                    "Parameter / Domain": p_name,
                     "Dose (mg)": proj.dose_mg,
                     "Duration (wks)": proj.duration_weeks,
                     "Projected Effect": round(proj.predicted_effect, 3),
@@ -656,22 +782,39 @@ def process_cohort(
                 content = hf.read()
                 forest_html = f"<iframe srcdoc='{html.escape(content)}' style='width: 100%; height: 550px; border: none; border-radius: 14px;'></iframe>"
 
-        # Initial Simulation Result for Primary Parameter
-        init_sim_html = simulate_virtual_trial_ui(ingest_mode, cohort_dropdown, custom_drug_name, primary_param, dose=1000.0, duration=24.0)
+        # Drug and parameter choices
+        drug_choices = ["Pooled Cohort Average"] + sorted(list(res.get("divergence_report", {}).get("normalized_drugs", [])))
+        exact_p_list = list(res["meta_results"].keys())
+        dom_p_list = [f"Domain: {d}" for d in res.get("domain_meta_results", {}).keys()]
+        all_param_choices = exact_p_list + dom_p_list
+        if not all_param_choices:
+            all_param_choices = ["HbA1c"]
 
-        # Param choices
-        param_choices = list(res["meta_results"].keys()) if res["meta_results"] else [primary_param]
+        # Initial Simulation Result for Primary Parameter
+        init_sim_html = simulate_virtual_trial_ui(
+            mode=ingest_mode,
+            cohort_dropdown=cohort_dropdown,
+            custom_drug_name=custom_drug_name,
+            drug_profile="Pooled Cohort Average",
+            param_name=all_param_choices[0],
+            dose=1000.0,
+            duration=24.0
+        )
 
         return (
             verdict_html,
+            cohort_divergence_html,
             comp_df,
             heatmap_df,
             forest_html,
             meta_df,
+            domain_df,
+            sucra_df,
             pred_df,
             res["excel_path"],
             res["html_path"],
-            gr.update(choices=param_choices, value=param_choices[0]),
+            gr.update(choices=drug_choices, value=drug_choices[0]),
+            gr.update(choices=all_param_choices, value=all_param_choices[0]),
             init_sim_html
         )
 
@@ -692,7 +835,22 @@ def process_cohort(
         </div>
         """
         import pandas as pd
-        return err_card, pd.DataFrame(), pd.DataFrame(), "", pd.DataFrame(), pd.DataFrame(), None, None, gr.update(), ""
+        return (
+            err_card,
+            "",
+            pd.DataFrame(),
+            pd.DataFrame(),
+            "",
+            pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
+            None,
+            None,
+            gr.update(),
+            gr.update(),
+            ""
+        )
 
 
 def build_app():
@@ -1027,6 +1185,11 @@ def build_app():
                                     max_height=450
                                 )
 
+                            with gr.TabItem("🔍 Trial Differences & Adaptation Disclosure"):
+                                cohort_divergence_html = gr.HTML(
+                                    label="Explicit Divergence & Methodological Adaptation Strategy"
+                                )
+
                             with gr.TabItem("📊 metafor-Grade Meta-Analysis"):
                                 cohort_forest_html = gr.HTML(
                                     label="Forest & Funnel Plots"
@@ -1038,14 +1201,34 @@ def build_app():
                                     max_height=450
                                 )
 
+                            with gr.TabItem("🌐 Domain Bridging & SUCRA Rankings"):
+                                cohort_sucra_table = gr.DataFrame(
+                                    label="🏆 SUCRA Comparative Treatment Rankings & Hierarchy (Monte Carlo Simulation)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=320
+                                )
+                                cohort_domain_table = gr.DataFrame(
+                                    label="Clinical Domain Bridging (Scale-Free SMD Hedges' g across Divergent Scales)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=380
+                                )
+
                             with gr.TabItem("🔮 Virtual Trial Simulator & Projections"):
                                 gr.Markdown("#### 🧬 Simulate Hypothetical & Future Trial Outcomes (Multivariate WLS Meta-Regression)")
                                 with gr.Row():
+                                    sim_drug_dropdown = gr.Dropdown(
+                                        label="Active Drug Profile",
+                                        choices=["Pooled Cohort Average"],
+                                        value="Pooled Cohort Average"
+                                    )
                                     sim_param_dropdown = gr.Dropdown(
-                                        label="Target Clinical Parameter",
+                                        label="Target Clinical Parameter / Domain",
                                         choices=["HbA1c", "Body Weight", "Systolic BP"],
                                         value="HbA1c"
                                     )
+                                with gr.Row():
                                     sim_dose_slider = gr.Slider(
                                         minimum=0,
                                         maximum=3000,
@@ -1065,7 +1248,7 @@ def build_app():
                                 sim_result_html = gr.HTML(
                                     """
                                     <div style="background: rgba(30,41,59,0.4); border: 1px dashed rgba(236,72,153,0.3); border-radius: 14px; padding: 20px; text-align: center; color: #94A3B8; margin: 10px 0;">
-                                      Adjust dosage & duration sliders above and click Simulate to project outcome with 95% Confidence & Prediction Intervals.
+                                      Adjust drug, dosage & duration sliders above and click Simulate to project outcome with 95% Confidence & Prediction Intervals and Extrapolation Risk Rating.
                                     </div>
                                     """
                                 )
@@ -1101,13 +1284,17 @@ def build_app():
                     ],
                     outputs=[
                         cohort_verdict_html,
+                        cohort_divergence_html,
                         cohort_comp_table,
                         cohort_heatmap_table,
                         cohort_forest_html,
                         cohort_meta_table,
+                        cohort_domain_table,
+                        cohort_sucra_table,
                         cohort_pred_table,
                         cohort_excel_file,
                         cohort_html_file,
+                        sim_drug_dropdown,
                         sim_param_dropdown,
                         sim_result_html
                     ],
@@ -1120,6 +1307,7 @@ def build_app():
                         cohort_mode_radio,
                         cohort_dropdown,
                         custom_drug_input,
+                        sim_drug_dropdown,
                         sim_param_dropdown,
                         sim_dose_slider,
                         sim_dur_slider
