@@ -3251,27 +3251,115 @@ def build_app():
                 <div class="header-content-inner">
                   <!-- 3D Ribbon Emblem -->
                   <div class="emblem-wrapper">
-                    <svg width="110" height="80" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 20px rgba(0, 245, 212, 0.45)) drop-shadow(0 0 30px rgba(168, 85, 247, 0.4));">
+                    <svg width="110" height="110" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 22px rgba(0, 245, 212, 0.50)) drop-shadow(0 0 35px rgba(168, 85, 247, 0.45));">
                       <defs>
-                        <linearGradient id="m_ribbon_left" x1="15%" y1="90%" x2="55%" y2="10%">
-                          <stop offset="0%" stop-color="#00F5D4"/>
-                          <stop offset="60%" stop-color="#00BBF9"/>
-                          <stop offset="100%" stop-color="#38BDF8"/>
-                        </linearGradient>
-                        <linearGradient id="m_ribbon_right" x1="45%" y1="10%" x2="85%" y2="90%">
-                          <stop offset="0%" stop-color="#38BDF8"/>
-                          <stop offset="35%" stop-color="#6366F1"/>
-                          <stop offset="75%" stop-color="#8B5CF6"/>
+                        <linearGradient id="m_main_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%"   stop-color="#00F5D4"/>
+                          <stop offset="30%"  stop-color="#00BBF9"/>
+                          <stop offset="65%"  stop-color="#4F8EF7"/>
                           <stop offset="100%" stop-color="#A855F7"/>
                         </linearGradient>
-                        <linearGradient id="m_ribbon_glow" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stop-color="#2DD4BF"/>
-                          <stop offset="100%" stop-color="#C084FC"/>
+                        <linearGradient id="hook_grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%"   stop-color="#00F5D4"/>
+                          <stop offset="50%"  stop-color="#67E8F9"/>
+                          <stop offset="100%" stop-color="#A855F7"/>
                         </linearGradient>
+                        <linearGradient id="m_body_fill" x1="10%" y1="0%" x2="90%" y2="100%">
+                          <stop offset="0%"   stop-color="#00F5D4" stop-opacity="0.08"/>
+                          <stop offset="50%"  stop-color="#4F8EF7" stop-opacity="0.04"/>
+                          <stop offset="100%" stop-color="#A855F7" stop-opacity="0.08"/>
+                        </linearGradient>
+                        <filter id="glow_outer" x="-40%" y="-40%" width="180%" height="180%">
+                          <feGaussianBlur stdDeviation="14" result="blur1"/>
+                          <feComposite in="SourceGraphic" in2="blur1" operator="over"/>
+                        </filter>
+                        <filter id="glow_core" x="-25%" y="-25%" width="150%" height="150%">
+                          <feGaussianBlur stdDeviation="6" result="blur2"/>
+                          <feComposite in="SourceGraphic" in2="blur2" operator="over"/>
+                        </filter>
+                        <filter id="glow_hook" x="-60%" y="-60%" width="220%" height="220%">
+                          <feGaussianBlur stdDeviation="8" result="blur3"/>
+                          <feComposite in="SourceGraphic" in2="blur3" operator="over"/>
+                        </filter>
+                        <clipPath id="logo_clip">
+                          <rect x="0" y="0" width="512" height="512" rx="80"/>
+                        </clipPath>
                       </defs>
-                      <path d="M 28 74 C 20 54 26 24 46 18 C 58 14 65 30 58 56" stroke="url(#m_ribbon_left)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                      <path d="M 62 56 C 55 30 62 14 74 18 C 94 24 100 54 92 74" stroke="url(#m_ribbon_right)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                      <path d="M 46 20 C 58 28 62 46 60 56" stroke="url(#m_ribbon_glow)" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.95"/>
+                      <!-- Decorative grid dots -->
+                      <g opacity="0.07">
+                        <circle cx="80"  cy="80"  r="2.5" fill="#00F5D4"/><circle cx="160" cy="80"  r="2.5" fill="#00F5D4"/>
+                        <circle cx="240" cy="80"  r="2.5" fill="#00F5D4"/><circle cx="320" cy="80"  r="2.5" fill="#00F5D4"/>
+                        <circle cx="400" cy="80"  r="2.5" fill="#00F5D4"/><circle cx="432" cy="80"  r="2.5" fill="#00F5D4"/>
+                        <circle cx="80"  cy="432" r="2.5" fill="#A855F7"/><circle cx="160" cy="432" r="2.5" fill="#A855F7"/>
+                        <circle cx="240" cy="432" r="2.5" fill="#A855F7"/><circle cx="320" cy="432" r="2.5" fill="#A855F7"/>
+                        <circle cx="400" cy="432" r="2.5" fill="#A855F7"/><circle cx="432" cy="432" r="2.5" fill="#A855F7"/>
+                      </g>
+                      <!-- Outer ambient glow layer -->
+                      <path d="M 102 390 L 102 148 L 256 295 L 410 148 L 410 390"
+                        stroke="#00F5D4" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"
+                        fill="none" opacity="0.18" filter="url(#glow_outer)"/>
+                      <path d="M 102 390 Q 88 420 78 432 Q 68 446 80 450 Q 94 454 108 440 Q 120 428 122 408"
+                        stroke="#00F5D4" stroke-width="20" stroke-linecap="round" fill="none" opacity="0.22" filter="url(#glow_outer)"/>
+                      <path d="M 410 390 Q 424 420 434 432 Q 444 446 432 450 Q 418 454 404 440 Q 392 428 390 408"
+                        stroke="#A855F7" stroke-width="20" stroke-linecap="round" fill="none" opacity="0.22" filter="url(#glow_outer)"/>
+                      <!-- M body shimmer fill -->
+                      <path d="M 102 390 L 102 148 L 256 295 L 410 148 L 410 390"
+                        stroke="none" fill="url(#m_body_fill)" stroke-linecap="round" stroke-linejoin="round"/>
+                      <!-- Main M stroke — neon gradient -->
+                      <path d="M 102 390 L 102 148 L 256 295 L 410 148 L 410 390"
+                        stroke="url(#m_main_grad)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"
+                        fill="none" filter="url(#glow_core)"/>
+                      <!-- White-hot inner highlight -->
+                      <path d="M 102 390 L 102 148 L 256 295 L 410 148 L 410 390"
+                        stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"
+                        fill="none" opacity="0.55"/>
+                      <!-- Extraction Hook — Bottom-Left -->
+                      <path d="M 102 390 Q 88 418 76 434 Q 62 452 80 456 Q 100 460 116 444 Q 130 430 126 410"
+                        stroke="#00F5D4" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.30" filter="url(#glow_hook)"/>
+                      <path d="M 102 390 Q 88 418 76 434 Q 62 452 80 456 Q 100 460 116 444 Q 130 430 126 410"
+                        stroke="url(#hook_grad)" stroke-width="18" stroke-linecap="round" fill="none"/>
+                      <path d="M 102 390 Q 88 418 76 434 Q 62 452 80 456 Q 100 460 116 444 Q 130 430 126 410"
+                        stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.7"/>
+                      <circle cx="80" cy="456" r="7" fill="#00F5D4" filter="url(#glow_hook)" opacity="0.9"/>
+                      <circle cx="80" cy="456" r="3.5" fill="#FFFFFF" opacity="0.95"/>
+                      <!-- Extraction Hook — Bottom-Right -->
+                      <path d="M 410 390 Q 424 418 436 434 Q 450 452 432 456 Q 412 460 396 444 Q 382 430 386 410"
+                        stroke="#A855F7" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.30" filter="url(#glow_hook)"/>
+                      <path d="M 410 390 Q 424 418 436 434 Q 450 452 432 456 Q 412 460 396 444 Q 382 430 386 410"
+                        stroke="url(#hook_grad)" stroke-width="18" stroke-linecap="round" fill="none"/>
+                      <path d="M 410 390 Q 424 418 436 434 Q 450 452 432 456 Q 412 460 396 444 Q 382 430 386 410"
+                        stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.7"/>
+                      <circle cx="432" cy="456" r="7" fill="#A855F7" filter="url(#glow_hook)" opacity="0.9"/>
+                      <circle cx="432" cy="456" r="3.5" fill="#FFFFFF" opacity="0.95"/>
+                      <!-- Extraction Hook — Top-Left cap micro-curl -->
+                      <path d="M 102 148 Q 88 128 96 112 Q 106 96 122 106"
+                        stroke="#00F5D4" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.70" filter="url(#glow_core)"/>
+                      <path d="M 102 148 Q 88 128 96 112 Q 106 96 122 106"
+                        stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.55"/>
+                      <!-- Extraction Hook — Top-Right cap micro-curl -->
+                      <path d="M 410 148 Q 424 128 416 112 Q 406 96 390 106"
+                        stroke="#A855F7" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.70" filter="url(#glow_core)"/>
+                      <path d="M 410 148 Q 424 128 416 112 Q 406 96 390 106"
+                        stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.55"/>
+                      <!-- Apex peak glow dot -->
+                      <circle cx="256" cy="295" r="14" fill="#4F8EF7" filter="url(#glow_core)" opacity="0.6"/>
+                      <circle cx="256" cy="295" r="7"  fill="#67E8F9" opacity="0.85"/>
+                      <circle cx="256" cy="295" r="3"  fill="#FFFFFF"  opacity="0.95"/>
+                      <!-- Scan lines (data extraction metaphor) -->
+                      <g opacity="0.10" clip-path="url(#logo_clip)">
+                        <line x1="56" y1="200" x2="456" y2="200" stroke="#00F5D4" stroke-width="1" stroke-dasharray="4 8"/>
+                        <line x1="56" y1="240" x2="456" y2="240" stroke="#00F5D4" stroke-width="1" stroke-dasharray="4 8"/>
+                        <line x1="56" y1="280" x2="456" y2="280" stroke="#4F8EF7" stroke-width="1" stroke-dasharray="4 8"/>
+                        <line x1="56" y1="320" x2="456" y2="320" stroke="#4F8EF7" stroke-width="1" stroke-dasharray="4 8"/>
+                        <line x1="56" y1="360" x2="456" y2="360" stroke="#A855F7" stroke-width="1" stroke-dasharray="4 8"/>
+                      </g>
+                      <!-- Corner precision brackets -->
+                      <g stroke="#00F5D4" stroke-width="3" opacity="0.35" stroke-linecap="square">
+                        <line x1="40"  y1="60"  x2="40"  y2="92"/><line x1="40"  y1="60"  x2="72"  y2="60"/>
+                        <line x1="472" y1="60"  x2="472" y2="92"/><line x1="472" y1="60"  x2="440" y2="60"/>
+                        <line x1="40"  y1="452" x2="40"  y2="420"/><line x1="40"  y1="452" x2="72"  y2="452"/>
+                        <line x1="472" y1="452" x2="472" y2="420"/><line x1="472" y1="452" x2="440" y2="452"/>
+                      </g>
                     </svg>
                   </div>
 
