@@ -394,7 +394,7 @@ def toggle_cohort_mode(mode: str):
 def refresh_cohorts():
     """Dynamically refreshes the list of cohort folders from analysis/."""
     choices = list_available_cohorts()
-    return gr.update(choices=choices, value=choices[0] if choices else None)
+    return gr.update(choices=choices, value=None)
 
 
 def render_queued_cohort_badge(files: list) -> str:
@@ -2882,11 +2882,11 @@ def build_app():
 
                         with gr.Group() as local_mode_group:
                             available_cohorts = list_available_cohorts()
-                            default_cohort = "Mixed_Metabolic_Cohort" if "Mixed_Metabolic_Cohort" in available_cohorts else (available_cohorts[0] if available_cohorts else None)
                             cohort_dropdown = gr.Dropdown(
                                 label="Select Active Ingredient Folder",
                                 choices=available_cohorts,
-                                value=default_cohort
+                                value=None,
+                                placeholder="Select an existing cohort folder (or choose 'Upload Multiple Files')..."
                             )
                             refresh_cohorts_btn = gr.Button("🔄 Refresh Folder List", size="sm")
 
