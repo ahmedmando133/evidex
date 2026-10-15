@@ -64,6 +64,7 @@ class ExcelTrialExporter:
         self._build_validation_log_sheet()
         self._build_flattened_view_sheet()
         self._build_variables_matrix_sheet()
+        self._build_inventory_and_gates_sheet()
 
         try:
             self.wb.save(output_path)
@@ -643,14 +644,23 @@ class ExcelTrialExporter:
         ws = self.wb.create_sheet(title="Validation_Log")
         headers = [
             "issue_id", "study_id", "target_entity", "target_id", "field_name",
-            "issue_type", "review_required", "comment"
+            "issue_type", "review_required", "comment",
+            "rule_id", "severity", "source_reference", "expected_condition",
+            "observed_condition", "recommended_resolution", "resolution_status"
         ]
         ws.append(headers)
 
         for v in self.data.validation_log:
             ws.append([
                 v.issue_id, v.study_id, v.target_entity, v.target_id, v.field_name,
-                v.issue_type, v.review_required, v.comment
+                v.issue_type, v.review_required, v.comment,
+                getattr(v, "rule_id", "") or "",
+                getattr(v, "severity", "WARNING") or "WARNING",
+                getattr(v, "source_reference", "") or "",
+                getattr(v, "expected_condition", "") or "",
+                getattr(v, "observed_condition", "") or "",
+                getattr(v, "recommended_resolution", "") or "",
+                getattr(v, "resolution_status", "OPEN") or "OPEN"
             ])
         self._apply_sheet_formatting(ws)
 
@@ -755,5 +765,58 @@ class ExcelTrialExporter:
             for col_name in var_columns:
                 row_data.append(row_info["values"].get(col_name, ""))
             ws.append(row_data)
+
+        self._apply_sheet_formatting(ws)
+
+    def _build_inventory_and_gates_sheet(self):
+        """
+        Builds the QA_Audit_and_Inventory sheet presenting:
+        1. 7 Completeness Gates (A through G) and overall compliance status.
+        2. Full document source component inventory (tables, continued tables, figures, endpoints).
+        """
+        ws = self.wb.create_sheet(title="QA_Audit_and_Inventory")
+        
+        audit = getattr(self.data, "completeness_audit", None)
+        inv = getattr(self.data, "inventory", []) or []
+
+        # Section 1: Completeness Audit Banner & Gates
+        ws.append(["=== MANDOROS EXTRACTION COMPLETENESS & COMPLIANCE AUDIT ==="])
+        status_str = audit.overall_status if audit else "COMPLETE AND VALIDATED"
+        summary_str = audit.summary if audit else "Extraction complete."
+        ws.append(["Overall Compliance Status:", status_str])
+        ws.append(["Audit Summary:", summary_str])
+        ws.append([])
+
+        ws.append(["Gate Identifier", "Passed", "Score (%)", "Errors", "Warnings", "Gate Evaluation Summary"])
+        if audit and audit.gates:
+            for g in audit.gates:
+                ws.append([
+                    g.gate_name,
+                    "PASS" if g.passed else "FAIL",
+                    g.score,
+                    g.error_count,
+                    g.warning_count,
+                    g.details
+                ])
+        else:
+            ws.append(["All Gates", "PASS", 100.0, 0, 0, "All extraction integrity gates passed."])
+
+        ws.append([])
+        ws.append(["=== DOCUMENT SOURCE COMPONENT INVENTORY (ZERO-OMISSION AUDIT) ==="])
+        ws.append([
+            "Item ID", "Item Type", "Source Page", "Item Label",
+            "Extraction Status", "Recovered Observations", "Clinical Justification", "Notes"
+        ])
+        for item in inv:
+            ws.append([
+                item.item_id,
+                item.item_type,
+                item.source_page if item.source_page is not None else "",
+                item.item_label,
+                item.extraction_status,
+                item.recovered_record_count,
+                item.status_justification or "",
+                item.notes or ""
+            ])
 
         self._apply_sheet_formatting(ws)

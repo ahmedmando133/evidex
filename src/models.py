@@ -46,6 +46,11 @@ class TreatmentArm(BaseModel):
     frequency_unit: Optional[str] = Field(default=None, description="Frequency unit, e.g. daily, twice daily, weekly")
     sample_size_allocated: Optional[int] = Field(default=None, description="Number of participants randomized to arm")
     sample_size_analyzed: Optional[int] = Field(default=None, description="Number of participants analyzed (PP or ITT)")
+    route: Optional[str] = Field(default=None, description="Route of administration, e.g. oral, subcutaneous, intravenous")
+    formulation: Optional[str] = Field(default=None, description="Formulation, e.g. tablet, capsule, solution, extended-release")
+    titration_info: Optional[str] = Field(default=None, description="Titration or dose adjustment schedule")
+    treatment_duration_value: Optional[float] = Field(default=None, description="Treatment duration value for this arm")
+    treatment_duration_unit: Optional[str] = Field(default=None, description="Duration unit, e.g. weeks, months, days")
     source_page: Optional[int] = Field(default=None, description="PDF page where arm details are defined")
 
     @field_validator("intervention_type", mode="before")
@@ -294,14 +299,18 @@ class OutcomeMeasurement(BaseModel):
     sample_size: Optional[int] = Field(default=None, description="Number of subjects measured for this parameter")
     mean: Optional[float] = Field(default=None, description="Mean value")
     sd: Optional[float] = Field(default=None, description="Standard deviation")
+    se: Optional[float] = Field(default=None, description="Standard error of the mean")
     median: Optional[float] = Field(default=None, description="Median value if non-parametric")
     iqr_lower: Optional[float] = Field(default=None, description="IQR 25th percentile or lower range")
     iqr_upper: Optional[float] = Field(default=None, description="IQR 75th percentile or upper range")
+    min_value: Optional[float] = Field(default=None, description="Minimum reported continuous value")
+    max_value: Optional[float] = Field(default=None, description="Maximum reported continuous value")
     
     # Reported change from baseline
     change_value: Optional[float] = Field(default=None, description="Reported mean change from baseline")
     change_sd: Optional[float] = Field(default=None, description="SD of change from baseline")
     change_percentage: Optional[float] = Field(default=None, description="Percentage change from baseline")
+    is_between_group_diff: Optional[bool] = Field(default=False, description="True if between-group treatment difference, False if within-arm measurement")
     
     # Dichotomous measures (e.g. events, flares)
     events: Optional[int] = Field(default=None, description="Number of events/patients experiencing outcome")
@@ -316,7 +325,9 @@ class OutcomeMeasurement(BaseModel):
     ci_upper: Optional[float] = Field(default=None, description="95% CI upper limit")
     p_value: Optional[str] = Field(default=None, description="Reported p-value string, e.g. '<0.001', '0.023', 'NS'")
     
-    # Traceability
+    # Derivation & Traceability
+    derivation_type: Optional[str] = Field(default="directly_reported", description="directly_reported, mathematically_derived, converted, graph_annotated, digitized")
+    digitization_uncertainty: Optional[str] = Field(default=None, description="Precision or uncertainty comment for figure-derived numbers")
     source_page: Optional[int] = Field(default=None, description="PDF page where this data is located")
     source_location: Optional[str] = Field(default=None, description="e.g. Table 1, Table 2, Results text")
     raw_source_text: Optional[str] = Field(default=None, description="Exact text or cell excerpt supporting this fact")
@@ -382,15 +393,77 @@ class ValidationIssue(BaseModel):
     target_entity: str = Field(description="Entity type: study, arm, eligibility, outcome")
     target_id: str = Field(description="ID of target entity")
     field_name: str = Field(description="Specific field with issue")
-    issue_type: Literal[
-        "not_reported", "unit_mismatch", "value_out_of_range", "unclear_text", "calculation_needed", "warning"
-    ] = Field(description="Standardized issue category")
+    issue_type: str = Field(
+        default="warning",
+        description="Standardized issue category: not_reported, unit_mismatch, value_out_of_range, unclear_text, calculation_needed, warning, error, info"
+    )
     review_required: bool = Field(default=True, description="Flag indicating human clinical review is required")
     comment: str = Field(description="Human-readable explanation of why review is needed")
+    rule_id: Optional[str] = Field(default=None, description="Standardized QA rule identifier, e.g. QA_ARM_RECON_001")
+    severity: Literal["ERROR", "WARNING", "INFORMATION"] = Field(default="WARNING", description="Severity level")
+    source_reference: Optional[str] = Field(default=None, description="Page / table / figure reference")
+    expected_condition: Optional[str] = Field(default=None, description="What the clinical schema or inventory expected")
+    observed_condition: Optional[str] = Field(default=None, description="What was observed in extracted data")
+    recommended_resolution: Optional[str] = Field(default=None, description="Actionable recommendation")
+    resolution_status: str = Field(default="OPEN", description="OPEN, RESOLVED, or ACCEPTED_EXCEPTION")
 
 
 # ---------------------------------------------------------
-# 7. Complete Study Extraction Container
+# 7. Document Component Inventory
+# ---------------------------------------------------------
+class InventoryItem(BaseModel):
+    item_id: str = Field(description="Unique inventory item ID, e.g. INV_TAB_001")
+    study_id: str = Field(description="Foreign key to study_id")
+    item_type: Literal[
+        "table", "continued_table", "figure", "figure_panel", "appendix",
+        "narrative_section", "treatment_arm", "timepoint", "primary_endpoint",
+        "secondary_endpoint", "safety_endpoint"
+    ] = Field(default="table")
+    item_label: str = Field(description="Human readable label, e.g. Table 1: Baseline Demographics")
+    source_page: Optional[int] = Field(default=None, description="PDF page where component appears")
+    extraction_status: Literal[
+        "extracted_and_validated",
+        "extracted_requires_verification",
+        "not_applicable",
+        "unavailable_unreadable",
+        "expected_not_found",
+        "not_reported"
+    ] = Field(default="extracted_and_validated")
+    status_justification: Optional[str] = Field(default=None, description="Clinical justification for status")
+    recovered_record_count: int = Field(default=0, description="Number of atomic extracted records derived")
+    notes: Optional[str] = Field(default=None, description="Additional context or notes")
+
+
+# ---------------------------------------------------------
+# 8. Extraction Completeness Gates
+# ---------------------------------------------------------
+class CompletenessGate(BaseModel):
+    gate_name: str = Field(description="Gate A through Gate G name")
+    passed: bool = Field(description="True if gate criteria met")
+    score: float = Field(default=100.0, description="Completion score 0.0 to 100.0")
+    error_count: int = Field(default=0, description="Number of blocking errors")
+    warning_count: int = Field(default=0, description="Number of non-blocking warnings")
+    details: str = Field(default="", description="Gate evaluation summary")
+
+
+class CompletenessAudit(BaseModel):
+    study_id: str = Field(description="Foreign key to study_id")
+    overall_status: Literal[
+        "COMPLETE AND VALIDATED",
+        "COMPLETE WITH DOCUMENTED NON-BLOCKING WARNINGS",
+        "INCOMPLETE — REVIEW REQUIRED",
+        "BLOCKED BY SOURCE OR TECHNICAL LIMITATION",
+        "FAILED VALIDATION"
+    ] = Field(default="COMPLETE AND VALIDATED")
+    gates: List[CompletenessGate] = Field(default_factory=list)
+    summary: str = Field(default="Extraction completed successfully")
+    total_inventory_items: int = Field(default=0)
+    validated_items: int = Field(default=0)
+    omission_count: int = Field(default=0)
+
+
+# ---------------------------------------------------------
+# 9. Complete Study Extraction Container
 # ---------------------------------------------------------
 class ExtractedTrialData(BaseModel):
     study: StudyMetadata
@@ -399,3 +472,5 @@ class ExtractedTrialData(BaseModel):
     outcomes: List[OutcomeMeasurement] = Field(default_factory=list)
     provenance: List[ProvenanceRecord] = Field(default_factory=list)
     validation_log: List[ValidationIssue] = Field(default_factory=list)
+    inventory: List[InventoryItem] = Field(default_factory=list)
+    completeness_audit: Optional[CompletenessAudit] = Field(default=None)

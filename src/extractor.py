@@ -17,6 +17,7 @@ from src.models import (
     ExtractedTrialData,
 )
 from src.pdf_parser import PDFDocument
+from src.extraction_qa import execute_full_extraction_qa
 
 
 class RCTExtractor:
@@ -86,13 +87,19 @@ class RCTExtractor:
         # 6. Validation log & Quality checks
         validation_log = self._run_validation_checks(study_id, study_meta, arms, eligibility, outcomes)
 
-        return ExtractedTrialData(
+        trial_data = ExtractedTrialData(
             study=study_meta,
             arms=arms,
             eligibility=eligibility,
             outcomes=outcomes,
             provenance=provenance,
             validation_log=validation_log
+        )
+        return execute_full_extraction_qa(
+            trial_data,
+            full_text=full_text,
+            sections=sections,
+            doc_pages=self.doc.pages
         )
 
     def _audit_and_sanitize_biomarkers(self, outcomes: List[OutcomeMeasurement]) -> List[OutcomeMeasurement]:
@@ -2275,7 +2282,7 @@ class RCTExtractor:
             methods_pages = sections.get("title_abstract", [])
 
         full_methods_text = "\n".join([p.get("text", "") for p in methods_pages])
-        if len(full_methods_text) < 1000:
+        if len(full_methods_text) < 1000 and getattr(self, "doc", None):
             full_methods_text = self.doc.get_full_text()[:40000]
         source_p = methods_pages[0].get("page", 2) if methods_pages else 2
 
@@ -3726,13 +3733,19 @@ DOCUMENT CONTEXT:
         # Validation rules
         val_log = self._run_validation_checks(study_id, study_meta, arms_list, elig_list, outcomes_list)
 
-        return ExtractedTrialData(
+        trial_data = ExtractedTrialData(
             study=study_meta,
             arms=arms_list,
             eligibility=elig_list,
             outcomes=outcomes_list,
             provenance=provenance,
             validation_log=val_log
+        )
+        return execute_full_extraction_qa(
+            trial_data,
+            full_text=self.doc.get_full_text(),
+            sections=sections,
+            doc_pages=self.doc.pages
         )
 
 
