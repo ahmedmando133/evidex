@@ -379,9 +379,9 @@ def list_available_cohorts() -> list[str]:
     """Scans analysis/ directory and returns list of drug cohort subfolders."""
     analysis_dir = Path("analysis")
     if not analysis_dir.exists():
-        return ["Metformin", "Dapagliflozin", "Orlistat"]
+        return []
     subdirs = [d.name for d in analysis_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]
-    return sorted(subdirs) if subdirs else ["Metformin"]
+    return sorted(subdirs) if subdirs else []
 
 
 def toggle_cohort_mode(mode: str):
@@ -467,67 +467,197 @@ def clear_cohort_files():
 
 
 def get_default_single_study_preview():
-    """Loads pre-extracted Metformin study to eliminate empty 1|2|3 tables on startup."""
-    excel_path = "outputs/metformin_clinical_trial_extracted.xlsx"
-    default_master = pd.DataFrame()
-    default_matrix = pd.DataFrame()
-    default_outcomes = pd.DataFrame()
-    default_eligibility = pd.DataFrame()
+    """Generates drug-agnostic Stage-1 Methodological Readiness Hub and Schema Blueprints on startup."""
+    default_master = pd.DataFrame([
+        {
+            "Relational Sheet": "Sheet 1: Master_Extraction_Sheet",
+            "Target Data Domain": "Consolidated Study Blueprint",
+            "Key Atomic Columns Extracted": "Study ID, Title, DOI, Phase, Total N, Primary Endpoint, Effect Size, Safety Verdict",
+            "Epistemic Validation Guardrail": "Verbatim text span, Page #, Confidence Score, not_reported enforcement"
+        },
+        {
+            "Relational Sheet": "Sheet 2: Study_Characteristics",
+            "Target Data Domain": "Trial Methodology & Design",
+            "Key Atomic Columns Extracted": "Design Type, Allocation, Masking, Setting, Centers, Funding Source, Risk of Bias",
+            "Epistemic Validation Guardrail": "CONSORT Items 1–10 compliance audit"
+        },
+        {
+            "Relational Sheet": "Sheet 3: Population_Baseline",
+            "Target Data Domain": "Demographics & Baseline Profile",
+            "Key Atomic Columns Extracted": "Mean/SD Age, % Female, BMI, Disease Duration, Baseline Diagnostic Biomarkers",
+            "Epistemic Validation Guardrail": "Cross-arm sample size arithmetic conservation checks"
+        },
+        {
+            "Relational Sheet": "Sheet 4: Intervention_Arms",
+            "Target Data Domain": "Pharmacological Regimens",
+            "Key Atomic Columns Extracted": "Arm Name, Active Ingredient, Dosage, Route, Regimen Frequency, Titration Protocol",
+            "Epistemic Validation Guardrail": "WHO ATC / RxNorm standardized nomenclature"
+        },
+        {
+            "Relational Sheet": "Sheet 5: Outcomes",
+            "Target Data Domain": "Granular Efficacy & Safety Endpoints",
+            "Key Atomic Columns Extracted": "Endpoint Name, Timepoint (Wks), Arm, Central Tendency, Dispersion, p-value, Raw Units",
+            "Epistemic Validation Guardrail": "Deterministic Central/Dispersion separation and SI conversion"
+        },
+        {
+            "Relational Sheet": "Sheet 6: Variables_Matrix",
+            "Target Data Domain": "Cross-Arm Trajectory Grid",
+            "Key Atomic Columns Extracted": "Normalized baseline vs multi-timepoint delta trajectories across all treatment arms",
+            "Epistemic Validation Guardrail": "Scale normalization & relative change from baseline auditing"
+        },
+        {
+            "Relational Sheet": "Sheet 7: Eligibility_Criteria",
+            "Target Data Domain": "Inclusion / Exclusion Framework",
+            "Key Atomic Columns Extracted": "Category, Atomic Variable, Relational Operator (<, <=, >, >=), Threshold, Normalized Unit",
+            "Epistemic Validation Guardrail": "4-Operator mathematical validation and range verification"
+        }
+    ])
 
-    if os.path.exists(excel_path):
-        try:
-            default_master = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Master_Extraction_Sheet"))
-            default_matrix = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Variables_Matrix"))
-            default_outcomes = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Outcomes"))
-            default_eligibility = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Eligibility"))
-        except Exception:
-            pass
+    default_matrix = pd.DataFrame([
+        {
+            "Standardized Clinical Dimension": "Continuous Efficacy Biomarkers",
+            "Endpoint Specification": "Laboratory, biometric & biochemical endpoints",
+            "Supported Statistical Metrics": "Mean, SD, Median, IQR, Min-Max, Change from Baseline",
+            "Mathematical Standardization": "Standardized Mean Difference (Hedges' g) / Unstandardized MD"
+        },
+        {
+            "Standardized Clinical Dimension": "Dichotomous & Binary Events",
+            "Endpoint Specification": "Clinical events, responders, remission & mortality rates",
+            "Supported Statistical Metrics": "Events (r), Sample Size (N), Proportion (%), Odds",
+            "Mathematical Standardization": "Risk Ratio (RR), Odds Ratio (OR), Risk Difference (RD)"
+        },
+        {
+            "Standardized Clinical Dimension": "Time-to-Event Endpoints",
+            "Endpoint Specification": "Survival, disease progression & recurrence intervals",
+            "Supported Statistical Metrics": "Hazard Ratio (HR), 95% Confidence Interval, p-value",
+            "Mathematical Standardization": "log(HR) transformation with inverted-variance standard error"
+        },
+        {
+            "Standardized Clinical Dimension": "Safety & Adverse Events",
+            "Endpoint Specification": "Treatment-emergent adverse events (TEAE) & discontinuations",
+            "Supported Statistical Metrics": "Event Counts, Relative Frequencies, Severity Tiers",
+            "Mathematical Standardization": "Mantel-Haenszel Risk Difference & Peto Odds Ratio"
+        },
+        {
+            "Standardized Clinical Dimension": "Longitudinal Follow-up Points",
+            "Endpoint Specification": "Repeated multi-week clinical assessment intervals",
+            "Supported Statistical Metrics": "Baseline, Week 4, 8, 12, 24, 52, 104+ trajectory curves",
+            "Mathematical Standardization": "Longitudinal repeated-measures trend interpolation"
+        }
+    ])
 
-    if default_master.empty:
-        default_master = pd.DataFrame(columns=["Variable Category", "Parameter Name", "Timepoint", "Control Arm (Value/SD)", "Experimental Arm (Value/SD)", "Relative Effect", "p-value", "Provenance Page"])
-    if default_matrix.empty:
-        default_matrix = pd.DataFrame(columns=["Clinical Domain", "Baseline Characteristics", "Week 12 Outcome", "Week 24 Outcome", "Adverse Event Rate", "Sample Size (N)"])
-    if default_outcomes.empty:
-        default_outcomes = pd.DataFrame(columns=["Parameter Name", "Raw Extracted Name", "Arm Name", "Timepoint (Wks)", "Mean / Events", "SD / Total N", "Unit", "p-value"])
-    if default_eligibility.empty:
-        default_eligibility = pd.DataFrame(columns=["Criterion Type", "Criterion Name", "Operator", "Threshold Value", "Unit", "Provenance Quote"])
+    default_outcomes = pd.DataFrame([
+        {
+            "Canonical Parameter Domain": "Primary Efficacy Endpoint",
+            "Clinical Indicator Scope": "Pre-specified regulatory primary outcome measure",
+            "Primary Pooled Estimator": "Mean Difference (MD) / Hedges' g (SMD)",
+            "Variance & Dispersion Metric": "Pooled 95% Confidence Interval & SE",
+            "Harmonization Standard": "CONSORT Section 6a/6b Verified"
+        },
+        {
+            "Canonical Parameter Domain": "Secondary Biomarker",
+            "Clinical Indicator Scope": "Surrogate physiological or laboratory biomarker",
+            "Primary Pooled Estimator": "Relative Difference (%) / Absolute Mean Δ",
+            "Variance & Dispersion Metric": "Standard Deviation / Standard Error",
+            "Harmonization Standard": "ICMJE Standardized Unit Mapping"
+        },
+        {
+            "Canonical Parameter Domain": "Safety & Tolerability",
+            "Clinical Indicator Scope": "Treatment-related adverse events and withdrawals",
+            "Primary Pooled Estimator": "Relative Risk (RR) / Odds Ratio (OR)",
+            "Variance & Dispersion Metric": "Mantel-Haenszel Variance Weighting",
+            "Harmonization Standard": "MedDRA Preferred Term Classification"
+        },
+        {
+            "Canonical Parameter Domain": "Patient-Reported Quality of Life",
+            "Clinical Indicator Scope": "Validated functional status and HRQoL instruments",
+            "Primary Pooled Estimator": "Standardized Mean Difference (SMD)",
+            "Variance & Dispersion Metric": "Hedges' g Small-Sample Bias Correction",
+            "Harmonization Standard": "Psychometric Construct Norming"
+        }
+    ])
+
+    default_eligibility = pd.DataFrame([
+        {
+            "Criterion Category": "Inclusion Criteria",
+            "Clinical Dimension": "Patient Minimum Age Threshold",
+            "Relational Operator": ">=",
+            "Threshold Value": "18.0",
+            "Normalized Unit": "Years",
+            "Verification Status": "Range Checked [18 - 120]"
+        },
+        {
+            "Criterion Category": "Inclusion Criteria",
+            "Clinical Dimension": "Patient Maximum Age Threshold",
+            "Relational Operator": "<=",
+            "Threshold Value": "75.0",
+            "Normalized Unit": "Years",
+            "Verification Status": "Upper Bound > Lower Bound"
+        },
+        {
+            "Criterion Category": "Inclusion Criteria",
+            "Clinical Dimension": "Disease Diagnostic Biomarker Threshold",
+            "Relational Operator": ">=",
+            "Threshold Value": "Target Cutoff",
+            "Normalized Unit": "Standard Clinical Unit",
+            "Verification Status": "Clinical Reference Range Verified"
+        },
+        {
+            "Criterion Category": "Exclusion Criteria",
+            "Clinical Dimension": "Renal Impairment Threshold (eGFR)",
+            "Relational Operator": "<",
+            "Threshold Value": "30.0",
+            "Normalized Unit": "mL/min/1.73m²",
+            "Verification Status": "KDIGO Stage Validated"
+        },
+        {
+            "Criterion Category": "Exclusion Criteria",
+            "Clinical Dimension": "Prior Pharmacological Washout Window",
+            "Relational Operator": "<=",
+            "Threshold Value": "30.0",
+            "Normalized Unit": "Days",
+            "Verification Status": "Pharmacokinetic Elimination Audited"
+        }
+    ])
 
     preview_banner = """
     <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.96) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(56,189,248,0.4); border-radius: 20px; padding: 24px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(56, 189, 248, 0.15); margin-bottom: 24px; backdrop-filter: blur(20px);">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px;">
-        <div>
-          <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <span style="background: rgba(56,189,248,0.18); border: 1px solid #38BDF8; color: #38BDF8; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase;">
-              💡 Live Interactive Showcase
-            </span>
-            <span style="background: rgba(16,185,129,0.18); border: 1px solid #10B981; color: #34D399; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
-              DPP Metformin RCT Trial Benchmark
-            </span>
-          </div>
-          <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 20px; font-weight: 800;">
-            Extraction Preview: Metformin Diabetes Prevention Program (DPP)
-          </h2>
-          <p style="color: #94A3B8; margin: 0; font-size: 13px;">
-            Showing pre-extracted 7-sheet clinical evidence. Drop your own PDF on the left and click "Run Academic Deep Extraction" to extract a new study.
-          </p>
+      <div style="border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+          <span style="background: rgba(56,189,248,0.18); border: 1px solid #38BDF8; color: #38BDF8; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
+            ⚡ MANDOROS STAGE-1 ENGINE READY
+          </span>
+          <span style="background: rgba(16,185,129,0.18); border: 1px solid #10B981; color: #34D399; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+            CONSORT / PRISMA / ICH-E9 Compliant Architecture
+          </span>
         </div>
+        <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">
+          Atomic Clinical Trial Deconstruction &amp; Verbatim Provenance Engine
+        </h2>
+        <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.6;">
+          MANDOROS ingests unstructured clinical trial publications (PDFs), scanning tables, text, flowcharts, and appendices to deterministically normalize findings into 7 relational sheets with complete verbatim provenance. Drop an RCT paper on the left to extract.
+        </p>
       </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
-        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #38BDF8;">
-          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Study Design</div>
-          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">Parallel-Group RCT</div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(56,189,248,0.25); border-radius: 14px; padding: 14px; border-left: 4px solid #38BDF8;">
+          <div style="color: #38BDF8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Relational Architecture</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">7 Sheets · 88 Fields</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Master, Protocols, Baseline, Arms, Outcomes, Matrix &amp; Eligibility.</div>
         </div>
-        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #10B981;">
-          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Treatment Arms</div>
-          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">Metformin 850mg vs Placebo</div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(16,185,129,0.25); border-radius: 14px; padding: 14px; border-left: 4px solid #10B981;">
+          <div style="color: #34D399; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Epistemic Integrity</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">Verbatim Page &amp; Quote</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Every numerical extraction is bound to manuscript source coordinates.</div>
         </div>
-        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #A855F7;">
-          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Total Patients</div>
-          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">1,073 Randomized</div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(168,85,247,0.25); border-radius: 14px; padding: 14px; border-left: 4px solid #A855F7;">
+          <div style="color: #C084FC; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Statistical Decomposition</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">Value / Operator / Unit</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Deterministic split with 4-operator mathematical criteria validation.</div>
         </div>
-        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #F59E0B;">
-          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Audit Verification</div>
-          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">100% Provenance Logged</div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(245,158,11,0.25); border-radius: 14px; padding: 14px; border-left: 4px solid #F59E0B;">
+          <div style="color: #FBBF24; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Quality Assurance</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">Automated Schema &amp; Outliers</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Multi-layer cross-field consistency auditing and plausibility bounds.</div>
         </div>
       </div>
     </div>
@@ -536,35 +666,484 @@ def get_default_single_study_preview():
 
 
 def get_default_cohort_preview():
-    """Generates the initial rich preview state for Phase 2 so right-hand side is full, vibrant, and has zero 1|2|3 tables."""
-    try:
-        from src.cohort_pipeline import ActiveIngredientCohortPipeline
-        cohort_name = "Mixed_Metabolic_Cohort"
-        pipeline = CACHED_COHORT_PIPELINES.get(cohort_name)
-        if not pipeline:
-            pipeline = ActiveIngredientCohortPipeline(cohort_name=cohort_name)
-            pipeline.run_all()
-            CACHED_COHORT_PIPELINES[cohort_name] = pipeline
+    """Generates drug-agnostic Phase-2 Methodological Readiness Hub and Blueprint Matrix on startup."""
+    cohort_verdict_html = """
+    <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.96) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(99,102,241,0.5); border-radius: 20px; padding: 26px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.2); margin-bottom: 24px; backdrop-filter: blur(20px);">
+      <div style="border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 16px; margin-bottom: 18px;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+          <span style="background: rgba(99,102,241,0.2); border: 1px solid #6366F1; color: #818CF8; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
+            🚀 MANDOROS PHASE-2 SYNTHESIS ENGINE READY
+          </span>
+          <span style="background: rgba(45,212,191,0.2); border: 1px solid #2DD4BF; color: #2DD4BF; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+            metafor-REML · NMA · SUCRA · In-Silico AI
+          </span>
+        </div>
+        <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">
+          Multi-Trial Evidence Synthesis, Network Meta-Analysis &amp; Predictive Extrapolation Lab
+        </h2>
+        <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.6;">
+          Select an existing cohort folder or drop multiple RCT files on the left to pool heterogeneous trials, compute DerSimonian-Laird and REML random-effects, execute network meta-analysis and SUCRA rankings, reconstruct missing trial cells via cross-study surrogate regression, and simulate virtual trials.
+        </p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(99,102,241,0.3); border-radius: 14px; padding: 14px; border-left: 4px solid #6366F1;">
+          <div style="color: #818CF8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Classical &amp; REML Pooling</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">DL, REML, Knapp-Hartung</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Unbiased random-effects with Cochran Q, I² and 95% prediction intervals.</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(45,212,191,0.3); border-radius: 14px; padding: 14px; border-left: 4px solid #2DD4BF;">
+          <div style="color: #2DD4BF; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Network &amp; Heterogeneity</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">Bucher NMA &amp; SUCRA</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Indirect comparisons, P-score rankings, and loop inconsistency checks.</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(168,85,247,0.3); border-radius: 14px; padding: 14px; border-left: 4px solid #A855F7;">
+          <div style="color: #C084FC; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Adaptive Domain Bridging</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">Scale-Free SMD Hedges' g</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Harmonizes disparate clinical scales across heterogeneous multi-trial cohorts.</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(245,158,11,0.3); border-radius: 14px; padding: 14px; border-left: 4px solid #F59E0B;">
+          <div style="color: #FBBF24; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">In-Silico Extrapolation</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin: 4px 0 2px 0;">Latent Matrix Re-simulation</div>
+          <div style="color: #94A3B8; font-size: 11.5px; line-height: 1.4;">Cross-trial surrogate imputation and predictive virtual trial forecasting.</div>
+        </div>
+      </div>
+    </div>
+    """
 
-        res = process_cohort(
-            ingest_mode="Select Existing Local Cohort Folder",
-            cohort_dropdown=cohort_name,
-            custom_drug_name="",
-            uploaded_files=None,
-            model_choice="⚡ Auto-Detect & Select Best Available Model (Recommended)",
-            api_key=""
-        )
-        return res
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        empty_cols_comp = ["Study ID", "Active Ingredient", "Arms & Dose", "Sample Size (N)", "Duration", "Primary Outcomes"]
-        empty_cols_meta = ["Clinical Parameter", "Measure", "Studies (k)", "Patients (N)", "Pooled RE Estimate", "95% CI Lower", "95% CI Upper", "95% Pred Interval", "p-value", "I² (%)", "tau²", "Evidence Strength"]
-        return (
-            "", "", pd.DataFrame(columns=empty_cols_comp), pd.DataFrame(), "", pd.DataFrame(columns=empty_cols_meta),
-            pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), "", "", pd.DataFrame(), pd.DataFrame(),
-            None, None, None, [], gr.update(), gr.update(), ""
-        )
+    cohort_divergence_html = """
+    <div style="background: rgba(15,23,42,0.7); border: 1px solid rgba(148,163,184,0.25); border-radius: 16px; padding: 22px;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+        <span style="font-size: 22px;">⚖️</span>
+        <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">Cross-Trial Divergence &amp; Adaptive Synthesis Architecture</h3>
+      </div>
+      <p style="color: #94A3B8; font-size: 13.5px; line-height: 1.6; margin-bottom: 16px;">
+        Clinical trial publications differ across intervention dosages, duration schedules, outcome metrics, and baseline severities. The MANDOROS Phase-2 Engine uses a 3-tier harmonization framework to prevent aggregation bias:
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+        <div style="background: rgba(30,41,59,0.5); padding: 14px; border-radius: 12px; border-left: 3px solid #38BDF8;">
+          <div style="color: #38BDF8; font-weight: 700; font-size: 13px; margin-bottom: 4px;">Tier 1 · Exact Harmonization</div>
+          <div style="color: #CBD5E1; font-size: 12px; line-height: 1.5;">Direct inverse-variance random-effects pooling applied to identical parameters and timepoints across trials.</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.5); padding: 14px; border-radius: 12px; border-left: 3px solid #A78BFA;">
+          <div style="color: #A78BFA; font-weight: 700; font-size: 13px; margin-bottom: 4px;">Tier 2 · Clinical Domain Bridging</div>
+          <div style="color: #CBD5E1; font-size: 12px; line-height: 1.5;">Standardized Mean Differences (Hedges' g) map divergent continuous scales into dimensionless clinical effect domains.</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.5); padding: 14px; border-radius: 12px; border-left: 3px solid #F59E0B;">
+          <div style="color: #F59E0B; font-weight: 700; font-size: 13px; margin-bottom: 4px;">Tier 3 · Surrogate Covariance Matrix</div>
+          <div style="color: #CBD5E1; font-size: 12px; line-height: 1.5;">Unmeasured parameters in incomplete trials are scientifically reconstructed using cross-study regression and correlation.</div>
+        </div>
+      </div>
+    </div>
+    """
+
+    comp_df = pd.DataFrame([
+        {
+            "Trial Entity / Dimension": "Study Identifier & Design",
+            "Cross-Study Extraction Target": "Trial Acronym, Year, Phase, Masking & Randomization",
+            "Harmonization Standard": "CONSORT Item 1-5 Standard",
+            "Methodological Role": "Risk of bias and weights matrix"
+        },
+        {
+            "Trial Entity / Dimension": "Active Regimen & Arms",
+            "Cross-Study Extraction Target": "Experimental vs Control Arm Formulations & Doses",
+            "Harmonization Standard": "WHO ATC Classification",
+            "Methodological Role": "Stratification in network meta-analysis"
+        },
+        {
+            "Trial Entity / Dimension": "Dosage & Administration",
+            "Cross-Study Extraction Target": "Daily Normalized Dosage Range (mg/day)",
+            "Harmonization Standard": "Continuous Metric Normalization",
+            "Methodological Role": "Independent covariate for meta-regression"
+        },
+        {
+            "Trial Entity / Dimension": "Treatment Duration",
+            "Cross-Study Extraction Target": "Evaluation Schedule (Weeks: 4, 8, 12, 24, 52+)",
+            "Harmonization Standard": "Standardized Temporal Scale",
+            "Methodological Role": "Longitudinal curve interpolation"
+        },
+        {
+            "Trial Entity / Dimension": "Patient Sample Size",
+            "Cross-Study Extraction Target": "Randomized, Allocated & Completed per Arm",
+            "Harmonization Standard": "Intention-to-Treat (ITT) Compliance",
+            "Methodological Role": "Degrees of freedom & inverse variance weighting"
+        },
+        {
+            "Trial Entity / Dimension": "Target Parameter Coverage",
+            "Cross-Study Extraction Target": "Overlapping Primary & Secondary Endpoints",
+            "Harmonization Standard": "MeSH Harmonized Terminology",
+            "Methodological Role": "Parameter coverage matrix & heatmap"
+        }
+    ])
+
+    heatmap_df = pd.DataFrame([
+        {
+            "Clinical Parameter Domain": "Primary Continuous Biomarkers",
+            "Pooled Trial Coverage Status": "Available in majority of pooled trials",
+            "Harmonization Tier": "Tier 1: Direct Pooling",
+            "Applicable Meta-Analytical Model": "Random-Effects (REML / DL)"
+        },
+        {
+            "Clinical Parameter Domain": "Secondary Physiological Metrics",
+            "Pooled Trial Coverage Status": "Reported across subset of trials",
+            "Harmonization Tier": "Tier 1: Direct / Tier 3: Inferred",
+            "Applicable Meta-Analytical Model": "Subgroup & Metaregression"
+        },
+        {
+            "Clinical Parameter Domain": "Standardized Clinical Scales",
+            "Pooled Trial Coverage Status": "Reported using disparate rating instruments",
+            "Harmonization Tier": "Tier 2: Scale-Free SMD",
+            "Applicable Meta-Analytical Model": "Domain-Level Hedges' g Pooling"
+        },
+        {
+            "Clinical Parameter Domain": "Safety & Adverse Event Counts",
+            "Pooled Trial Coverage Status": "Reported in all safety-evaluable cohorts",
+            "Harmonization Tier": "Tier 1: Dichotomous",
+            "Applicable Meta-Analytical Model": "Mantel-Haenszel Odds Ratio"
+        },
+        {
+            "Clinical Parameter Domain": "Longitudinal Trajectory Curves",
+            "Pooled Trial Coverage Status": "Reported at differing follow-up intervals",
+            "Harmonization Tier": "Tier 3: Interpolated",
+            "Applicable Meta-Analytical Model": "Weighted Spline / Meta-Regression"
+        }
+    ])
+
+    forest_html = """
+    <div style="background: rgba(15,23,42,0.6); border: 1px dashed rgba(56,189,248,0.25); border-radius: 14px; padding: 28px; text-align: center; color: #94A3B8;">
+      <span style="font-size: 28px;">📊</span>
+      <h4 style="color: #F8FAFC; margin: 8px 0 4px 0; font-size: 16px; font-weight: 700;">Publication-Ready Forest &amp; Funnel Plot Viewer</h4>
+      <p style="font-size: 12.5px; margin: 0; color: #94A3B8;">Interactive HTML Forest plots (individual study effect sizes, 95% CIs, weights, pooled REML diamond, and 95% prediction intervals) will render here upon running Phase 2.</p>
+    </div>
+    """
+
+    meta_df = pd.DataFrame([
+        {
+            "Clinical Parameter": "Primary Efficacy Outcome",
+            "Measure": "Mean Difference (MD)",
+            "Trials (k)": "Pooled (k)",
+            "Patients (N)": "Total (N)",
+            "Pooled RE Estimate": "Estimated Effect",
+            "95% CI Lower": "Lower Bound",
+            "95% CI Upper": "Upper Bound",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "p-value": "Calculated p",
+            "I² (%)": "Heterogeneity %",
+            "tau² (REML)": "Variance τ²",
+            "Evidence Strength": "Statistical Significance Grade"
+        },
+        {
+            "Clinical Parameter": "Standardized Biomarker Domain",
+            "Measure": "Hedges' g (SMD)",
+            "Trials (k)": "Pooled (k)",
+            "Patients (N)": "Total (N)",
+            "Pooled RE Estimate": "Estimated Effect",
+            "95% CI Lower": "Lower Bound",
+            "95% CI Upper": "Upper Bound",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "p-value": "Calculated p",
+            "I² (%)": "Heterogeneity %",
+            "tau² (REML)": "Variance τ²",
+            "Evidence Strength": "Statistical Significance Grade"
+        },
+        {
+            "Clinical Parameter": "Adverse Event Tolerability",
+            "Measure": "Odds Ratio (OR)",
+            "Trials (k)": "Pooled (k)",
+            "Patients (N)": "Total (N)",
+            "Pooled RE Estimate": "Estimated OR",
+            "95% CI Lower": "Lower Bound",
+            "95% CI Upper": "Upper Bound",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "p-value": "Calculated p",
+            "I² (%)": "Heterogeneity %",
+            "tau² (REML)": "Variance τ²",
+            "Evidence Strength": "Statistical Significance Grade"
+        }
+    ])
+
+    domain_df = pd.DataFrame([
+        {
+            "Clinical Domain": "Metabolic & Glycemic Control",
+            "Measure": "Hedges' g",
+            "Trials (k)": "Pooled (k)",
+            "Patients (N)": "Total (N)",
+            "Pooled SMD (Hedges' g)": "Pooled Effect",
+            "95% CI Lower": "Lower Bound",
+            "95% CI Upper": "Upper Bound",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "p-value": "Calculated p",
+            "I² (%)": "Heterogeneity %",
+            "Bridged Endpoints": "Combined scale metrics",
+            "Clinical Interpretation": "Standardized cross-instrument therapeutic impact"
+        },
+        {
+            "Clinical Domain": "Anthropometric & Body Composition",
+            "Measure": "Hedges' g",
+            "Trials (k)": "Pooled (k)",
+            "Patients (N)": "Total (N)",
+            "Pooled SMD (Hedges' g)": "Pooled Effect",
+            "95% CI Lower": "Lower Bound",
+            "95% CI Upper": "Upper Bound",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "p-value": "Calculated p",
+            "I² (%)": "Heterogeneity %",
+            "Bridged Endpoints": "Combined anthropometric metrics",
+            "Clinical Interpretation": "Standardized cross-instrument therapeutic impact"
+        },
+        {
+            "Clinical Domain": "Cardiovascular & Hemodynamics",
+            "Measure": "Hedges' g",
+            "Trials (k)": "Pooled (k)",
+            "Patients (N)": "Total (N)",
+            "Pooled SMD (Hedges' g)": "Pooled Effect",
+            "95% CI Lower": "Lower Bound",
+            "95% CI Upper": "Upper Bound",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "p-value": "Calculated p",
+            "I² (%)": "Heterogeneity %",
+            "Bridged Endpoints": "Combined vascular markers",
+            "Clinical Interpretation": "Standardized cross-instrument therapeutic impact"
+        }
+    ])
+
+    sucra_df = pd.DataFrame([
+        {
+            "Treatment Regimen Profile": "Intervention Profile A",
+            "Indicative Relative Rank": "Rank 1",
+            "SUCRA Score (Surface %)": "0.85 – 0.95",
+            "P-Score Cumulative Probability": "High Cumulative Superiority",
+            "Mean Rank Tier": "Tier 1",
+            "Hierarchical Superiority Evidence Grade": "Highest probability of being most effective"
+        },
+        {
+            "Treatment Regimen Profile": "Intervention Profile B",
+            "Indicative Relative Rank": "Rank 2",
+            "SUCRA Score (Surface %)": "0.65 – 0.84",
+            "P-Score Cumulative Probability": "Moderate Superiority Probability",
+            "Mean Rank Tier": "Tier 2",
+            "Hierarchical Superiority Evidence Grade": "Clinically effective with secondary ranking"
+        },
+        {
+            "Treatment Regimen Profile": "Active Comparator C",
+            "Indicative Relative Rank": "Rank 3",
+            "SUCRA Score (Surface %)": "0.35 – 0.64",
+            "P-Score Cumulative Probability": "Intermediate Comparative Effect",
+            "Mean Rank Tier": "Tier 3",
+            "Hierarchical Superiority Evidence Grade": "Standard comparator performance tier"
+        },
+        {
+            "Treatment Regimen Profile": "Placebo / Standard of Care",
+            "Indicative Relative Rank": "Rank 4",
+            "SUCRA Score (Surface %)": "0.05 – 0.20",
+            "P-Score Cumulative Probability": "Baseline Reference Probability",
+            "Mean Rank Tier": "Reference",
+            "Hierarchical Superiority Evidence Grade": "Control baseline comparator"
+        }
+    ])
+
+    subgroup_df = pd.DataFrame([
+        {
+            "Subgroup Dimension": "Dosage Regimen",
+            "Stratification Level": "High-Dose Arm Tier",
+            "Trials (k)": "Subset (k)",
+            "Pooled Subgroup Effect": "Pooled Estimate",
+            "95% CI": "[Lower, Upper]",
+            "Heterogeneity I²": "Subgroup I² %",
+            "Between-Subgroup Cochran Q": "Calculated Q_between",
+            "Subgroup Interaction p-value": "Interaction p-value"
+        },
+        {
+            "Subgroup Dimension": "Dosage Regimen",
+            "Stratification Level": "Standard-Dose Arm Tier",
+            "Trials (k)": "Subset (k)",
+            "Pooled Subgroup Effect": "Pooled Estimate",
+            "95% CI": "[Lower, Upper]",
+            "Heterogeneity I²": "Subgroup I² %",
+            "Between-Subgroup Cochran Q": "Calculated Q_between",
+            "Subgroup Interaction p-value": "Interaction p-value"
+        },
+        {
+            "Subgroup Dimension": "Follow-up Duration",
+            "Stratification Level": "Extended (> 24 Weeks)",
+            "Trials (k)": "Subset (k)",
+            "Pooled Subgroup Effect": "Pooled Estimate",
+            "95% CI": "[Lower, Upper]",
+            "Heterogeneity I²": "Subgroup I² %",
+            "Between-Subgroup Cochran Q": "Calculated Q_between",
+            "Subgroup Interaction p-value": "Interaction p-value"
+        },
+        {
+            "Subgroup Dimension": "Follow-up Duration",
+            "Stratification Level": "Short-Term (<= 12 Weeks)",
+            "Trials (k)": "Subset (k)",
+            "Pooled Subgroup Effect": "Pooled Estimate",
+            "95% CI": "[Lower, Upper]",
+            "Heterogeneity I²": "Subgroup I² %",
+            "Between-Subgroup Cochran Q": "Calculated Q_between",
+            "Subgroup Interaction p-value": "Interaction p-value"
+        }
+    ])
+
+    pred_df = pd.DataFrame([
+        {
+            "Simulated Dose (mg/day)": "Low Target Dose",
+            "Simulated Duration (Weeks)": "12 Weeks",
+            "Target Parameter": "Primary Endpoint",
+            "Predicted Mean Effect": "Model Projected Value",
+            "95% Confidence Interval": "[CI Lower, CI Upper]",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "Extrapolation Risk Tier": "Interpolation (Within Domain)",
+            "Clinical Takeaway": "Early-phase onset prediction"
+        },
+        {
+            "Simulated Dose (mg/day)": "Target Effective Dose",
+            "Simulated Duration (Weeks)": "24 Weeks",
+            "Target Parameter": "Primary Endpoint",
+            "Predicted Mean Effect": "Model Projected Value",
+            "95% Confidence Interval": "[CI Lower, CI Upper]",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "Extrapolation Risk Tier": "Interpolation (Optimal)",
+            "Clinical Takeaway": "Expected sustained therapeutic window"
+        },
+        {
+            "Simulated Dose (mg/day)": "High Target Dose",
+            "Simulated Duration (Weeks)": "52 Weeks",
+            "Target Parameter": "Primary Endpoint",
+            "Predicted Mean Effect": "Model Projected Value",
+            "95% Confidence Interval": "[CI Lower, CI Upper]",
+            "95% Prediction Interval": "[PI Lower, PI Upper]",
+            "Extrapolation Risk Tier": "Mild Extrapolation",
+            "Clinical Takeaway": "Long-term plateau projection"
+        }
+    ])
+
+    discovery_summary_html = """
+    <div style="background: rgba(15,23,42,0.7); border: 1.5px solid rgba(245,158,11,0.3); border-radius: 16px; padding: 22px; border-left: 5px solid #F59E0B;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-weight: 800; color: #FBBF24; font-size: 15px;">🧬 In-Silico Emergent Hypotheses &amp; Discovery Laboratory</span>
+        <span style="background: rgba(245,158,11,0.2); border: 1px solid #F59E0B; color: #FDE68A; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+          Awaiting Cohort Execution
+        </span>
+      </div>
+      <p style="color: #CBD5E1; font-size: 13.5px; line-height: 1.6; margin: 0 0 12px 0;">
+        When multiple trials are loaded, the In-Silico Discovery Engine analyzes inter-trial variance to identify insights that <strong>no single trial reported alone</strong>:
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
+        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+          <div style="color: #FCD34D; font-weight: 700; font-size: 12.5px; margin-bottom: 3px;">1. Missing-Data Matrix Reconstruction</div>
+          <div style="color: #94A3B8; font-size: 11.5px;">Fills unmeasured trial cells using cross-trial surrogate regression.</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+          <div style="color: #FCD34D; font-weight: 700; font-size: 12.5px; margin-bottom: 3px;">2. Therapeutic Sweet-Spot Identification</div>
+          <div style="color: #94A3B8; font-size: 11.5px;">Calculates optimal dose-duration inflection where efficacy peaks before AE escalation.</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+          <div style="color: #FCD34D; font-weight: 700; font-size: 12.5px; margin-bottom: 3px;">3. De-Novo Virtual Trial Synthesis</div>
+          <div style="color: #94A3B8; font-size: 11.5px;">Designs the ideal next-generation RCT protocol based on collective pooled evidence.</div>
+        </div>
+      </div>
+    </div>
+    """
+
+    discovery_plot_html = """
+    <div style="background: rgba(15,23,42,0.6); border: 1px dashed rgba(245,158,11,0.25); border-radius: 14px; padding: 24px; text-align: center; color: #94A3B8;">
+      <span style="font-size: 26px;">🧬</span>
+      <h4 style="color: #F8FAFC; margin: 8px 0 4px 0; font-size: 15px; font-weight: 700;">Cross-Trial Comparative Landscape &amp; Virtual Trial Projection Plot</h4>
+      <p style="font-size: 12.5px; margin: 0; color: #94A3B8;">Interactive 3-layer Plotly visualization (Real Trial Data Points vs Pooled Meta-Analytic Estimate vs De-Novo Virtual Trial) will populate when trials are synthesized.</p>
+    </div>
+    """
+
+    discovery_recon_df = pd.DataFrame([
+        {
+            "Study Acronym": "Incomplete Trial A",
+            "Missing Endpoint / Timepoint": "Follow-up Endpoint (Week 52)",
+            "Scientifically Inferred Value ± 95% CI": "Inferred Mean ± 95% CI",
+            "Surrogate Predictor Used": "Cross-Study Longitudinal Spline",
+            "Reconstruction Confidence Grade": "Grade A (High Covariance)"
+        },
+        {
+            "Study Acronym": "Incomplete Trial B",
+            "Missing Endpoint / Timepoint": "Unmeasured Secondary Biomarker",
+            "Scientifically Inferred Value ± 95% CI": "Inferred Mean ± 95% CI",
+            "Surrogate Predictor Used": "Surrogate Laboratory Regression",
+            "Reconstruction Confidence Grade": "Grade B (Validated Correlation)"
+        },
+        {
+            "Study Acronym": "Incomplete Trial C",
+            "Missing Endpoint / Timepoint": "Extended Safety Tolerability",
+            "Scientifically Inferred Value ± 95% CI": "Inferred Incidence ± 95% CI",
+            "Surrogate Predictor Used": "Class-Wide Pooled Hazard Model",
+            "Reconstruction Confidence Grade": "Grade A (High Precision)"
+        }
+    ])
+
+    discovery_vt_df = pd.DataFrame([
+        {
+            "Virtual Trial Protocol Section": "Recommended Dosing Regimen",
+            "Synthesized Recommendation": "Optimal Dose per Day (mg/day)",
+            "Biostatistical Rationale": "Inflection point on pooled meta-regression curve",
+            "Expected Outcome & Superiority": "Maximum efficacy without incremental toxicity"
+        },
+        {
+            "Virtual Trial Protocol Section": "Optimal Treatment Duration",
+            "Synthesized Recommendation": "Optimal Study Length (Weeks)",
+            "Biostatistical Rationale": "Trajectory plateau saturation modeling",
+            "Expected Outcome & Superiority": "Full therapeutic effect captured within minimal trial timeline"
+        },
+        {
+            "Virtual Trial Protocol Section": "Target Patient Stratification",
+            "Synthesized Recommendation": "Specific Phenotype Subgroup",
+            "Biostatistical Rationale": "Subgroup heterogeneity interaction modeling",
+            "Expected Outcome & Superiority": "Enhanced treatment response probability (Super-Responders)"
+        },
+        {
+            "Virtual Trial Protocol Section": "Required Sample Size (Power 90%)",
+            "Synthesized Recommendation": "Calculated Sample Size per Arm",
+            "Biostatistical Rationale": "Based on pooled variance and effect size estimates",
+            "Expected Outcome & Superiority": "Alpha = 0.05, Power = 90% in two-tailed superiority design"
+        },
+        {
+            "Virtual Trial Protocol Section": "Projected Efficacy Effect Size",
+            "Synthesized Recommendation": "Expected Delta ± 95% Prediction Interval",
+            "Biostatistical Rationale": "Synthesized across all pooled RCT evidence",
+            "Expected Outcome & Superiority": "Statistically significant superiority vs Standard of Care"
+        }
+    ])
+
+    sim_drug_update = gr.update(choices=["Pooled Cohort Average", "Experimental Arm", "Active Comparator", "Placebo / Standard of Care"], value="Pooled Cohort Average")
+    sim_param_update = gr.update(choices=["Primary Efficacy Endpoint", "Secondary Biomarker", "Safety & Tolerability Incidence"], value="Primary Efficacy Endpoint")
+
+    init_sim_html = """
+    <div style="background: rgba(15,23,42,0.8); border: 1px dashed rgba(236,72,153,0.3); border-radius: 14px; padding: 20px; text-align: center; color: #94A3B8;">
+      <span style="font-size: 24px;">🔮</span>
+      <h4 style="color: #F8FAFC; margin: 6px 0 4px 0; font-size: 15px; font-weight: 700;">Virtual Trial Simulation Engine Ready</h4>
+      <p style="font-size: 12.5px; margin: 0; color: #94A3B8;">Run Phase 2 on your cohort to calibrate the multi-dimensional meta-regression models for interactive dose-duration simulation.</p>
+    </div>
+    """
+
+    return (
+        cohort_verdict_html,
+        cohort_divergence_html,
+        comp_df,
+        heatmap_df,
+        forest_html,
+        meta_df,
+        domain_df,
+        sucra_df,
+        subgroup_df,
+        pred_df,
+        discovery_summary_html,
+        discovery_plot_html,
+        discovery_recon_df,
+        discovery_vt_df,
+        None,
+        None,
+        None,
+        [],
+        sim_drug_update,
+        sim_param_update,
+        init_sim_html
+    )
 
 
 def simulate_virtual_trial_ui(
@@ -572,7 +1151,7 @@ def simulate_virtual_trial_ui(
     cohort_dropdown: str,
     custom_drug_name: str,
     drug_profile: str = "Pooled Cohort Average",
-    param_name: str = "HbA1c",
+    param_name: str = "Primary Efficacy Endpoint",
     dose: float = 1000.0,
     duration: float = 24.0
 ) -> str:
@@ -584,7 +1163,14 @@ def simulate_virtual_trial_ui(
     if "Upload" in str(mode) and custom_drug_name:
         cohort_name = custom_drug_name.strip()
     else:
-        cohort_name = cohort_dropdown or "Metformin"
+        cohort_name = cohort_dropdown
+
+    if not cohort_name:
+        return """
+        <div style="background: rgba(15,23,42,0.8); border: 1px dashed rgba(236,72,153,0.3); border-radius: 14px; padding: 20px; text-align: center; color: #94A3B8;">
+          🔮 <em>Please select an existing cohort folder or upload trial files and run Phase 2 to calibrate the virtual trial predictive model.</em>
+        </div>
+        """
 
     pipeline = CACHED_COHORT_PIPELINES.get(cohort_name)
     if not pipeline:
@@ -711,7 +1297,9 @@ def process_cohort(
                 dst_f = target_dir / orig_name
                 shutil.copy2(src_f, dst_f)
         else:
-            cohort_name = cohort_dropdown or "Metformin"
+            if not cohort_dropdown:
+                raise ValueError("No cohort selected. Please select an existing cohort folder from the dropdown or switch to 'Upload Multiple Files'.")
+            cohort_name = cohort_dropdown
 
         # Map Model Selection
         model_name = "auto"
@@ -2127,10 +2715,10 @@ def build_app():
                 """
             )
 
-        # Pre-load Rich Benchmark Previews so UI has 0% empty space and zero 1|2|3 tables on startup
+        # Pre-load Rich Academic Methodological Showcases so UI has 0% empty space and zero 1|2|3 tables on startup
         p1_summary, p1_master_df, p1_matrix_df, p1_outcomes_df, p1_eligibility_df = get_default_single_study_preview()
-        p1_excel_val = "outputs/metformin_clinical_trial_extracted.xlsx" if os.path.exists("outputs/metformin_clinical_trial_extracted.xlsx") else None
-        p1_json_val = "outputs/metformin_clinical_trial_extracted.json" if os.path.exists("outputs/metformin_clinical_trial_extracted.json") else None
+        p1_excel_val = None
+        p1_json_val = None
 
         (
             cohort_verdict_val,
@@ -2158,8 +2746,8 @@ def build_app():
 
         sim_drug_choices = sim_drug_update.get('choices', ['Pooled Cohort Average']) if isinstance(sim_drug_update, dict) else ['Pooled Cohort Average']
         sim_drug_init_val = sim_drug_update.get('value', 'Pooled Cohort Average') if isinstance(sim_drug_update, dict) else 'Pooled Cohort Average'
-        sim_param_choices = sim_param_update.get('choices', ['HbA1c']) if isinstance(sim_param_update, dict) else ['HbA1c']
-        sim_param_init_val = sim_param_update.get('value', 'HbA1c') if isinstance(sim_param_update, dict) else 'HbA1c'
+        sim_param_choices = sim_param_update.get('choices', ['Primary Efficacy Endpoint']) if isinstance(sim_param_update, dict) else ['Primary Efficacy Endpoint']
+        sim_param_init_val = sim_param_update.get('value', 'Primary Efficacy Endpoint') if isinstance(sim_param_update, dict) else 'Primary Efficacy Endpoint'
 
         with gr.Tabs() as main_nav_tabs:
             # ==========================================
@@ -2305,7 +2893,7 @@ def build_app():
                         with gr.Group(visible=False) as upload_mode_group:
                             custom_drug_input = gr.Textbox(
                                 label="Active Ingredient / Drug Name",
-                                placeholder="e.g. Metformin, Dapagliflozin, Semaglutide..."
+                                placeholder="Enter active ingredient or class name (e.g., Target Molecule, SGLT2i, GLP-1RA, Statin)..."
                             )
                             gr.HTML(
                                 """
