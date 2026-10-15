@@ -826,6 +826,32 @@ def process_cohort(
             duration=24.0
         )
 
+        # In-Silico Discovery & Virtual Trial Artifacts
+        disc_cards = []
+        for disc in res.get("emergent_discoveries", []):
+            disc_cards.append(f"""
+            <div style="background: rgba(15,23,42,0.75); border: 1.5px solid rgba(245,158,11,0.35); border-radius: 16px; padding: 20px; border-left: 5px solid #F59E0B; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 800; color: #FBBF24; font-size: 14px;">{disc.title}</span>
+                <span style="background: rgba(245,158,11,0.2); border: 1px solid #F59E0B; color: #FDE68A; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">{disc.confidence_grade}</span>
+              </div>
+              <div style="color: #F8FAFC; font-weight: 800; font-size: 15px; margin-bottom: 8px;">{disc.headline}</div>
+              <p style="color: #CBD5E1; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">{disc.clinical_rationale}</p>
+              <div style="background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; color: #FCD34D;">
+                ⚡ {disc.quantitative_finding}
+              </div>
+            </div>
+            """)
+        discovery_summary_html = f"""
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 22px;">
+          {''.join(disc_cards)}
+        </div>
+        """ if disc_cards else "<p style='color: #94A3B8;'>No emergent hypotheses detected.</p>"
+
+        discovery_plot_html = res.get("discovery_plot_html", "")
+        discovery_recon_df = deduplicate_columns(res.get("reconstructed_df", pd.DataFrame()))
+        discovery_vt_df = deduplicate_columns(res.get("virtual_trial_df", pd.DataFrame()))
+
         return (
             verdict_html,
             cohort_divergence_html,
@@ -837,6 +863,10 @@ def process_cohort(
             sucra_df,
             subgroup_df,
             pred_df,
+            discovery_summary_html,
+            discovery_plot_html,
+            discovery_recon_df,
+            discovery_vt_df,
             res["excel_path"],
             res["html_path"],
             res.get("zip_path"),
@@ -872,6 +902,10 @@ def process_cohort(
             pd.DataFrame(),
             pd.DataFrame(),
             pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
+            "",
+            "",
             pd.DataFrame(),
             pd.DataFrame(),
             None,
@@ -1179,12 +1213,105 @@ def build_app():
         box-shadow: 0 0 20px rgba(56, 189, 248, 0.3) !important;
     }
 
-    /* Dataframe Styling */
+    /* Apple.com Studio + GitHub Primer File Upload Dropzones */
+    div[data-testid="file-upload"], .gr-file, .file-upload-dropzone, div.file-preview-holder {
+        border: 1.5px dashed rgba(56, 189, 248, 0.38) !important;
+        border-radius: 18px !important;
+        background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.08) 0%, rgba(15, 23, 42, 0.65) 100%) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        padding: 18px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    div[data-testid="file-upload"]:hover, .gr-file:hover, .file-upload-dropzone:hover {
+        border-color: #2DD4BF !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 12px 30px -10px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.2) !important;
+        background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.14) 0%, rgba(15, 23, 42, 0.75) 100%) !important;
+    }
+
+    div[data-testid="file-upload"] button, .gr-file button {
+        background: rgba(30, 41, 59, 0.85) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        border-radius: 10px !important;
+        color: #F8FAFC !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+
+    div[data-testid="file-upload"] button:hover, .gr-file button:hover {
+        background: rgba(56, 189, 248, 0.25) !important;
+        border-color: #2DD4BF !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 0 14px rgba(45, 212, 191, 0.45) !important;
+    }
+
+    /* GitHub Primer / Apple Dark-Glass Inputs, Textboxes, Dropdowns & Sliders */
+    input[type="text"], input[type="password"], input[type="number"], textarea, select {
+        background: rgba(15, 23, 42, 0.75) !important;
+        border: 1px solid rgba(148, 163, 184, 0.20) !important;
+        border-radius: 12px !important;
+        color: #F8FAFC !important;
+        font-family: var(--font-sans) !important;
+        font-size: 13.5px !important;
+        padding: 10px 14px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+        border-color: #38BDF8 !important;
+        outline: none !important;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
+        background: rgba(15, 23, 42, 0.90) !important;
+    }
+
+    .gr-dropdown {
+        border-radius: 12px !important;
+    }
+
+    input[type="range"] {
+        accent-color: #0EA5E9 !important;
+    }
+
+    /* High-Definition Tables (Zebra Hover, Dark Glass Headers, Monospace Numerics) */
     .gradio-dataframe {
         border-radius: 16px !important;
         overflow: hidden !important;
         border: 1px solid rgba(148, 163, 184, 0.15) !important;
-        background: rgba(15, 23, 42, 0.6) !important;
+        background: rgba(15, 23, 42, 0.65) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    .gradio-dataframe th, table th {
+        background: rgba(30, 41, 59, 0.90) !important;
+        color: #94A3B8 !important;
+        font-weight: 700 !important;
+        font-size: 11.5px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        padding: 12px 14px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+    }
+
+    .gradio-dataframe td, table td {
+        font-size: 12.5px !important;
+        color: #E2E8F0 !important;
+        padding: 10px 14px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        transition: background 0.15s ease !important;
+    }
+
+    .gradio-dataframe tr:hover td, table tr:hover td {
+        background: rgba(56, 189, 248, 0.08) !important;
+    }
+
+    /* GitHub Release Asset Cards for Download Center */
+    .file-preview-holder {
+        border: 1px solid rgba(56, 189, 248, 0.25) !important;
+        border-radius: 14px !important;
+        background: rgba(15, 23, 42, 0.8) !important;
     }
     """
 
@@ -1370,6 +1497,25 @@ def build_app():
                     # Left Column: Upload & Parameters
                     with gr.Column(scale=1):
                         gr.Markdown("### 📄 Step 1: Upload Trial Protocol / Paper")
+                        gr.HTML(
+                            """
+                            <div style="background: rgba(15,23,42,0.8); border: 1px solid rgba(56,189,248,0.25); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                              <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(56,189,248,0.15); display: flex; align-items: center; justify-content: center; color: #38BDF8; font-size: 16px;">
+                                  ☁️
+                                </div>
+                                <div>
+                                  <div style="font-weight: 700; color: #F8FAFC; font-size: 13px;">Clinical Protocol & RCT Uploader</div>
+                                  <div style="color: #94A3B8; font-size: 11px;">Drop single-study published RCT papers or trial protocols</div>
+                                </div>
+                              </div>
+                              <div style="display: flex; gap: 6px;">
+                                <span style="background: rgba(56,189,248,0.15); border: 1px solid #38BDF8; color: #38BDF8; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">PDF</span>
+                                <span style="background: rgba(16,185,129,0.15); border: 1px solid #10B981; color: #34D399; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">Zero-Loss Parse</span>
+                              </div>
+                            </div>
+                            """
+                        )
                         pdf_input = gr.File(
                             label="Drop RCT Paper (PDF)",
                             file_types=[".pdf"],
@@ -1484,6 +1630,26 @@ def build_app():
                             custom_drug_input = gr.Textbox(
                                 label="Active Ingredient / Drug Name",
                                 placeholder="e.g. Metformin, Dapagliflozin, Semaglutide..."
+                            )
+                            gr.HTML(
+                                """
+                                <div style="background: rgba(15,23,42,0.8); border: 1px solid rgba(45,212,191,0.25); border-radius: 14px; padding: 12px 16px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between;">
+                                  <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(45,212,191,0.15); display: flex; align-items: center; justify-content: center; color: #2DD4BF; font-size: 16px;">
+                                      ⚡
+                                    </div>
+                                    <div>
+                                      <div style="font-weight: 700; color: #F8FAFC; font-size: 13px;">Multi-Trial Batch Dropzone</div>
+                                      <div style="color: #94A3B8; font-size: 11px;">Drop multiple raw RCT PDFs or pre-extracted Excels for automated cohort pooling</div>
+                                    </div>
+                                  </div>
+                                  <div style="display: flex; gap: 6px;">
+                                    <span style="background: rgba(56,189,248,0.15); border: 1px solid #38BDF8; color: #38BDF8; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">PDF</span>
+                                    <span style="background: rgba(45,212,191,0.15); border: 1px solid #2DD4BF; color: #2DD4BF; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">XLSX</span>
+                                    <span style="background: rgba(168,85,247,0.15); border: 1px solid #A855F7; color: #C084FC; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">Batch Ready</span>
+                                  </div>
+                                </div>
+                                """
                             )
                             upload_cohort_files = gr.File(
                                 label="Upload Trial PDFs or Pre-Extracted Excels",
@@ -1633,6 +1799,42 @@ def build_app():
                                     max_height=450
                                 )
 
+                            with gr.TabItem("🧬 In-Silico Discovery & Synthesized Virtual Trial (New Inferred Evidence)"):
+                                gr.Markdown(
+                                    """
+                                    <div style="background: rgba(15,23,42,0.8); border: 1.5px solid rgba(245,158,11,0.4); border-radius: 16px; padding: 18px 24px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                                      <div>
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                                          <span style="font-size: 22px;">🧬</span>
+                                          <h3 style="color: #F8FAFC; margin: 0; font-size: 18px; font-weight: 800;">In-Silico Emergent Discoveries & Next-Gen Trial Synthesis</h3>
+                                        </div>
+                                        <p style="color: #94A3B8; font-size: 13px; margin: 0;">Collective intelligence synthesized across all loaded trials — reconstructing unmeasured missing data, detecting therapeutic sweet-spots, and inventing the next breakthrough study.</p>
+                                      </div>
+                                      <span style="background: rgba(245, 158, 11, 0.2); border: 1.5px solid #F59E0B; color: #FBBF24; padding: 5px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; white-space: nowrap;">
+                                        ⚡ MANDOROS Novel Inferred Evidence
+                                      </span>
+                                    </div>
+                                    """
+                                )
+                                discovery_summary_html = gr.HTML(
+                                    label="Emergent Hypotheses, Therapeutic Sweet-Spots & Super-Responder Phenotypes"
+                                )
+                                discovery_plot_html = gr.HTML(
+                                    label="Interactive Comparison: Real Trials vs Pooled Meta-Estimate vs Synthesized Virtual Trial"
+                                )
+                                discovery_recon_table = gr.DataFrame(
+                                    label="🧩 Reconstructed Missing Trial Evidence Matrix (Cross-Trial Surrogate Regression & Covariance Imputation)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=420
+                                )
+                                discovery_vt_table = gr.DataFrame(
+                                    label="🧬 Synthesized De-Novo Virtual Clinical Trial Protocol Blueprint (Bliss Synergy & Power Modeling)",
+                                    interactive=False,
+                                    wrap=True,
+                                    max_height=360
+                                )
+
                 cohort_mode_radio.change(
                     fn=toggle_cohort_mode,
                     inputs=[cohort_mode_radio],
@@ -1666,6 +1868,10 @@ def build_app():
                         cohort_sucra_table,
                         cohort_subgroup_table,
                         cohort_pred_table,
+                        discovery_summary_html,
+                        discovery_plot_html,
+                        discovery_recon_table,
+                        discovery_vt_table,
                         cohort_excel_file,
                         cohort_html_file,
                         cohort_zip_file,

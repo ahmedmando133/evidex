@@ -70,9 +70,25 @@ This document defines the skills, capabilities, and data contracts for MANDOROS.
 ---
 
 ## Skill 7: Apple Flagship UI & Multi-Format Reporting
-- **Web App (`app.py`):** Dark Apple.com frosted glass bento layout, 3D ribbon emblem, 8-node pipeline strip (`M-A-N-D-O-R-O-S`), responsive tabs.
+- **Web App (`app.py`):** Dark Apple.com frosted glass bento layout, 3D ribbon emblem, 8-node pipeline strip (`M-A-N-D-O-R-O-S`), Apple Studio & GitHub Primer glowing upload dropzones, responsive tabs.
 - **Live Cloud Deployment:** Continuous deployment on Render: [https://mandoros.onrender.com](https://mandoros.onrender.com).
 - **Deliverables:**
-  - `<Cohort_Name>_MANDOROS_Master_Report.xlsx` (8 biotechnology-styled sheets).
+  - `<Cohort_Name>_MANDOROS_Master_Report.xlsx` (10 biotechnology-styled sheets).
   - `<Cohort_Name>_MANDOROS_Executive_Dashboard.html` (Standalone interactive Plotly report).
   - `<Cohort_Name>_Individual_Stage1_Trial_Excels.zip` & multi-file individual Excel downloads.
+
+---
+
+## Skill 8: In-Silico Discovery & Emergent Synthesis Engine (`src/discovery_engine.py`)
+- **Missing-Data Reconstruction & Matrix Completion:** Scans across pooled trials to identify unmeasured endpoints or missing timepoints and reconstructs them using cross-trial surrogate regressions, multivariate covariance imputation, and longitudinal trajectory models with 95% CIs and confidence scores.
+- **Emergent Cross-Trial Hypotheses:**
+  - *Therapeutic Sweet-Spot:* Inflection point of diminishing marginal efficacy and safety escalation.
+  - *Hidden Super-Responder Phenotype:* Baseline severity and demographic predictors of amplified treatment response.
+  - *Latent Biomarker Coupling:* Cross-trial covariance cascades between primary and secondary clinical outcomes.
+- **De-Novo Virtual Clinical Trial Synthesis:**
+  - Pharmacological Bliss independence / additive synergy modeling for novel multi-agent combination regimens or precision titration protocols.
+  - Calculates required sample size $N$ for 90% power, predicted primary/secondary deltas, 95% Prediction Intervals, NNT, and Monte Carlo superiority probability vs existing trials.
+- **Exported Deliverables:**
+  - Master Excel Sheet 9: `In_Silico_New_Discoveries`.
+  - Master Excel Sheet 10: `Synthesized_Virtual_Trial`.
+  - Interactive Web UI Sub-Tab & Standalone HTML Dashboard comparison charts.

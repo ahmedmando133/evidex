@@ -87,9 +87,9 @@ python run.py analyze-cohort --cohort Mixed_Metabolic_Cohort
 ## 📦 Deliverables Produced
 
 1. **Master Comparison & Meta-Analysis Excel (`.xlsx`):**
-   - `<Cohort_Name>_MANDOROS_Master_Report.xlsx` (8 multi-level sheets).
+   - `<Cohort_Name>_MANDOROS_Master_Report.xlsx` (10 multi-level sheets, including `In_Silico_New_Discoveries` and `Synthesized_Virtual_Trial`).
 2. **Interactive Executive Dashboard (`.html`):**
-   - `<Cohort_Name>_MANDOROS_Executive_Dashboard.html` (Standalone Plotly charts, SUCRA rankings, heatmaps).
+   - `<Cohort_Name>_MANDOROS_Executive_Dashboard.html` (Standalone Plotly charts, in-silico emergent discoveries, SUCRA rankings, heatmaps).
 3. **Stage-1 Individual Trial Excels Bundle (`.zip`):**
    - `<Cohort_Name>_Individual_Stage1_Trial_Excels.zip`.
 4. **Individual Trial Excels (`.xlsx`):**
