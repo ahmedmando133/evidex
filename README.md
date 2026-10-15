@@ -3,10 +3,16 @@
 *— From Raw Trials to Global Clinical Verdicts. —*  
 *— S M A R T E R &nbsp; E V I D E N C E . &nbsp; B E T T E R &nbsp; D E C I S I O N S . —*
 
+[![Live Web App](https://img.shields.io/badge/Render-Live%20Application-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://mandoros.onrender.com)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-MANDOROS-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ahmedmando133/MANDOROS)
+[![Biostatistics](https://img.shields.io/badge/Cochrane%20%7C%20PRISMA-Compliant-6366F1?style=for-the-badge)](https://mandoros.onrender.com)
+
+> 🌐 **Live Cloud Production URL:** [https://mandoros.onrender.com](https://mandoros.onrender.com)
+
 ---
 
 ## 🌟 Executive Overview
-**MANDOROS** is a next-generation clinical trial extraction, meta-analysis, and predictive analytics engine. It transforms raw clinical trial protocols and published RCT PDFs into standardized, audit-verified evidence databases compliant with Cochrane, PRISMA, and top-tier academic biostatistical standards.
+**MANDOROS** is a next-generation clinical trial extraction, meta-analysis, and predictive analytics engine. It transforms raw clinical trial protocols and published RCT PDFs into standardized, audit-verified evidence databases compliant with Cochrane, PRISMA, and top-tier academic biostatistical standards. Accessible locally or worldwide at [https://mandoros.onrender.com](https://mandoros.onrender.com).
 
 ---
 
@@ -51,7 +57,13 @@
 
 ## 🚀 Quick Start & Launchers
 
-### Launching the Web Interface
+### 🌐 Live Cloud Web Application (Production)
+Access the live production instance deployed on Render with zero setup:
+- **URL:** [https://mandoros.onrender.com](https://mandoros.onrender.com)
+- Continuous deployment directly from GitHub `main`.
+- Upload trial PDFs, extract structured workbooks, pool cross-trial cohorts, and simulate predictive virtual trials directly in the browser.
+
+### 💻 Local Web Interface
 Double-click `Run_MANDOROS_Web_App.bat` or run:
 ```bash
 python app.py

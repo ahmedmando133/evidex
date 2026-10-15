@@ -71,6 +71,7 @@ This document defines the skills, capabilities, and data contracts for MANDOROS.
 
 ## Skill 7: Apple Flagship UI & Multi-Format Reporting
 - **Web App (`app.py`):** Dark Apple.com frosted glass bento layout, 3D ribbon emblem, 8-node pipeline strip (`M-A-N-D-O-R-O-S`), responsive tabs.
+- **Live Cloud Deployment:** Continuous deployment on Render: [https://mandoros.onrender.com](https://mandoros.onrender.com).
 - **Deliverables:**
   - `<Cohort_Name>_MANDOROS_Master_Report.xlsx` (8 biotechnology-styled sheets).
   - `<Cohort_Name>_MANDOROS_Executive_Dashboard.html` (Standalone interactive Plotly report).

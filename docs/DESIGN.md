@@ -148,3 +148,9 @@ D:\Evidex
 ├── docs/              DESIGN.md, concept note
 └── config/            backend + API settings (git-ignored secrets)
 ```
+
+## 11. Deployment & Live Access
+
+- **Cloud Platform:** Render (`render.yaml`, `Procfile`)
+- **Live Production URL:** [https://mandoros.onrender.com](https://mandoros.onrender.com)
+- **GitHub Repository:** [https://github.com/ahmedmando133/MANDOROS](https://github.com/ahmedmando133/MANDOROS)

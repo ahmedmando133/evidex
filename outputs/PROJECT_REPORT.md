@@ -400,8 +400,11 @@ python -m src.build_gold
 # Convert a workbook to flat JSON for scoring
 python -m src.xlsx_to_json outputs/orlistat_structured_extracted.xlsx --study RCT_ORLISTAT_2024
 
-# Launch the web UI
+# Launch the web UI (Local)
 python app.py
+
+# Live Production Web App (Cloud / Render)
+# Access online directly: https://mandoros.onrender.com
 ```
 
 ---
