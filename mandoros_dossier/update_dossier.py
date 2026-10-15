@@ -36,9 +36,10 @@ SVG_EMBLEM = """<svg width="76" height="58" viewBox="0 0 120 90" fill="none" xml
 
 def update_all():
     print("=" * 60)
-    print("[UPDATE] Updating MANDOROS Platform Specification Dossier & PDF...")
+    print("[UPDATE] Updating MANDOROS Platform Specification Dossier & Presentations...")
     print("=" * 60)
 
+    # 1. Dossier PDF
     html_file = DOSSIER_DIR / "mandoros_dossier.html"
     scratch_file = Path(r"C:\Users\Mando\.gemini\antigravity\brain\15684f81-3661-4ee4-ac9e-9e2058e52711\scratch\mandoros_dossier.html")
     
@@ -49,21 +50,45 @@ def update_all():
     pdf_out_root = PROJECT_ROOT / "MANDOROS_Platform_Specification_Dossier.pdf"
     pdf_out_artifact = ARTIFACT_DIR / "MANDOROS_Platform_Specification_Dossier.pdf"
 
-    cmd = [
-        CHROME_BIN,
-        "--headless=new",
-        "--disable-gpu",
-        "--no-pdf-header-footer",
-        f"--print-to-pdf={str(pdf_out_dossier)}",
-        str(html_file.resolve())
-    ]
-    subprocess.run(cmd, check=True)
-    shutil.copy2(pdf_out_dossier, pdf_out_root)
-    if ARTIFACT_DIR.exists():
-        shutil.copy2(pdf_out_dossier, pdf_out_artifact)
+    if html_file.exists():
+        cmd = [
+            CHROME_BIN,
+            "--headless=new",
+            "--disable-gpu",
+            "--no-pdf-header-footer",
+            f"--print-to-pdf={str(pdf_out_dossier)}",
+            str(html_file.resolve())
+        ]
+        subprocess.run(cmd, check=True)
+        shutil.copy2(pdf_out_dossier, pdf_out_root)
+        if ARTIFACT_DIR.exists():
+            shutil.copy2(pdf_out_dossier, pdf_out_artifact)
+        print(f"[OK] Dossier PDF: {pdf_out_dossier.name} ({pdf_out_dossier.stat().st_size:,} bytes)")
 
-    print(f"[OK] Dossier PDF successfully generated: {pdf_out_dossier.name} ({pdf_out_dossier.stat().st_size:,} bytes)")
-    print(f"[OK] Synchronized across project root and conversation artifacts.")
+    # 2. Synchronize Presentations (PPTX, PDF, HTML)
+    for ext in [".pptx", ".pdf", ".html"]:
+        deck_file = DOSSIER_DIR / f"MANDOROS_Global_Academic_Presentation{ext}"
+        root_deck = PROJECT_ROOT / f"MANDOROS_Global_Academic_Presentation{ext}"
+        artifact_deck = ARTIFACT_DIR / f"MANDOROS_Global_Academic_Presentation{ext}"
+        
+        # Sync between dossier, root, and artifacts
+        source = None
+        if deck_file.exists():
+            source = deck_file
+        elif artifact_deck.exists():
+            source = artifact_deck
+            shutil.copy2(source, deck_file)
+        elif root_deck.exists():
+            source = root_deck
+            shutil.copy2(source, deck_file)
+
+        if source and source.exists():
+            shutil.copy2(source, root_deck)
+            if ARTIFACT_DIR.exists():
+                shutil.copy2(source, artifact_deck)
+            print(f"[OK] Presentation ({ext}): {deck_file.name} ({deck_file.stat().st_size:,} bytes)")
+
+    print(f"[OK] All documentation and presentations synchronized successfully across project root, dossier archive, and conversation artifacts.")
 
 if __name__ == "__main__":
     update_all()

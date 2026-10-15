@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MANDOROS — Academic Keynote Presentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+  @page {{
+    size: 1920px 1080px;
+    margin: 0;
+  }}
+
+  * {{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }}
+
+  body {{
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #F8FAFC;
+    background: #030712;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    overflow-x: hidden;
+  }}
+
+  .slide {{
+    width: 1920px;
+    height: 1080px;
+    padding: 60px 80px;
+    background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, #061026 40%, #030712 100%);
+    position: relative;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+  }}
+
+  .mesh-wave {{
+    position: absolute;
+    top: 20px;
+    pointer-events: none;
+    opacity: 0.35;
+  }}
+  .mesh-left {{ left: -20px; }}
+  .mesh-right {{ right: -20px; transform: scaleX(-1); }}
+
+  /* Slide Header */
+  .slide-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1.5px solid rgba(56, 189, 248, 0.25);
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 2;
+  }}
+
+  .header-left {{
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }}
+
+  .slide-category {{
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #00F5D4;
+    background: rgba(0, 245, 212, 0.12);
+    border: 1px solid rgba(0, 245, 212, 0.3);
+    padding: 4px 14px;
+    border-radius: 9999px;
+  }}
+
+  .slide-title {{
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    background: linear-gradient(90deg, #FFFFFF 0%, #67E8F9 50%, #38BDF8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }}
+
+  .header-brand {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 800;
+    color: #94A3B8;
+  }}
+
+  /* Slide Content Area */
+  .slide-body {{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+  }}
+
+  /* Slide Footer */
+  .slide-footer {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 18px;
+    font-size: 13px;
+    color: #64748B;
+    position: relative;
+    z-index: 2;
+  }}
+
+  .footer-motto {{
+    color: #94A3B8;
+    font-weight: 600;
+  }}
+
+  .slide-num {{
+    color: #38BDF8;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+  }}
+
+  /* Bento Grids */
+  .grid-2 {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }}
+
+  .grid-3 {{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }}
+
+  .grid-4 {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }}
+
+  /* Cards */
+  .card {{
+    background: rgba(11, 22, 44, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 20px;
+    padding: 26px 28px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+  }}
+
+  .card-top {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }}
+
+  .card-badge {{
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }}
+
+  .card-h2 {{
+    font-size: 20px;
+    font-weight: 800;
+    color: #F8FAFC;
+    margin-bottom: 8px;
+  }}
+
+  .card-p {{
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: #CBD5E1;
+  }}
+
+  .p-1 {{ border-top: 3.5px solid #00F5D4; }}
+  .p-2 {{ border-top: 3.5px solid #38BDF8; }}
+  .p-3 {{ border-top: 3.5px solid #A855F7; }}
+  .p-4 {{ border-top: 3.5px solid #10B981; }}
+
+  /* Tables */
+  table {{
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(15, 23, 42, 0.65);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }}
+
+  th {{
+    background: rgba(30, 41, 59, 0.9);
+    color: #94A3B8;
+    padding: 12px 18px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }}
+
+  td {{
+    padding: 11px 18px;
+    font-size: 13.5px;
+    color: #E2E8F0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }}
+
+  tr:nth-child(even) td {{
+    background: rgba(255, 255, 255, 0.02);
+  }}
+
+  /* Step Pills */
+  .step-card {{
+    background: rgba(15, 23, 42, 0.85);
+    border: 1.5px solid rgba(56, 189, 248, 0.3);
+    border-radius: 16px;
+    padding: 22px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }}
+
+  .step-num {{
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #00F5D4, #0EA5E9);
+    color: #030712;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }}
+
+  .step-title {{
+    font-size: 17px;
+    font-weight: 800;
+    color: #F8FAFC;
+    margin-bottom: 4px;
+  }}
+
+  .step-desc {{
+    font-size: 13.5px;
+    color: #94A3B8;
+    line-height: 1.5;
+  }}
+
+  /* Code / Keys */
+  code {{
+    background: rgba(0, 0, 0, 0.45);
+    color: #38BDF8;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }}
+
+  /* Title Slide Specific */
+  .title-hero {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+  }}
+
+  .title-logo {{
+    margin-bottom: 20px;
+    transform: scale(1.3);
+  }}
+
+  .title-main {{
+    font-size: 76px;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+    background: linear-gradient(90deg, #2DD4BF 0%, #67E8F9 25%, #FFFFFF 52%, #60A5FA 78%, #F8FAFC 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 45px rgba(45, 212, 191, 0.4));
+  }}
+
+  .title-sub {{
+    font-size: 24px;
+    font-weight: 600;
+    color: #94A3B8;
+    margin-bottom: 16px;
+    letter-spacing: 0.04em;
+    max-width: 1200px;
+  }}
+
+  .title-tagline {{
+    font-size: 20px;
+    font-style: italic;
+    color: #38BDF8;
+    margin-bottom: 40px;
+  }}
+
+  .title-badges {{
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 40px;
+  }}
+
+  .t-badge {{
+    background: rgba(15, 23, 42, 0.85);
+    border: 1.5px solid rgba(56, 189, 248, 0.4);
+    padding: 8px 22px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #E2E8F0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  }}
+
+  .title-meta {{
+    font-size: 15px;
+    color: #64748B;
+    line-height: 1.6;
+  }}
+</style>
+</head>
+<body>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 1: COVER TITLE SLIDE                                                -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="mesh-wave mesh-left">
+      <svg width="340" height="260" viewBox="0 0 240 200" fill="none">
+        <path d="M -30 20 C 40 40, 70 130, 190 85 C 230 75, 250 120, 290 150" stroke="#00F5D4" stroke-width="2" stroke-dasharray="3 4"/>
+        <path d="M -15 55 C 60 75, 90 160, 210 115" stroke="#00BBF9" stroke-width="1.5" stroke-dasharray="2 3"/>
+        <path d="M 0 90 C 80 110, 110 190, 230 145" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="3 5"/>
+      </svg>
+    </div>
+    <div class="mesh-wave mesh-right">
+      <svg width="340" height="260" viewBox="0 0 240 200" fill="none">
+        <path d="M -30 20 C 40 40, 70 130, 190 85 C 230 75, 250 120, 290 150" stroke="#6366F1" stroke-width="2" stroke-dasharray="3 4"/>
+        <path d="M -15 55 C 60 75, 90 160, 210 115" stroke="#38BDF8" stroke-width="1.5" stroke-dasharray="2 3"/>
+        <path d="M 0 90 C 80 110, 110 190, 230 145" stroke="#00F5D4" stroke-width="1.5" stroke-dasharray="3 5"/>
+      </svg>
+    </div>
+
+    <div></div>
+
+    <div class="title-hero">
+      <div class="title-logo">
+        <svg width="84" height="64" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 18px rgba(0, 245, 212, 0.55)) drop-shadow(0 0 28px rgba(168, 85, 247, 0.45));">
+  <defs>
+    <linearGradient id="m_ribbon_left" x1="15%" y1="90%" x2="55%" y2="10%">
+      <stop offset="0%" stop-color="#00F5D4"/>
+      <stop offset="60%" stop-color="#00BBF9"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="m_ribbon_right" x1="45%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="35%" stop-color="#6366F1"/>
+      <stop offset="75%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="m_ribbon_glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#C084FC"/>
+    </linearGradient>
+  </defs>
+  <path d="M 28 74 C 20 54 26 24 46 18 C 58 14 65 30 58 56" stroke="url(#m_ribbon_left)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 62 56 C 55 30 62 14 74 18 C 94 24 100 54 92 74" stroke="url(#m_ribbon_right)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 46 20 C 58 28 62 46 60 56" stroke="url(#m_ribbon_glow)" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.95"/>
+</svg>
+      </div>
+      <div class="title-main">M<span style="color:#2DD4BF;">Λ</span>NDOROS</div>
+      <div class="title-sub">Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis</div>
+      <div class="title-tagline">— From Raw Trials to Global Clinical Verdicts —</div>
+
+      <div class="title-badges">
+        <span class="t-badge" style="border-color:#00F5D4; color:#00F5D4;">PRISMA 2020 Compliant</span>
+        <span class="t-badge" style="border-color:#38BDF8; color:#38BDF8;">Cochrane Handbook Core</span>
+        <span class="t-badge" style="border-color:#6366F1; color:#818CF8;">wviechtb/metafor-Grade REML</span>
+        <span class="t-badge" style="border-color:#A855F7; color:#C084FC;">Graph-Theoretic NMA & SUCRA</span>
+        <span class="t-badge" style="border-color:#10B981; color:#34D399;">In-Silico Virtual Trial Extrapolation</span>
+      </div>
+
+      <div class="title-meta">
+        Flagship Academic Keynote & Platform Specification Dossier<br>
+        Presented for Global Universities, Clinical Trial Principal Investigators & Systematic Reviewers<br>
+        Live Platform: <strong style="color:#38BDF8;">https://mandoros.onrender.com</strong>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>MANDOROS Biostatistical Evidence Intelligence</span>
+      <span class="slide-num">SLIDE 01 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 2: AGENDA & TABLE OF CONTENTS                                       -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Overview</span>
+        <h1 class="slide-title">Agenda &amp; Table of Contents</h1>
+      </div>
+      <div class="header-brand">MANDOROS KEYNOTE</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-3">
+        <div class="card p-1">
+          <div class="card-badge" style="background:rgba(0,245,212,0.15); color:#00F5D4;">PART I · FOUNDATIONS</div>
+          <h2 class="card-h2" style="margin-top:8px;">1. The Systematic Review Bottleneck</h2>
+          <p class="card-p">How unstructured clinical literature creates a 2-year lag in evidence adoption, and how MANDOROS solves it.</p>
+          <h2 class="card-h2" style="margin-top:16px;">2. System Architecture &amp; Engineering</h2>
+          <p class="card-p">The deterministic code stack: Python 3.10, metafor biostatistics, LLM reasoning, and zero-imputation guardrails.</p>
+        </div>
+
+        <div class="card p-2">
+          <div class="card-badge" style="background:rgba(56,189,248,0.15); color:#38BDF8;">PART II · ENGINES</div>
+          <h2 class="card-h2" style="margin-top:8px;">3. Stage-1 Atomic Curation</h2>
+          <p class="card-p">7 relational sheets, 88 canonical fields, 4 relational eligibility operators, and verbatim page/quote provenance.</p>
+          <h2 class="card-h2" style="margin-top:16px;">4. Phase-2 Meta-Analysis &amp; SUCRA</h2>
+          <p class="card-p">Restricted Maximum Likelihood (REML), Knapp-Hartung correction, indirect comparisons, and Monte Carlo SUCRA rankings.</p>
+        </div>
+
+        <div class="card p-3">
+          <div class="card-badge" style="background:rgba(168,85,247,0.15); color:#C084FC;">PART III · DISCOVERY &amp; PRACTICAL</div>
+          <h2 class="card-h2" style="margin-top:8px;">5. In-Silico Synthesis &amp; Virtual Trials</h2>
+          <p class="card-p">Cross-trial surrogate covariance imputation, missing endpoint reconstruction, and optimal next-gen trial protocol design.</p>
+          <h2 class="card-h2" style="margin-top:16px;">6. University User Guide &amp; BYOK Tutorial</h2>
+          <p class="card-p">Step-by-step user walkthrough and illustrated tutorial on connecting your own free Google AI Studio API key.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">Structured Academic Specification · Version 2.6 Flagship</span>
+      <span class="slide-num">SLIDE 02 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 3: THE CLINICAL TRIAL CRISIS & MANDOROS SOLUTION                    -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Problem &amp; Solution</span>
+        <h1 class="slide-title">The Systematic Review Crisis vs The MANDOROS Solution</h1>
+      </div>
+      <div class="header-brand">EVIDENCE BOTTLENECK</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card" style="border-top:3.5px solid #EF4444;">
+          <div class="card-badge" style="background:rgba(239,68,68,0.15); color:#F87171;">THE PROBLEM</div>
+          <h2 class="card-h2" style="margin:12px 0 8px 0; color:#FCA5A5;">The Evidence Bottleneck in Modern Medicine</h2>
+          <ul style="color:#CBD5E1; font-size:15px; line-height:1.7; padding-left:20px;">
+            <li><strong>Manual Review Latency:</strong> Traditional Cochrane/PRISMA systematic reviews require 12 to 24 months of manual human curation.</li>
+            <li><strong>Unstructured PDF Silos:</strong> Critical trial endpoints, standard deviations, and eligibility criteria are trapped in multi-column PDF tables and appendices.</li>
+            <li><strong>Aggregation Bias &amp; Inconsistency:</strong> Trials employ divergent outcome scales, different follow-up timepoints, and varying dosage schedules.</li>
+            <li><strong>LLM Hallucination Risk:</strong> Standard AI chatbots invent sample sizes, confabulate p-values, and hallucinate treatment effects when given complex RCTs.</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top:3.5px solid #00F5D4;">
+          <div class="card-badge" style="background:rgba(0,245,212,0.15); color:#00F5D4;">THE MANDOROS SOLUTION</div>
+          <h2 class="card-h2" style="margin:12px 0 8px 0; color:#2DD4BF;">Zero-Hallucination Deterministic Synthesis</h2>
+          <ul style="color:#CBD5E1; font-size:15px; line-height:1.7; padding-left:20px;">
+            <li><strong>Seconds, Not Years:</strong> Converts 50-page complex clinical PDFs into standardized 7-sheet relational databases in under 45 seconds.</li>
+            <li><strong>Verbatim Page &amp; Quote Coordinates:</strong> Every single number is cryptographically bound to exact manuscript text coordinates.</li>
+            <li><strong>Pure metafor Biostatistics:</strong> Python-implemented Restricted Maximum Likelihood (REML) and Knapp-Hartung variance estimators.</li>
+            <li><strong>Collective In-Silico Intelligence:</strong> Goes beyond meta-analysis to reconstruct unmeasured endpoints and design the next breakthrough trial.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">From Raw Literature to Verified Clinical Intelligence</span>
+      <span class="slide-num">SLIDE 03 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 4: SYSTEM ARCHITECTURE & ENGINEERING STACK                          -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Engineering</span>
+        <h1 class="slide-title">System Architecture &amp; How MANDOROS Was Built</h1>
+      </div>
+      <div class="header-brand">UNDER THE HOOD</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-4">
+        <div class="card p-1">
+          <div class="card-badge" style="background:rgba(0,245,212,0.15); color:#00F5D4;">LAYER 1 · INGESTION</div>
+          <h2 class="card-h2" style="margin-top:8px;">Zero-Loss PDF Deconstruction</h2>
+          <p class="card-p">PyMuPDF / pdfplumber pipelines extract high-fidelity layout blocks, tables, footnotes, and vector graphics without optical degradation or OCR truncation.</p>
+        </div>
+
+        <div class="card p-2">
+          <div class="card-badge" style="background:rgba(56,189,248,0.15); color:#38BDF8;">LAYER 2 · EXTRACTION</div>
+          <h2 class="card-h2" style="margin-top:8px;">Dual-Layer Consensus AI</h2>
+          <p class="card-p">Guided schema prompts enforce Pydantic AST validation, deterministic value/operator splits, and explicit <code>not_reported</code> epistemic boundaries.</p>
+        </div>
+
+        <div class="card p-3">
+          <div class="card-badge" style="background:rgba(168,85,247,0.15); color:#C084FC;">LAYER 3 · BIOSTATISTICS</div>
+          <h2 class="card-h2" style="margin-top:8px;">metafor &amp; netmeta Engine</h2>
+          <p class="card-p">Replicates Wolfgang Viechtbauer's R <code>metafor</code> package in Python: REML, DerSimonian-Laird, Sidik-Jonkman, Knapp-Hartung, and Bucher NMA.</p>
+        </div>
+
+        <div class="card p-4">
+          <div class="card-badge" style="background:rgba(16,185,129,0.15); color:#34D399;">LAYER 4 · INTERFACE</div>
+          <h2 class="card-h2" style="margin-top:8px;">Apple Glass Bento UI</h2>
+          <p class="card-p">Built on Gradio 6 / FastAPI with an Obsidian glassmorphism design system, responsive tabs, multi-file drag-and-drop studio, and interactive Plotly visuals.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px; background:rgba(15,23,42,0.9); border:1.5px solid rgba(56,189,248,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:16px; color:#F8FAFC;">🔒 Epistemic Guardrail Law: Absolute Anti-Hallucination Guarantee</div>
+          <span style="background:rgba(16,185,129,0.2); color:#34D399; font-weight:700; font-size:12px; padding:4px 12px; border-radius:9999px;">Deterministic Verification</span>
+        </div>
+        <p style="color:#94A3B8; font-size:13.5px; margin-top:6px; line-height:1.5;">
+          If an endpoint, standard deviation, or patient count is omitted from the original published trial, MANDOROS strictly outputs <code>not_reported</code> during Stage-1 extraction. The platform never hallucinates baseline metrics or clinical values.
+        </p>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">Engineered for Academic Rigor &amp; Reproducible Biostatistics</span>
+      <span class="slide-num">SLIDE 04 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 5: THE 8-NODE M-A-N-D-O-R-O-S PIPELINE                             -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Pipeline</span>
+        <h1 class="slide-title">The 8-Node Process Architecture (M-A-N-D-O-R-O-S)</h1>
+      </div>
+      <div class="header-brand">ACRONYM BLUEPRINT</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-4" style="gap:16px;">
+        <div class="card" style="border-left:4px solid #00F5D4;">
+          <div style="font-size:32px; font-weight:900; color:#00F5D4;">M</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Meta-Analysis</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Inverse-variance random-effects pooling, DerSimonian-Laird, REML &amp; Knapp-Hartung variance estimation.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #0EA5E9;">
+          <div style="font-size:32px; font-weight:900; color:#0EA5E9;">A</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">AI &amp; Automation</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Zero-loss clinical parser binding every extracted number to exact manuscript page &amp; verbatim quote coordinates.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #6366F1;">
+          <div style="font-size:32px; font-weight:900; color:#818CF8;">N</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Network (NMA)</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Bucher indirect treatment comparisons and Monte Carlo SUCRA cumulative surface rankings across competing drugs.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #8B5CF6;">
+          <div style="font-size:32px; font-weight:900; color:#A78BFA;">D</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Data Schema</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">88 canonical relational columns deconstructing trial criteria into deterministic value, operator, and unit fields.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #38BDF8;">
+          <div style="font-size:32px; font-weight:900; color:#38BDF8;">O</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Outcomes</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Granular tracking of continuous efficacy, binary adverse events, time-to-event survival, and longitudinal curves.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #A855F7;">
+          <div style="font-size:32px; font-weight:900; color:#C084FC;">R</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Research Rigor</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Full alignment with PRISMA 2020, CONSORT 2010 checklists, Cochrane Risk of Bias, and GRADE framework.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #14B8A6;">
+          <div style="font-size:32px; font-weight:900; color:#2DD4BF;">O</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Optimization</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Scale-free Standardized Mean Difference (Hedges' g SMD) clinical domain bridging across heterogeneous rating scales.</div>
+        </div>
+
+        <div class="card" style="border-left:4px solid #0284C7;">
+          <div style="font-size:32px; font-weight:900; color:#60A5FA;">S</div>
+          <div style="font-size:16px; font-weight:800; color:#F8FAFC; margin:4px 0;">Synthesis</div>
+          <div style="font-size:13px; color:#94A3B8; line-height:1.4;">Cross-trial surrogate covariance imputation, dose-duration meta-regression, and de-novo virtual clinical trial synthesis.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">Every Letter Represents a Biostatistical Milestone</span>
+      <span class="slide-num">SLIDE 05 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 6: STAGE-1 ATOMIC DATA EXTRACTION                                   -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Stage-1 Engine</span>
+        <h1 class="slide-title">Stage-1 Atomic Curation: 7 Relational Sheets &amp; 88 Fields</h1>
+      </div>
+      <div class="header-brand">SINGLE-STUDY EXTRACTION</div>
+    </div>
+
+    <div class="slide-body">
+      <table>
+        <thead>
+          <tr>
+            <th>Relational Sheet</th>
+            <th>Target Clinical Entity</th>
+            <th>Key Atomic Fields Extracted</th>
+            <th>Verification &amp; Provenance Standard</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong style="color:#00F5D4;">1. Master_Extraction_Sheet</strong></td>
+            <td>Executive Overview</td>
+            <td>Study ID, Title, DOI, Phase, Total N, Primary Endpoint, Safety Verdict</td>
+            <td>Exact page number &amp; verbatim sentence coordinates</td>
+          </tr>
+          <tr>
+            <td><strong style="color:#38BDF8;">2. Study_Characteristics</strong></td>
+            <td>Methodological Rigor</td>
+            <td>Allocation, Masking, Design Type, Centers, Funding, Risk of Bias</td>
+            <td>CONSORT Items 1–10 checklist audit</td>
+          </tr>
+          <tr>
+            <td><strong style="color:#818CF8;">3. Population_Baseline</strong></td>
+            <td>Patient Demographics</td>
+            <td>Mean/SD Age, % Female, BMI, Disease Duration, Baseline Diagnostic Markers</td>
+            <td>Cross-arm arithmetic conservation checking</td>
+          </tr>
+          <tr>
+            <td><strong style="color:#A78BFA;">4. Intervention_Arms</strong></td>
+            <td>Pharmacological Regimens</td>
+            <td>Arm Name, Active Ingredient, Dosage, Route, Frequency, Titration Schedule</td>
+            <td>Standardized to WHO ATC &amp; RxNorm vocabulary</td>
+          </tr>
+          <tr>
+            <td><strong style="color:#38BDF8;">5. Outcomes</strong></td>
+            <td>Granular Endpoints</td>
+            <td>Timepoint (Wks), Metric, Central Tendency, Dispersion, p-value</td>
+            <td>Deterministic Value / Operator / Unit separation</td>
+          </tr>
+          <tr>
+            <td><strong style="color:#C084FC;">6. Variables_Matrix</strong></td>
+            <td>Trajectory Profiling</td>
+            <td>Normalized baseline vs post-baseline delta trajectories across all treatment arms</td>
+            <td>Scale normalization &amp; change-from-baseline auditing</td>
+          </tr>
+          <tr>
+            <td><strong style="color:#2DD4BF;">7. Eligibility_Criteria</strong></td>
+            <td>Inclusion / Exclusion</td>
+            <td>Criterion Category, Atomic Name, Relational Operator, Threshold, Unit</td>
+            <td>4-Operator mathematical validation (&lt;, &le;, &gt;, &ge;)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">100% Verbatim Citation Guarantee · Zero Synthetic Imputation</span>
+      <span class="slide-num">SLIDE 06 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 7: PHASE-2 META-ANALYSIS & SUCRA                                     -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Phase-2 Engine</span>
+        <h1 class="slide-title">Phase-2 Multi-Trial Evidence Synthesis &amp; metafor Biostatistics</h1>
+      </div>
+      <div class="header-brand">EVIDENCE POOLING</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card p-2">
+          <div class="card-badge" style="background:rgba(56,189,248,0.15); color:#38BDF8;">RANDOM-EFFECTS POOLING</div>
+          <h2 class="card-h2" style="margin:10px 0 8px 0;">Restricted Maximum Likelihood (REML)</h2>
+          <p class="card-p">
+            Executes DerSimonian-Laird and REML models with Knapp-Hartung variance adjustment. Automatically calculates:
+          </p>
+          <ul style="color:#CBD5E1; font-size:14px; line-height:1.7; padding-left:20px; margin-top:8px;">
+            <li><strong>Heterogeneity Metrics:</strong> Cochran's $Q$, between-study variance $	au^2$, and Higgins' $I^2$.</li>
+            <li><strong>Confidence &amp; Prediction Intervals:</strong> 95% Confidence Interval (mean effect) AND 95% Prediction Interval (PI for future trials).</li>
+            <li><strong>Small-Study Bias:</strong> Egger's linear regression test for funnel plot asymmetry and Begg's rank test.</li>
+            <li><strong>Study Influence:</strong> Leave-one-out sensitivity analysis detecting outlier-driven significance.</li>
+          </ul>
+        </div>
+
+        <div class="card p-3">
+          <div class="card-badge" style="background:rgba(168,85,247,0.15); color:#C084FC;">NETWORK COMPARISONS &amp; RANKING</div>
+          <h2 class="card-h2" style="margin:10px 0 8px 0;">Graph-Theoretic NMA &amp; SUCRA</h2>
+          <p class="card-p">
+            When pooling trials that evaluated different active ingredients or comparator doses, MANDOROS unlocks:
+          </p>
+          <ul style="color:#CBD5E1; font-size:14px; line-height:1.7; padding-left:20px; margin-top:8px;">
+            <li><strong>Bucher Indirect Comparisons:</strong> Indirect relative risk calculation across connected multi-trial networks.</li>
+            <li><strong>SUCRA Probability Surfaces:</strong> Surface Under the Cumulative Ranking curves via Monte Carlo simulations to rank treatments from best to worst.</li>
+            <li><strong>Scale-Free SMD Domain Bridging:</strong> Hedges' $g$ standardization harmonizing disparate clinical questionnaires into unified domains.</li>
+            <li><strong>Subgroup Heterogeneity:</strong> Cochran's $Q_{	ext{between}}$ partitioning variance across dosage tiers and follow-up lengths.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">Replicating Gold-Standard Biostatistical Packages in R (metafor, netmeta)</span>
+      <span class="slide-num">SLIDE 07 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 8: IN-SILICO DISCOVERY & VIRTUAL TRIALS                             -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Innovation</span>
+        <h1 class="slide-title">In-Silico Emergent Synthesis: Inventing the Next Breakthrough Trial</h1>
+      </div>
+      <div class="header-brand">IN-SILICO DISCOVERY</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-3">
+        <div class="card p-1">
+          <div class="card-badge" style="background:rgba(0,245,212,0.15); color:#00F5D4;">SURROGATE IMPUTATION</div>
+          <h2 class="card-h2" style="margin-top:10px;">Missing-Data Matrix Reconstruction</h2>
+          <p class="card-p">
+            If Trial A measured Endpoint X and Y at Week 24, while Trial B only measured X, MANDOROS uses cross-trial surrogate covariance and longitudinal spline interpolation to scientifically infer unmeasured trial cells with 95% uncertainty bounds.
+          </p>
+        </div>
+
+        <div class="card p-2">
+          <div class="card-badge" style="background:rgba(56,189,248,0.15); color:#38BDF8;">PREDICTIVE SIMULATION</div>
+          <h2 class="card-h2" style="margin-top:10px;">Dose–Duration Virtual Trial Simulator</h2>
+          <p class="card-p">
+            Researchers can drag dosage (0–3,000 mg/day) and duration (4–156 weeks) sliders to forecast therapeutic responses with automated Extrapolation Risk Ratings (Safe Interpolation vs Mild vs Extreme Extrapolation).
+          </p>
+        </div>
+
+        <div class="card p-4">
+          <div class="card-badge" style="background:rgba(16,185,129,0.15); color:#34D399;">DE-NOVO DESIGN</div>
+          <h2 class="card-h2" style="margin-top:10px;">Synthesized Trial Protocol Blueprint</h2>
+          <p class="card-p">
+            Synthesizes the optimal next-generation trial: pinpointing the therapeutic sweet-spot dose before toxicity escalates, trajectory plateau week, super-responder phenotype, and statistical sample size for 90% power.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">From Retrospective Meta-Analysis to Prospective Trial Synthesis</span>
+      <span class="slide-num">SLIDE 08 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 9: STEP-BY-STEP USER WALKTHROUGH                                    -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">User Manual</span>
+        <h1 class="slide-title">Step-by-Step User Walkthrough: How to Use MANDOROS</h1>
+      </div>
+      <div class="header-brand">PRACTICAL GUIDE</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-2" style="gap:20px;">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Stage 1: Extract Single Published RCT (PDF)</div>
+            <div class="step-desc">Open Tab 1 ("Single-Study Deep Extractor"), drop any clinical trial PDF protocol or manuscript, select your AI model, and click "Run Academic Deep Extraction". Inspect the 7 relational sheets instantly.</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">Stage 2: Ingest Multi-Trial Cohort</div>
+            <div class="step-desc">Switch to Tab 2 ("Phase 2 Multi-Trial Synthesis"). Choose an existing folder in <code>analysis/</code> OR select "Upload Multiple Files" and drop multiple PDFs/Excels using the glowing batch uploader.</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Stage 3: Inspect Divergence &amp; REML Pooling</div>
+            <div class="step-desc">Click "Run Multi-Trial Meta-Analysis". View the Executive Verdict card, the Divergence Adaptation Strategy, interactive Forest/Funnel plots, SUCRA rankings, and Cochran Q between-subgroup statistics.</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <div>
+            <div class="step-title">Stage 4: Simulate Virtual Trials &amp; Export Workbooks</div>
+            <div class="step-desc">Simulate custom dose-duration regimens, review the Reconstructed Missing Data Table, and download the 10-sheet Master Cohort Excel, interactive HTML dashboard, and ZIP archive.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">Intuitive Interface Designed for Researchers, Students &amp; Clinicians</span>
+      <span class="slide-num">SLIDE 09 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 10: GOOGLE AI STUDIO BYOK TUTORIAL                                  -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Tutorial</span>
+        <h1 class="slide-title">How to Connect Your Google AI Studio API Key (BYOK Guide)</h1>
+      </div>
+      <div class="header-brand">FREE API SETUP</div>
+    </div>
+
+    <div class="slide-body">
+      <div style="background:rgba(56,189,248,0.1); border:1.5px solid rgba(56,189,248,0.3); border-radius:16px; padding:18px 24px; margin-bottom:24px;">
+        <div style="font-weight:800; font-size:16px; color:#38BDF8; margin-bottom:4px;">💡 Why Connect Your Own API Key? (Bring Your Own Key — BYOK)</div>
+        <p style="color:#CBD5E1; font-size:14px; line-height:1.5;">
+          Connecting your personal Google AI Studio key gives you <strong>unlimited free quota</strong>, ultra-fast Gemini 2.0 Flash / 1.5 Pro processing speeds, prevents shared server rate-limits, and ensures your clinical research manuscripts are processed within your private Google Cloud quota!
+        </p>
+      </div>
+
+      <div class="grid-4">
+        <div class="card p-1">
+          <div style="font-size:28px; font-weight:900; color:#00F5D4; margin-bottom:6px;">01</div>
+          <h2 class="card-h2">Visit Google AI Studio</h2>
+          <p class="card-p">Go to <code>aistudio.google.com/app/apikey</code> in your browser and sign in with your regular Google account.</p>
+        </div>
+
+        <div class="card p-2">
+          <div style="font-size:28px; font-weight:900; color:#38BDF8; margin-bottom:6px;">02</div>
+          <h2 class="card-h2">Create Free API Key</h2>
+          <p class="card-p">Click the blue button labeled <strong>"Create API key"</strong>. Select any existing Google Cloud project or click "Create API key in new project".</p>
+        </div>
+
+        <div class="card p-3">
+          <div style="font-size:28px; font-weight:900; color:#C084FC; margin-bottom:6px;">03</div>
+          <h2 class="card-h2">Copy Your Key</h2>
+          <p class="card-p">Copy the generated key string (which begins with <code>AIzaSy...</code>). It is 100% free with generous daily rate limits.</p>
+        </div>
+
+        <div class="card p-4">
+          <div style="font-size:28px; font-weight:900; color:#34D399; margin-bottom:6px;">04</div>
+          <h2 class="card-h2">Paste into MANDOROS</h2>
+          <p class="card-p">Paste the key into the <strong>"AI Provider API Key"</strong> password box in MANDOROS. The platform automatically unlocks deep clinical reasoning.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">100% Free · Private Data Processing · Maximum Speed</span>
+      <span class="slide-num">SLIDE 10 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 11: UNIVERSAL EXPORTS & INSTITUTIONAL COMPLIANCE                    -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Compliance</span>
+        <h1 class="slide-title">Universal Export Center &amp; Institutional Governance</h1>
+      </div>
+      <div class="header-brand">ACADEMIC STANDARDS</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="grid-2">
+        <div class="card p-2">
+          <div class="card-badge" style="background:rgba(56,189,248,0.15); color:#38BDF8;">PUBLICATION-GRADE ARTIFACTS</div>
+          <h2 class="card-h2" style="margin:10px 0 8px 0;">Instant Export Formats</h2>
+          <ul style="color:#CBD5E1; font-size:14.5px; line-height:1.7; padding-left:20px;">
+            <li><strong>7-Sheet Single-Trial Excel:</strong> Master extraction, characteristics, baseline, arms, outcomes, matrix &amp; eligibility.</li>
+            <li><strong>10-Sheet Master Cohort Workbook:</strong> Pooled comparison matrix, heatmap, meta-analysis estimates, SUCRA rankings, and virtual trial blueprint.</li>
+            <li><strong>Standalone Interactive HTML Dashboard:</strong> Embedded Forest plots, Funnel plots, and SUCRA curves ready for publication and peer-review.</li>
+            <li><strong>Structured JSON Protocol Trees:</strong> Complete programmatic API schema for computational biology pipelines.</li>
+          </ul>
+        </div>
+
+        <div class="card p-4">
+          <div class="card-badge" style="background:rgba(16,185,129,0.15); color:#34D399;">REGULATORY COMPLIANCE</div>
+          <h2 class="card-h2" style="margin:10px 0 8px 0;">International Scientific Standards</h2>
+          <ul style="color:#CBD5E1; font-size:14.5px; line-height:1.7; padding-left:20px;">
+            <li><strong>PRISMA 2020:</strong> Conforms to Preferred Reporting Items for Systematic Reviews and Meta-Analyses.</li>
+            <li><strong>CONSORT 2010:</strong> Aligned with Consolidated Standards of Reporting Trials guidelines.</li>
+            <li><strong>Cochrane Handbook Core:</strong> Standardized effect size estimators, inverse-variance weighting, and risk-of-bias stratification.</li>
+            <li><strong>GRADE Framework Ready:</strong> Explicit confidence grading for all reconstructed and pooled evidence recommendations.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span class="footer-motto">Ready for Harvard, Oxford, Nature Medicine &amp; The Lancet</span>
+      <span class="slide-num">SLIDE 11 / 12</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 12: CONCLUSION & GLOBAL VISION                                      -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="header-left">
+        <span class="slide-category">Conclusion</span>
+        <h1 class="slide-title">Conclusion &amp; Global Academic Vision</h1>
+      </div>
+      <div class="header-brand">THE FUTURE OF EVIDENCE</div>
+    </div>
+
+    <div class="slide-body">
+      <div style="text-align:center; max-width:1100px; margin:0 auto;">
+        <div style="display:flex; justify-content:center; margin-bottom:18px;">
+          <svg width="84" height="64" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 18px rgba(0, 245, 212, 0.55)) drop-shadow(0 0 28px rgba(168, 85, 247, 0.45));">
+  <defs>
+    <linearGradient id="m_ribbon_left" x1="15%" y1="90%" x2="55%" y2="10%">
+      <stop offset="0%" stop-color="#00F5D4"/>
+      <stop offset="60%" stop-color="#00BBF9"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="m_ribbon_right" x1="45%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="35%" stop-color="#6366F1"/>
+      <stop offset="75%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="m_ribbon_glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#C084FC"/>
+    </linearGradient>
+  </defs>
+  <path d="M 28 74 C 20 54 26 24 46 18 C 58 14 65 30 58 56" stroke="url(#m_ribbon_left)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 62 56 C 55 30 62 14 74 18 C 94 24 100 54 92 74" stroke="url(#m_ribbon_right)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 46 20 C 58 28 62 46 60 56" stroke="url(#m_ribbon_glow)" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.95"/>
+</svg>
+        </div>
+        <h2 style="font-size:36px; font-weight:900; color:#F8FAFC; margin-bottom:14px;">
+          Accelerating Medical Discovery from Raw Trials to Global Verdicts
+        </h2>
+        <p style="font-size:18px; color:#CBD5E1; line-height:1.7; margin-bottom:28px;">
+          MANDOROS bridges the gap between massive clinical trial literature and rapid evidence-based medicine. By eliminating manual transcription, enforcing zero-hallucination verbatim citations, and deploying metafor-grade biostatistics, we empower academic institutions, healthcare systems, and pharmaceutical innovators to discover insights that save lives.
+        </p>
+
+        <div style="display:inline-flex; gap:16px; background:rgba(15,23,42,0.9); border:1.5px solid rgba(56,189,248,0.4); padding:16px 32px; border-radius:9999px; font-size:17px; font-weight:800;">
+          <span style="color:#00F5D4;">Explore Live:</span>
+          <span style="color:#F8FAFC;">https://mandoros.onrender.com</span>
+          <span style="color:#64748B;">·</span>
+          <span style="color:#A855F7;">GitHub:</span>
+          <span style="color:#F8FAFC;">github.com/ahmedmando133/MANDOROS</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>MANDOROS — Smarter Evidence. Better Decisions.</span>
+      <span class="slide-num">SLIDE 12 / 12</span>
+    </div>
+  </div>
+
+</body>
+</html>
