@@ -81,18 +81,9 @@ class ExcelTrialExporter:
     def _build_master_extraction_sheet(self):
         """
         Builds the consolidated, multi-level Master Extraction Sheet (Sheet 1)
-        faithfully replicating the benchmark layout of 'Data minimg (Metformin study).xlsx'
-        and 'orlistat_manual.xlsx'.
-        
-        Header Structure:
-        - Row 1: Merged Main Category Blocks
-                 [STUDY & INTERVENTION ARMS] [ELIGIBILITY CRITERIA] [POPULATION STRATIFICATION] [CLINICAL VARIABLES & OUTCOMES]
-        - Row 2: Variable & Criterion Group Headers
-        - Row 3: Atomic Sub-Columns (<, =, >, Value/Range, Unit, Mean/Events, SD/%, Change, etc.)
-        
-        Rows:
-        - One consolidated row per (Arm, Race/Subgroup, Gender, Timepoint) stratum,
-          integrating protocol arms, eligibility thresholds, demographics, and clinical outcomes side-by-side.
+        faithfully replicating the benchmark layout with strict column separation,
+        range splitting, demographic reconstruction, arm-level row continuity,
+        and baseline vs follow-up separation.
         """
         ws = self.wb.create_sheet(title="Master_Extraction_Sheet", index=0)
         ws.views.sheetView[0].showGridLines = True
@@ -110,68 +101,6 @@ class ExcelTrialExporter:
         align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
         align_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-        # 1. Collect unique Eligibility Criteria
-        elig_continuous = []
-        elig_categorical = []
-        seen_criteria = set()
-        for e in self.data.eligibility:
-            c_name = e.criterion_name.replace("_", " ").title()
-            if c_name in seen_criteria:
-                continue
-            seen_criteria.add(c_name)
-            is_num = (e.less_than is not None or e.equal is not None or e.greater_than is not None 
-                      or e.between is not None or e.value is not None or e.min_value is not None)
-            if is_num:
-                elig_continuous.append((c_name, e))
-            else:
-                elig_categorical.append((c_name, e))
-
-        # 2. Collect unique Clinical Outcome Parameters
-        outcome_params = []
-        seen_params = set()
-        for o in self.data.outcomes:
-            p_name = o.parameter_name.strip()
-            if p_name not in seen_params:
-                seen_params.add(p_name)
-                outcome_params.append(p_name)
-
-        col_idx = 1
-
-        # Block 1: Study & Arms (10 columns)
-        arm_start_col = col_idx
-        arm_end_col = col_idx + 9
-        col_idx += 10
-
-        # Block 2: Eligibility Criteria
-        elig_start_col = col_idx
-        elig_col_map = {}
-        for c_name, e_obj in elig_continuous:
-            elig_col_map[c_name] = (col_idx, True, e_obj)
-            col_idx += 5
-        for c_name, e_obj in elig_categorical:
-            elig_col_map[c_name] = (col_idx, False, e_obj)
-            col_idx += 1
-        elig_end_col = col_idx - 1 if col_idx > elig_start_col else elig_start_col
-
-        # Block 3: Population Stratification (4 columns)
-        pop_start_col = col_idx
-        pop_end_col = col_idx + 3
-        col_idx += 4
-
-        # Block 4: Clinical Variables & Outcomes
-        out_start_col = col_idx
-        out_col_map = {}
-        for p_name in outcome_params:
-            out_col_map[p_name] = col_idx
-            col_idx += 4
-        out_end_col = col_idx - 1 if col_idx > out_start_col else out_start_col
-
-        total_cols = col_idx - 1
-
-        ws.row_dimensions[1].height = 28
-        ws.row_dimensions[2].height = 24
-        ws.row_dimensions[3].height = 20
-
         def format_range(sheet, start_c, end_c, row, val, font, fill):
             if end_c > start_c:
                 sheet.merge_cells(start_row=row, start_column=start_c, end_row=row, end_column=end_c)
@@ -183,23 +112,163 @@ class ExcelTrialExporter:
                 cell.border = self.border_thin
             sheet.cell(row=row, column=start_c, value=val)
 
-        format_range(ws, arm_start_col, arm_end_col, 1, "STUDY & INTERVENTION ARMS", font_h1, h1_fill)
-        if elig_end_col >= elig_start_col:
-            format_range(ws, elig_start_col, elig_end_col, 1, "ELIGIBILITY CRITERIA", font_h1, h1_fill)
-        format_range(ws, pop_start_col, pop_end_col, 1, "POPULATION STRATIFICATION", font_h1, h1_fill)
-        if out_end_col >= out_start_col:
-            format_range(ws, out_start_col, out_end_col, 1, "CLINICAL VARIABLES & OUTCOMES", font_h1, h1_fill)
+        # 1. Collect and Separate Eligibility Criteria: INCLUSION vs EXCLUSION
+        inc_continuous = []
+        inc_categorical = []
+        exc_continuous = []
+        exc_categorical = []
+        seen_inc = set()
+        seen_exc = set()
 
-        # Write Row 2 & Row 3:
+        for e in self.data.eligibility:
+            c_name = e.criterion_name.replace("_", " ").title()
+            is_num = (e.min_value is not None or e.max_value is not None or e.value is not None 
+                      or e.min_operator is not None or e.max_operator is not None or e.between is not None)
+            if e.criterion_type == "exclusion":
+                if c_name not in seen_exc:
+                    seen_exc.add(c_name)
+                    if is_num:
+                        exc_continuous.append((c_name, e))
+                    else:
+                        exc_categorical.append((c_name, e))
+            else:
+                if c_name not in seen_inc:
+                    seen_inc.add(c_name)
+                    if is_num:
+                        inc_continuous.append((c_name, e))
+                    else:
+                        inc_categorical.append((c_name, e))
+
+        # 2. Collect and Separate Outcomes: Baseline vs Longitudinal vs Safety
+        baseline_params = []
+        seen_base = set()
+        longitudinal_params = []
+        seen_long = set()
+        safety_params = []
+        seen_safe = set()
+
+        for o in self.data.outcomes:
+            p_name = o.parameter_name.strip()
+            if o.domain == "safety_adverse_events":
+                if p_name not in seen_safe:
+                    seen_safe.add(p_name)
+                    safety_params.append(p_name)
+            elif o.is_baseline or str(o.timepoint_value or "").strip() in ["0", "0.0"]:
+                if p_name not in seen_base:
+                    seen_base.add(p_name)
+                    baseline_params.append(p_name)
+            else:
+                if p_name not in seen_long:
+                    seen_long.add(p_name)
+                    longitudinal_params.append(p_name)
+
+        col_idx = 1
+
+        # Block 1: Study & Intervention Arms (12 columns)
+        arm_start_col = col_idx
+        arm_end_col = col_idx + 11
+        col_idx += 12
+
+        # Block 2A: Inclusion Criteria (Dedicated Independent Block)
+        inc_start_col = col_idx
+        inc_col_map = {}
+        for c_name, e_obj in inc_continuous:
+            inc_col_map[c_name] = (col_idx, True, e_obj)
+            col_idx += 5
+        for c_name, e_obj in inc_categorical:
+            inc_col_map[c_name] = (col_idx, False, e_obj)
+            col_idx += 1
+        inc_end_col = col_idx - 1 if col_idx > inc_start_col else None
+
+        # Block 2B: Exclusion Criteria (Dedicated Independent Block)
+        exc_start_col = col_idx
+        exc_col_map = {}
+        for c_name, e_obj in exc_continuous:
+            exc_col_map[c_name] = (col_idx, True, e_obj)
+            col_idx += 5
+        for c_name, e_obj in exc_categorical:
+            exc_col_map[c_name] = (col_idx, False, e_obj)
+            col_idx += 1
+        exc_end_col = col_idx - 1 if col_idx > exc_start_col else None
+
+        # Block 3: Population Stratification (8 columns)
+        pop_start_col = col_idx
+        pop_end_col = col_idx + 7
+        col_idx += 8
+
+        # Block 4A: Baseline Characteristics & Labs (Time 0)
+        base_start_col = col_idx
+        base_col_map = {}
+        for p_name in baseline_params:
+            base_col_map[p_name] = col_idx
+            col_idx += 5  # Mean, SD, Events (n), Percentage (%), Unit
+        base_end_col = col_idx - 1 if col_idx > base_start_col else None
+
+        # Block 4B: Longitudinal Efficacy & Endpoints (Follow-up)
+        long_start_col = col_idx
+        long_col_map = {}
+        for p_name in longitudinal_params:
+            long_col_map[p_name] = col_idx
+            col_idx += 6  # Mean, SD, Events (n), Percentage (%), Change from Baseline, Unit
+        long_end_col = col_idx - 1 if col_idx > long_start_col else None
+
+        # Block 4C: Safety & Adverse Events
+        safe_start_col = col_idx
+        safe_col_map = {}
+        for p_name in safety_params:
+            safe_col_map[p_name] = col_idx
+            col_idx += 4  # Events (n), Total (N), Percentage (%), Unit
+        safe_end_col = col_idx - 1 if col_idx > safe_start_col else None
+
+        total_cols = col_idx - 1
+
+        ws.row_dimensions[1].height = 28
+        ws.row_dimensions[2].height = 24
+        ws.row_dimensions[3].height = 20
+
+        # Row 1 Main Categories
+        format_range(ws, arm_start_col, arm_end_col, 1, "STUDY & INTERVENTION ARMS", font_h1, h1_fill)
+        if inc_end_col:
+            format_range(ws, inc_start_col, inc_end_col, 1, "INCLUSION CRITERIA", font_h1, h1_fill)
+        if exc_end_col:
+            format_range(ws, exc_start_col, exc_end_col, 1, "EXCLUSION CRITERIA", font_h1, h1_fill)
+        format_range(ws, pop_start_col, pop_end_col, 1, "POPULATION STRATIFICATION", font_h1, h1_fill)
+        if base_end_col:
+            format_range(ws, base_start_col, base_end_col, 1, "BASELINE CHARACTERISTICS & LABS (TIME 0)", font_h1, h1_fill)
+        if long_end_col:
+            format_range(ws, long_start_col, long_end_col, 1, "LONGITUDINAL EFFICACY & ENDPOINTS (FOLLOW-UP)", font_h1, h1_fill)
+        if safe_end_col:
+            format_range(ws, safe_start_col, safe_end_col, 1, "SAFETY & ADVERSE EVENTS", font_h1, h1_fill)
+
+        # Row 2 & Row 3 Headers:
+        # Block 1: Study & Arms
         study_headers_r2 = [
             ("Study ID", 1), ("Group / Arm Name", 1), ("Intervention Type", 1),
-            ("Dose", 1), ("Frequency", 1), ("Study Phase", 1),
+            ("Dose", 2), ("Frequency", 2), ("Study Phase", 1),
             ("Period of Study", 2), ("Total Cohort (N)", 1), ("Arm Sample Size (N)", 1)
         ]
         curr_c = arm_start_col
         for title, span in study_headers_r2:
             format_range(ws, curr_c, curr_c + span - 1, 2, title, font_h2, h2_fill)
-            if span == 2:
+            if title == "Dose":
+                ws.cell(row=3, column=curr_c, value="Dose Value")
+                ws.cell(row=3, column=curr_c + 1, value="Dose Unit")
+                for c in range(curr_c, curr_c + 2):
+                    cell = ws.cell(row=3, column=c)
+                    cell.fill = h3_fill
+                    cell.font = font_h3
+                    cell.alignment = align_center
+                    cell.border = self.border_thin
+            elif title == "Frequency":
+                ws.cell(row=3, column=curr_c, value="Frequency Value")
+                ws.cell(row=3, column=curr_c + 1, value="Frequency Unit")
+                for c in range(curr_c, curr_c + 2):
+                    cell = ws.cell(row=3, column=c)
+                    cell.fill = h3_fill
+                    cell.font = font_h3
+                    cell.alignment = align_center
+                    cell.border = self.border_thin
+            elif title == "Period of Study":
                 ws.cell(row=3, column=curr_c, value="Number")
                 ws.cell(row=3, column=curr_c + 1, value="Unit")
                 for c in range(curr_c, curr_c + 2):
@@ -214,10 +283,30 @@ class ExcelTrialExporter:
                 cell.border = self.border_thin
             curr_c += span
 
-        for c_name, (start_c, is_num, e_obj) in elig_col_map.items():
+        # Block 2A: Inclusion Criteria Headers
+        for c_name, (start_c, is_num, e_obj) in inc_col_map.items():
             if is_num:
                 format_range(ws, start_c, start_c + 4, 2, c_name, font_h2, h2_fill)
-                sub_labels = ["<", "=", ">", "Value / Range", "Unit"]
+                sub_labels = ["Min Operator", "Min Value", "Max Operator", "Max Value", "Unit"]
+                for i, sub_lab in enumerate(sub_labels):
+                    cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
+                    cell.fill = h3_fill
+                    cell.font = font_h3
+                    cell.alignment = align_center
+                    cell.border = self.border_thin
+            else:
+                format_range(ws, start_c, start_c, 2, c_name, font_h2, h2_fill)
+                cell = ws.cell(row=3, column=start_c, value="Status / Requirement")
+                cell.fill = h3_fill
+                cell.font = font_h3
+                cell.alignment = align_center
+                cell.border = self.border_thin
+
+        # Block 2B: Exclusion Criteria Headers
+        for c_name, (start_c, is_num, e_obj) in exc_col_map.items():
+            if is_num:
+                format_range(ws, start_c, start_c + 4, 2, c_name, font_h2, h2_fill)
+                sub_labels = ["Min Operator", "Min Value", "Max Operator", "Max Value", "Unit"]
                 for i, sub_lab in enumerate(sub_labels):
                     cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
                     cell.fill = h3_fill
@@ -232,29 +321,29 @@ class ExcelTrialExporter:
                 cell.alignment = align_center
                 cell.border = self.border_thin
 
-        format_range(ws, pop_start_col, pop_start_col, 2, "Race / Ethnicity", font_h2, h2_fill)
-        cell = ws.cell(row=3, column=pop_start_col, value="")
-        cell.fill = h3_fill
-        cell.border = self.border_thin
+        # Block 3: Population Stratification Headers
+        pop_headers = [
+            ("Race / Ethnicity", 1, [""]),
+            ("Gender", 1, [""]),
+            ("Male Stratum", 2, ["Count (n)", "Percentage (%)"]),
+            ("Female Stratum", 2, ["Count (n)", "Percentage (%)"]),
+            ("Timepoint", 2, ["Value", "Unit"])
+        ]
+        curr_pop_c = pop_start_col
+        for p_title, span, sub_labs in pop_headers:
+            format_range(ws, curr_pop_c, curr_pop_c + span - 1, 2, p_title, font_h2, h2_fill)
+            for idx_s, s_lab in enumerate(sub_labs):
+                cell = ws.cell(row=3, column=curr_pop_c + idx_s, value=s_lab)
+                cell.fill = h3_fill
+                cell.font = font_h3
+                cell.alignment = align_center
+                cell.border = self.border_thin
+            curr_pop_c += span
 
-        format_range(ws, pop_start_col + 1, pop_start_col + 1, 2, "Gender", font_h2, h2_fill)
-        cell = ws.cell(row=3, column=pop_start_col + 1, value="")
-        cell.fill = h3_fill
-        cell.border = self.border_thin
-
-        format_range(ws, pop_start_col + 2, pop_start_col + 3, 2, "Timepoint", font_h2, h2_fill)
-        ws.cell(row=3, column=pop_start_col + 2, value="Value")
-        ws.cell(row=3, column=pop_start_col + 3, value="Unit")
-        for c in range(pop_start_col + 2, pop_start_col + 4):
-            cell = ws.cell(row=3, column=c)
-            cell.fill = h3_fill
-            cell.font = font_h3
-            cell.alignment = align_center
-            cell.border = self.border_thin
-
-        for p_name, start_c in out_col_map.items():
-            format_range(ws, start_c, start_c + 3, 2, p_name, font_h2, h2_fill)
-            sub_labels = ["Value / Mean / Events", "SD / %", "Change", "Unit"]
+        # Block 4A: Baseline Characteristics Headers
+        for p_name, start_c in base_col_map.items():
+            format_range(ws, start_c, start_c + 4, 2, p_name, font_h2, h2_fill)
+            sub_labels = ["Mean", "SD", "Events (n)", "Percentage (%)", "Unit"]
             for i, sub_lab in enumerate(sub_labels):
                 cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
                 cell.fill = h3_fill
@@ -262,77 +351,172 @@ class ExcelTrialExporter:
                 cell.alignment = align_center
                 cell.border = self.border_thin
 
+        # Block 4B: Longitudinal Efficacy Headers
+        for p_name, start_c in long_col_map.items():
+            format_range(ws, start_c, start_c + 5, 2, p_name, font_h2, h2_fill)
+            sub_labels = ["Mean", "SD", "Events (n)", "Percentage (%)", "Change from Baseline", "Unit"]
+            for i, sub_lab in enumerate(sub_labels):
+                cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
+                cell.fill = h3_fill
+                cell.font = font_h3
+                cell.alignment = align_center
+                cell.border = self.border_thin
+
+        # Block 4C: Safety & Adverse Events Headers
+        for p_name, start_c in safe_col_map.items():
+            format_range(ws, start_c, start_c + 3, 2, p_name, font_h2, h2_fill)
+            sub_labels = ["Events (n)", "Total (N)", "Percentage (%)", "Unit"]
+            for i, sub_lab in enumerate(sub_labels):
+                cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
+                cell.fill = h3_fill
+                cell.font = font_h3
+                cell.alignment = align_center
+                cell.border = self.border_thin
+
+        # -------------------------------------------------------------
+        # POPULATE DATA ROWS & ARM-LEVEL ROW CONTINUITY (ZERO-BLANK LAW)
+        # -------------------------------------------------------------
         s = self.data.study
-        arm_strata = {a.arm_id: set() for a in self.data.arms}
-
-        for o in self.data.outcomes:
-            if o.arm_id in arm_strata:
-                r = o.race or "Overall"
-                g = "Overall"
-                tp_v = o.timepoint_value or ("0" if s.duration_value else "")
-                tp_u = o.timepoint_unit or (s.duration_unit or "")
-                arm_strata[o.arm_id].add((r, g, tp_v, tp_u))
-
         current_row = 4
         is_even = False
 
         for a in self.data.arms:
-            strata_list = sorted(list(arm_strata.get(a.arm_id, set())))
-            if not strata_list:
-                strata_list = [
-                    ("Overall", "Overall", "0", s.duration_unit or "weeks"),
-                    ("Overall", "Overall", str(s.duration_value or ""), s.duration_unit or "weeks")
-                ]
+            arm_outcomes = [o for o in self.data.outcomes if o.arm_id == a.arm_id]
+            timepoints = set()
+            for o in arm_outcomes:
+                tp_v = str(o.timepoint_value or "").strip()
+                tp_u = str(o.timepoint_unit or s.duration_unit or "weeks").strip()
+                if tp_v:
+                    timepoints.add((tp_v, tp_u))
 
-            for (race_val, gender_val, tp_v, tp_u) in strata_list:
+            if not timepoints:
+                timepoints.add(("0", s.duration_unit or "weeks"))
+                if s.duration_value:
+                    timepoints.add((str(s.duration_value), s.duration_unit or "weeks"))
+
+            def tp_sort_key(tup):
+                try:
+                    return float(tup[0])
+                except Exception:
+                    return 0.0
+            sorted_timepoints = sorted(list(timepoints), key=tp_sort_key)
+
+            arm_n = a.sample_size_analyzed or a.sample_size_allocated or (s.total_sample_size // len(self.data.arms) if self.data.arms else 100)
+
+            # Demographic mathematical reconstruction for this arm
+            male_out = next((o for o in arm_outcomes if o.gender == "Male" or "male" in o.parameter_name.lower()), None)
+            female_out = next((o for o in arm_outcomes if o.gender == "Female" or "female" in o.parameter_name.lower()), None)
+
+            male_n, male_pct = None, None
+            female_n, female_pct = None, None
+
+            if male_out:
+                male_n = male_out.events if male_out.events is not None else (int(round(arm_n * (male_out.percentage / 100.0))) if male_out.percentage else None)
+                male_pct = male_out.percentage if male_out.percentage is not None else (round((male_n / arm_n) * 100.0, 1) if male_n and arm_n else None)
+
+            if female_out:
+                female_n = female_out.events if female_out.events is not None else (int(round(arm_n * (female_out.percentage / 100.0))) if female_out.percentage else None)
+                female_pct = female_out.percentage if female_out.percentage is not None else (round((female_n / arm_n) * 100.0, 1) if female_n and arm_n else None)
+
+            if male_n is not None and female_n is None and arm_n:
+                female_n = max(0, arm_n - male_n)
+                female_pct = round((female_n / arm_n) * 100.0, 1)
+            elif female_n is not None and male_n is None and arm_n:
+                male_n = max(0, arm_n - female_n)
+                male_pct = round((male_n / arm_n) * 100.0, 1)
+            elif male_pct is not None and female_pct is None:
+                female_pct = round(100.0 - male_pct, 1)
+                female_n = int(round(arm_n * (female_pct / 100.0))) if arm_n else None
+            elif female_pct is not None and male_pct is None:
+                male_pct = round(100.0 - female_pct, 1)
+                male_n = int(round(arm_n * (male_pct / 100.0))) if arm_n else None
+
+            # Race: never fake 'Overall' if not explicitly reported
+            race_val = None
+            for o in arm_outcomes:
+                if o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]:
+                    race_val = o.race
+                    break
+
+            for (tp_v, tp_u) in sorted_timepoints:
                 is_even = not is_even
                 row_fill = zebra_fill if is_even else None
 
+                # Block 1: Study & Arm details (Propagated across every row)
                 ws.cell(row=current_row, column=1, value=s.study_id)
                 ws.cell(row=current_row, column=2, value=a.arm_name)
                 ws.cell(row=current_row, column=3, value=a.intervention_type)
-                ws.cell(row=current_row, column=4, value=f"{a.dose_value or ''} {a.dose_unit or ''}".strip())
-                ws.cell(row=current_row, column=5, value=f"{a.frequency_number or ''} {a.frequency_unit or ''}".strip())
-                ws.cell(row=current_row, column=6, value=s.study_phase)
-                ws.cell(row=current_row, column=7, value=s.duration_value)
-                ws.cell(row=current_row, column=8, value=s.duration_unit)
-                ws.cell(row=current_row, column=9, value=s.total_sample_size)
-                ws.cell(row=current_row, column=10, value=a.sample_size_analyzed or a.sample_size_allocated)
+                ws.cell(row=current_row, column=4, value=a.dose_value)       # Dose Value (Numeric)
+                ws.cell(row=current_row, column=5, value=a.dose_unit)        # Dose Unit (String)
+                ws.cell(row=current_row, column=6, value=a.frequency_number) # Frequency Value (Numeric)
+                ws.cell(row=current_row, column=7, value=a.frequency_unit)   # Frequency Unit (String)
+                ws.cell(row=current_row, column=8, value=s.study_phase)
+                ws.cell(row=current_row, column=9, value=s.duration_value)
+                ws.cell(row=current_row, column=10, value=s.duration_unit)
+                ws.cell(row=current_row, column=11, value=s.total_sample_size)
+                ws.cell(row=current_row, column=12, value=arm_n)
 
-                for c_name, (start_c, is_num, e_obj) in elig_col_map.items():
+                # Block 2A: Inclusion Criteria (Propagated)
+                for c_name, (start_c, is_num, e_obj) in inc_col_map.items():
                     if is_num:
-                        ws.cell(row=current_row, column=start_c, value=e_obj.less_than)
-                        ws.cell(row=current_row, column=start_c + 1, value=e_obj.equal)
-                        ws.cell(row=current_row, column=start_c + 2, value=e_obj.greater_than)
-                        v_str = f"{e_obj.min_value} – {e_obj.max_value}" if e_obj.between else e_obj.value
-                        ws.cell(row=current_row, column=start_c + 3, value=v_str)
+                        ws.cell(row=current_row, column=start_c, value=e_obj.min_operator or (">=" if e_obj.min_value is not None else ""))
+                        ws.cell(row=current_row, column=start_c + 1, value=e_obj.min_value if e_obj.min_value is not None else e_obj.value)
+                        ws.cell(row=current_row, column=start_c + 2, value=e_obj.max_operator or ("<=" if e_obj.max_value is not None else ""))
+                        ws.cell(row=current_row, column=start_c + 3, value=e_obj.max_value)
                         ws.cell(row=current_row, column=start_c + 4, value=e_obj.unit)
                     else:
-                        cat_status = f"{e_obj.criterion_type.title()} ({'Prohibited' if e_obj.criterion_type == 'exclusion' else 'Required'})"
-                        ws.cell(row=current_row, column=start_c, value=cat_status)
+                        ws.cell(row=current_row, column=start_c, value="Required")
 
-                ws.cell(row=current_row, column=pop_start_col, value=race_val)
-                ws.cell(row=current_row, column=pop_start_col + 1, value=gender_val)
-                ws.cell(row=current_row, column=pop_start_col + 2, value=tp_v)
-                ws.cell(row=current_row, column=pop_start_col + 3, value=tp_u)
+                # Block 2B: Exclusion Criteria (Propagated)
+                for c_name, (start_c, is_num, e_obj) in exc_col_map.items():
+                    if is_num:
+                        ws.cell(row=current_row, column=start_c, value=e_obj.min_operator or (">=" if e_obj.min_value is not None else ""))
+                        ws.cell(row=current_row, column=start_c + 1, value=e_obj.min_value if e_obj.min_value is not None else e_obj.value)
+                        ws.cell(row=current_row, column=start_c + 2, value=e_obj.max_operator or ("<=" if e_obj.max_value is not None else ""))
+                        ws.cell(row=current_row, column=start_c + 3, value=e_obj.max_value)
+                        ws.cell(row=current_row, column=start_c + 4, value=e_obj.unit)
+                    else:
+                        ws.cell(row=current_row, column=start_c, value="Prohibited")
 
-                for p_name, start_c in out_col_map.items():
-                    matched_o = None
-                    for o in self.data.outcomes:
-                        if (o.arm_id == a.arm_id and 
-                            o.parameter_name.strip() == p_name and
-                            (o.race or "Overall") == race_val and
-                            (o.timepoint_value or "") == tp_v):
-                            matched_o = o
-                            break
+                # Block 3: Population Stratification (Propagated)
+                ws.cell(row=current_row, column=pop_start_col, value=race_val if race_val else "")
+                ws.cell(row=current_row, column=pop_start_col + 1, value="")
+                ws.cell(row=current_row, column=pop_start_col + 2, value=male_n)
+                ws.cell(row=current_row, column=pop_start_col + 3, value=male_pct)
+                ws.cell(row=current_row, column=pop_start_col + 4, value=female_n)
+                ws.cell(row=current_row, column=pop_start_col + 5, value=female_pct)
+                ws.cell(row=current_row, column=pop_start_col + 6, value=tp_v)
+                ws.cell(row=current_row, column=pop_start_col + 7, value=tp_u)
 
-                    if matched_o:
-                        m_val = matched_o.mean if matched_o.mean is not None else (matched_o.events if matched_o.events is not None else matched_o.percentage)
-                        sd_val = matched_o.sd if matched_o.sd is not None else (matched_o.percentage if matched_o.mean is not None else None)
-                        ws.cell(row=current_row, column=start_c, value=m_val)
-                        ws.cell(row=current_row, column=start_c + 1, value=sd_val)
-                        ws.cell(row=current_row, column=start_c + 2, value=matched_o.change_value)
-                        ws.cell(row=current_row, column=start_c + 3, value=matched_o.unit)
+                # Block 4A: Baseline Characteristics & Labs (Time 0) - FULLY PROPAGATED ACROSS ALL ROWS
+                for p_name, start_c in base_col_map.items():
+                    matched_base = next((o for o in arm_outcomes if o.parameter_name.strip() == p_name and (o.is_baseline or str(o.timepoint_value or "").strip() in ["0", "0.0"])), None)
+                    if matched_base:
+                        ws.cell(row=current_row, column=start_c, value=matched_base.mean)
+                        ws.cell(row=current_row, column=start_c + 1, value=matched_base.sd)
+                        ws.cell(row=current_row, column=start_c + 2, value=matched_base.events)
+                        ws.cell(row=current_row, column=start_c + 3, value=matched_base.percentage)
+                        ws.cell(row=current_row, column=start_c + 4, value=matched_base.unit)
+
+                # Block 4B: Longitudinal Efficacy & Endpoints (Follow-up) - Matching THIS row's timepoint
+                for p_name, start_c in long_col_map.items():
+                    matched_long = next((o for o in arm_outcomes if o.parameter_name.strip() == p_name and str(o.timepoint_value or "").strip() == tp_v and not o.is_baseline), None)
+                    if matched_long:
+                        ws.cell(row=current_row, column=start_c, value=matched_long.mean)
+                        ws.cell(row=current_row, column=start_c + 1, value=matched_long.sd)
+                        ws.cell(row=current_row, column=start_c + 2, value=matched_long.events)
+                        ws.cell(row=current_row, column=start_c + 3, value=matched_long.percentage)
+                        ws.cell(row=current_row, column=start_c + 4, value=matched_long.change_value)
+                        ws.cell(row=current_row, column=start_c + 5, value=matched_long.unit)
+
+                # Block 4C: Safety & Adverse Events
+                for p_name, start_c in safe_col_map.items():
+                    matched_safe = next((o for o in arm_outcomes if o.parameter_name.strip() == p_name and o.domain == "safety_adverse_events"), None)
+                    if matched_safe:
+                        ws.cell(row=current_row, column=start_c, value=matched_safe.events)
+                        ws.cell(row=current_row, column=start_c + 1, value=matched_safe.total or arm_n)
+                        ws.cell(row=current_row, column=start_c + 2, value=matched_safe.percentage)
+                        ws.cell(row=current_row, column=start_c + 3, value=matched_safe.unit or "%")
 
                 ws.row_dimensions[current_row].height = 20
                 for c in range(1, total_cols + 1):
@@ -341,7 +525,7 @@ class ExcelTrialExporter:
                     cell.border = self.border_thin
                     if row_fill:
                         cell.fill = row_fill
-                    if c in [1, 2, 6] or c in [sc for sc, is_n, _ in elig_col_map.values() if not is_n]:
+                    if c in [1, 2, 8]:
                         cell.alignment = align_left
                     else:
                         cell.alignment = align_center
@@ -398,34 +582,44 @@ class ExcelTrialExporter:
         ws = self.wb.create_sheet(title="Eligibility")
         headers = [
             "criterion_id", "study_id", "criterion_type", "domain", "criterion_name",
+            "min_operator (>=)", "min_value", "max_operator (<=)", "max_value", "unit",
             "less_than (<)", "equal (=)", "greater_than (>)", "between",
-            "value", "min_value", "max_value", "unit", "raw_source_text", "source_page"
+            "value", "raw_source_text", "source_page"
         ]
         ws.append(headers)
 
-        for e in self.data.eligibility:
+        # Sort with Inclusion first, then Exclusion
+        sorted_elig = sorted(self.data.eligibility, key=lambda x: 0 if x.criterion_type == "inclusion" else 1)
+
+        for e in sorted_elig:
             ws.append([
                 e.criterion_id, e.study_id, e.criterion_type, e.domain, e.criterion_name,
+                e.min_operator or (">=" if e.min_value is not None else ""),
+                e.min_value if e.min_value is not None else (e.value if e.greater_than else None),
+                e.max_operator or ("<=" if e.max_value is not None else ""),
+                e.max_value if e.max_value is not None else (e.value if e.less_than else None),
+                e.unit,
                 e.less_than, e.equal, e.greater_than, e.between,
-                e.value, e.min_value, e.max_value, e.unit, e.raw_source_text, e.source_page
+                e.value, e.raw_source_text, e.source_page
             ])
         self._apply_sheet_formatting(ws)
 
     def _build_outcomes_sheet(self):
         ws = self.wb.create_sheet(title="Outcomes")
         headers = [
-            "outcome_id", "study_id", "arm_id", "race", "domain", "parameter_name", "statistical_type",
-            "Timepoint (value)", "Timepoint (unit)", "sample_size", "mean", "sd", "change_value", "change_sd",
-            "events", "total", "percentage", "unit", "effect_measure", "effect_value",
+            "outcome_id", "study_id", "arm_id", "race", "gender", "is_baseline", "domain", "parameter_name", "statistical_type", "metric_type",
+            "Timepoint (value)", "Timepoint (unit)", "sample_size", "mean", "sd", "median", "iqr_lower", "iqr_upper",
+            "change_value", "change_sd", "events", "total", "percentage", "unit", "effect_measure", "effect_value",
             "p_value", "source_page", "source_location", "raw_source_text"
         ]
         ws.append(headers)
 
         for o in self.data.outcomes:
+            race_str = o.race if (o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else ""
             ws.append([
-                o.outcome_id, o.study_id, o.arm_id, o.race or "Overall", o.domain, o.parameter_name, o.statistical_type,
-                o.timepoint_value, o.timepoint_unit, o.sample_size, o.mean, o.sd, o.change_value, o.change_sd,
-                o.events, o.total, o.percentage, o.unit, o.effect_measure, o.effect_value,
+                o.outcome_id, o.study_id, o.arm_id, race_str, o.gender or "", o.is_baseline, o.domain, o.parameter_name, o.statistical_type, o.metric_type,
+                o.timepoint_value, o.timepoint_unit, o.sample_size, o.mean, o.sd, o.median, o.iqr_lower, o.iqr_upper,
+                o.change_value, o.change_sd, o.events, o.total, o.percentage, o.unit, o.effect_measure, o.effect_value,
                 o.p_value, o.source_page, o.source_location, o.raw_source_text
             ])
         self._apply_sheet_formatting(ws)
@@ -463,33 +657,36 @@ class ExcelTrialExporter:
     def _build_flattened_view_sheet(self):
         """
         Creates a wide summary sheet grouping outcomes by arm and parameter,
-        providing the researchers with the exact side-by-side view they are used to.
+        providing researchers with strict column separation for dose, frequency, and typed measures.
         """
         ws = self.wb.create_sheet(title="Flattened_View")
         headers = [
-            "study_id", "arm_name", "race", "intervention_type", "dose", "frequency",
-            "sample_size", "Timepoint (value)", "Timepoint (unit)", "parameter_name", "mean_or_events",
-            "sd_or_pct", "change", "unit", "source_page", "source_location"
+            "study_id", "arm_name", "race", "gender", "intervention_type",
+            "dose_value", "dose_unit", "frequency_value", "frequency_unit",
+            "sample_size", "Timepoint (value)", "Timepoint (unit)", "is_baseline",
+            "parameter_name", "statistical_type", "mean", "sd", "events", "percentage",
+            "change_value", "unit", "source_page", "source_location"
         ]
         ws.append(headers)
 
-        # Map arms for fast lookup
         arms_dict = {a.arm_id: a for a in self.data.arms}
 
         for o in self.data.outcomes:
             arm = arms_dict.get(o.arm_id)
             arm_name = arm.arm_name if arm else o.arm_id
-            dose_str = f"{arm.dose_value} {arm.dose_unit}" if arm and arm.dose_value else "N/A"
-            freq_str = f"{arm.frequency_number} {arm.frequency_unit}" if arm and arm.frequency_number else "N/A"
             arm_type = arm.intervention_type if arm else "N/A"
-
-            mean_or_events = o.mean if o.mean is not None else o.events
-            sd_or_pct = o.sd if o.sd is not None else o.percentage
+            race_str = o.race if (o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else ""
 
             ws.append([
-                o.study_id, arm_name, o.race or "Overall", arm_type, dose_str, freq_str,
-                o.sample_size, o.timepoint_value, o.timepoint_unit, o.parameter_name, mean_or_events,
-                sd_or_pct, o.change_value, o.unit, o.source_page, o.source_location
+                o.study_id, arm_name, race_str, o.gender or "", arm_type,
+                arm.dose_value if arm else None,
+                arm.dose_unit if arm else None,
+                arm.frequency_number if arm else None,
+                arm.frequency_unit if arm else None,
+                o.sample_size, o.timepoint_value, o.timepoint_unit, o.is_baseline,
+                o.parameter_name, o.statistical_type,
+                o.mean, o.sd, o.events, o.percentage, o.change_value,
+                o.unit, o.source_page, o.source_location
             ])
 
         self._apply_sheet_formatting(ws)
@@ -497,7 +694,7 @@ class ExcelTrialExporter:
     def _build_variables_matrix_sheet(self):
         """
         Creates a cross-study comparison matrix where variables are side-by-side columns along the top,
-        making it trivial to compare across trials and cohorts.
+        with ARM-LEVEL CONTINUITY (propagating baseline variables across all repeated timepoint rows).
         """
         ws = self.wb.create_sheet(title="Variables_Matrix")
 
@@ -515,18 +712,29 @@ class ExcelTrialExporter:
 
         arms_dict = {a.arm_id: a for a in self.data.arms}
 
-        # Group outcomes by (arm_id, race, timepoint_value, timepoint_unit)
+        # 1. Pre-calculate baseline dictionary for each arm for row-level propagation
+        arm_baseline_vals = {}
+        for a_id in arms_dict:
+            arm_baseline_vals[a_id] = {}
+            for o in self.data.outcomes:
+                if o.arm_id == a_id and (o.is_baseline or str(o.timepoint_value or "").strip() in ["0", "0.0"]):
+                    col_name = f"{o.parameter_name} ({o.unit})" if o.unit else o.parameter_name
+                    val = o.mean if o.mean is not None else (o.percentage if o.percentage is not None else (o.change_value if o.change_value is not None else o.events))
+                    arm_baseline_vals[a_id][col_name] = val
+
+        # 2. Group outcomes by (arm_id, race, timepoint_value, timepoint_unit)
         rows_map = {}
         for o in self.data.outcomes:
-            key = (o.arm_id, o.race or "Overall", o.timepoint_value, o.timepoint_unit)
+            race_str = o.race if (o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else ""
+            key = (o.arm_id, race_str, str(o.timepoint_value or ""), str(o.timepoint_unit or ""))
             if key not in rows_map:
                 rows_map[key] = {
                     "arm_id": o.arm_id,
-                    "race": o.race or "Overall",
+                    "race": race_str,
                     "sample_size": o.sample_size,
                     "tp_val": o.timepoint_value,
                     "tp_unit": o.timepoint_unit,
-                    "values": {}
+                    "values": dict(arm_baseline_vals.get(o.arm_id, {})) # Start with arm baseline for continuity
                 }
             col_name = f"{o.parameter_name} ({o.unit})" if o.unit else o.parameter_name
             val = o.mean if o.mean is not None else (o.percentage if o.percentage is not None else (o.change_value if o.change_value is not None else o.events))
