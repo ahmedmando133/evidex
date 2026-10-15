@@ -34,6 +34,12 @@ class ExcelTrialExporter:
         self.align_left = Alignment(horizontal="left", vertical="center")
 
     def _apply_sheet_formatting(self, ws):
+        # Universal formula-injection protection: ensure plain text strings starting with '=' are never treated as Excel formulas
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str) and cell.value.startswith('='):
+                    cell.data_type = 's'
+
         # Format header row
         for col in range(1, ws.max_column + 1):
             cell = ws.cell(row=1, column=col)
@@ -87,7 +93,7 @@ class ExcelTrialExporter:
         and baseline vs follow-up separation.
         """
         ws = self.wb.create_sheet(title="Master_Extraction_Sheet", index=0)
-        ws.views.sheetView[0].showGridLines = True
+        ws.sheet_view.showGridLines = True
 
         h1_fill = PatternFill(start_color="1B365D", end_color="1B365D", fill_type="solid")
         h2_fill = PatternFill(start_color="2F5597", end_color="2F5597", fill_type="solid")
@@ -780,7 +786,7 @@ class ExcelTrialExporter:
         inv = getattr(self.data, "inventory", []) or []
 
         # Section 1: Completeness Audit Banner & Gates
-        ws.append(["=== MANDOROS EXTRACTION COMPLETENESS & COMPLIANCE AUDIT ==="])
+        ws.append(["[MANDOROS EXTRACTION COMPLETENESS & COMPLIANCE AUDIT]"])
         status_str = audit.overall_status if audit else "COMPLETE AND VALIDATED"
         summary_str = audit.summary if audit else "Extraction complete."
         ws.append(["Overall Compliance Status:", status_str])
@@ -802,7 +808,7 @@ class ExcelTrialExporter:
             ws.append(["All Gates", "PASS", 100.0, 0, 0, "All extraction integrity gates passed."])
 
         ws.append([])
-        ws.append(["=== DOCUMENT SOURCE COMPONENT INVENTORY (ZERO-OMISSION AUDIT) ==="])
+        ws.append(["[DOCUMENT SOURCE COMPONENT INVENTORY (ZERO-OMISSION AUDIT)]"])
         ws.append([
             "Item ID", "Item Type", "Source Page", "Item Label",
             "Extraction Status", "Recovered Observations", "Clinical Justification", "Notes"
