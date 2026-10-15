@@ -1510,6 +1510,354 @@ def build_app():
         border-radius: 14px !important;
         background: rgba(15, 23, 42, 0.8) !important;
     }
+
+    /* ========================================================================= */
+    /* ACADEMIC & METHODOLOGICAL POWER MATRIX (APPLE BENTO SHOWCASE)              */
+    /* ========================================================================= */
+    .academic-power-matrix {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        max-width: 1360px;
+        margin: 28px auto 0 auto;
+        text-align: left;
+    }
+
+    @media (max-width: 1200px) {
+        .academic-power-matrix {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+    }
+
+    @media (max-width: 680px) {
+        .academic-power-matrix {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+    }
+
+    .academic-pillar-card {
+        background: rgba(11, 22, 44, 0.72) !important;
+        border: 1px solid rgba(148, 163, 184, 0.16) !important;
+        border-radius: 20px !important;
+        padding: 20px 18px !important;
+        backdrop-filter: blur(20px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .academic-pillar-card:hover {
+        transform: translateY(-3px) scale(1.008) !important;
+    }
+
+    .pillar-1 {
+        border-top: 2.5px solid #00F5D4 !important;
+        box-shadow: 0 12px 35px -10px rgba(0, 245, 212, 0.22), inset 0 0 20px rgba(0, 245, 212, 0.03) !important;
+    }
+    .pillar-1:hover {
+        box-shadow: 0 16px 45px -8px rgba(0, 245, 212, 0.38), inset 0 0 25px rgba(0, 245, 212, 0.06) !important;
+    }
+
+    .pillar-2 {
+        border-top: 2.5px solid #38BDF8 !important;
+        box-shadow: 0 12px 35px -10px rgba(56, 189, 248, 0.22), inset 0 0 20px rgba(56, 189, 248, 0.03) !important;
+    }
+    .pillar-2:hover {
+        box-shadow: 0 16px 45px -8px rgba(56, 189, 248, 0.38), inset 0 0 25px rgba(56, 189, 248, 0.06) !important;
+    }
+
+    .pillar-3 {
+        border-top: 2.5px solid #A855F7 !important;
+        box-shadow: 0 12px 35px -10px rgba(168, 85, 247, 0.22), inset 0 0 20px rgba(168, 85, 247, 0.03) !important;
+    }
+    .pillar-3:hover {
+        box-shadow: 0 16px 45px -8px rgba(168, 85, 247, 0.38), inset 0 0 25px rgba(168, 85, 247, 0.06) !important;
+    }
+
+    .pillar-4 {
+        border-top: 2.5px solid #10B981 !important;
+        box-shadow: 0 12px 35px -10px rgba(16, 185, 129, 0.22), inset 0 0 20px rgba(16, 185, 129, 0.03) !important;
+    }
+    .pillar-4:hover {
+        box-shadow: 0 16px 45px -8px rgba(16, 185, 129, 0.38), inset 0 0 25px rgba(16, 185, 129, 0.06) !important;
+    }
+
+    .pillar-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .pillar-numeral-badge {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        font-size: 10.5px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        padding: 3px 9px;
+        border-radius: 6px;
+        text-transform: uppercase;
+    }
+
+    .p-badge-1 { background: rgba(0, 245, 212, 0.14); color: #00F5D4; border: 1px solid rgba(0, 245, 212, 0.35); }
+    .p-badge-2 { background: rgba(56, 189, 248, 0.14); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); }
+    .p-badge-3 { background: rgba(168, 85, 247, 0.14); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.35); }
+    .p-badge-4 { background: rgba(16, 185, 129, 0.14); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35); }
+
+    .pillar-stage-tag {
+        font-size: 10px;
+        font-weight: 700;
+        color: #94A3B8;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 2px 8px;
+        border-radius: 9999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        white-space: nowrap;
+    }
+
+    .pillar-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', sans-serif;
+        font-size: 14px;
+        font-weight: 800;
+        color: #F8FAFC;
+        margin-bottom: 3px;
+        line-height: 1.35;
+    }
+
+    .pillar-subtitle {
+        font-size: 11px;
+        font-weight: 700;
+        color: #38BDF8;
+        margin-bottom: 12px;
+        letter-spacing: 0.02em;
+    }
+    .pillar-1 .pillar-subtitle { color: #00F5D4; }
+    .pillar-2 .pillar-subtitle { color: #38BDF8; }
+    .pillar-3 .pillar-subtitle { color: #C084FC; }
+    .pillar-4 .pillar-subtitle { color: #34D399; }
+
+    .pillar-pills-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 12px;
+    }
+
+    .academic-pill {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        color: #CBD5E1;
+        padding: 3px 8.5px;
+        border-radius: 9999px;
+        font-size: 10px;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        line-height: 1.3;
+        transition: all 0.2s ease;
+    }
+
+    .academic-pill:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #FFFFFF;
+        border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .pillar-desc {
+        font-size: 11px;
+        line-height: 1.5;
+        color: #94A3B8;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        padding-top: 10px;
+        margin-top: auto;
+    }
+
+    .pillar-desc code {
+        background: rgba(0, 0, 0, 0.35);
+        color: #38BDF8;
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-size: 10.5px;
+        font-family: var(--font-mono);
+    }
+
+    /* ========================================================================= */
+    /* INSTITUTIONAL-GRADE ACADEMIC & TECHNICAL FOOTER                            */
+    /* ========================================================================= */
+    .mandoros-institutional-footer {
+        margin-top: 50px;
+        padding: 40px 30px 28px 30px;
+        border-top: 1px solid rgba(56, 189, 248, 0.22);
+        background: linear-gradient(180deg, rgba(11, 22, 44, 0.55) 0%, rgba(3, 7, 18, 0.98) 100%);
+        border-radius: 28px 28px 0 0;
+        backdrop-filter: blur(25px) saturate(180%);
+        -webkit-backdrop-filter: blur(25px) saturate(180%);
+        box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .footer-spec-strip {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        padding-bottom: 26px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 30px;
+    }
+
+    .spec-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(56, 189, 248, 0.28);
+        border-radius: 9999px;
+        padding: 6px 14px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #E2E8F0;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .spec-badge:hover {
+        border-color: #38BDF8;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(56, 189, 248, 0.2);
+    }
+
+    .spec-badge-icon {
+        font-size: 13px;
+    }
+
+    .footer-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 28px;
+        text-align: left;
+        margin-bottom: 32px;
+    }
+
+    @media (max-width: 1100px) {
+        .footer-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 22px;
+        }
+    }
+
+    @media (max-width: 650px) {
+        .footer-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+    }
+
+    .footer-col-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        font-size: 12.5px;
+        font-weight: 800;
+        color: #F8FAFC;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .footer-platform-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-bottom: 10px;
+    }
+
+    .footer-brand-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        color: #F8FAFC;
+    }
+
+    .footer-acronym {
+        font-size: 10.5px;
+        color: #94A3B8;
+        font-weight: 500;
+        line-height: 1.35;
+    }
+
+    .footer-text {
+        font-size: 11.5px;
+        line-height: 1.6;
+        color: #94A3B8;
+        margin-bottom: 8px;
+    }
+
+    .footer-tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 12px;
+    }
+
+    .footer-tag {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        color: #CBD5E1;
+        font-weight: 600;
+    }
+
+    .footer-group {
+        margin-bottom: 12px;
+    }
+
+    .footer-group-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #38BDF8;
+        margin-bottom: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .footer-bottom-bar {
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        padding-top: 22px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        font-size: 11px;
+        color: #64748B;
+    }
+
+    .footer-bottom-left, .footer-bottom-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .footer-bottom-motto {
+        color: #94A3B8;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+
+    .footer-bottom-dot {
+        color: #475569;
+    }
     """
 
     with gr.Blocks(title="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis", css=custom_css, theme=gr.themes.Base()) as demo:
@@ -1680,6 +2028,100 @@ def build_app():
                     <span class="motto-rule"></span>
                     <span class="mandoros-motto">— &nbsp; S M A R T E R &nbsp;&nbsp; E V I D E N C E . &nbsp;&nbsp;&nbsp;&nbsp; B E T T E R &nbsp;&nbsp; D E C I S I O N S . &nbsp; —</span>
                     <span class="motto-rule"></span>
+                  </div>
+
+                  <!-- ========================================================================= -->
+                  <!-- ADDITIVE: ACADEMIC & METHODOLOGICAL POWER MATRIX (APPLE BENTO SHOWCASE)    -->
+                  <!-- ========================================================================= -->
+                  <div class="academic-power-matrix">
+                    <!-- Pillar I -->
+                    <div class="academic-pillar-card pillar-1">
+                      <div>
+                        <div class="pillar-top-row">
+                          <span class="pillar-numeral-badge p-badge-1">PILLAR I</span>
+                          <span class="pillar-stage-tag">Stage-1 Precision Engine</span>
+                        </div>
+                        <div class="pillar-title">Atomic CONSORT/PRISMA-Grade Data Extraction</div>
+                        <div class="pillar-subtitle">Zero-Hallucination Verbatim RCT Curation</div>
+                        <div class="pillar-pills-container">
+                          <span class="academic-pill">7-Entity Canonical Relational Schema</span>
+                          <span class="academic-pill">88 Atomic Fields (Value / Operator / Unit Split)</span>
+                          <span class="academic-pill">Page- &amp; Quote-Level Verbatim Provenance</span>
+                          <span class="academic-pill">Automated Cross-Field Clinical Validation</span>
+                          <span class="academic-pill">Semantic &amp; Unit Harmonization Engine</span>
+                        </div>
+                      </div>
+                      <div class="pillar-desc">
+                        Converts unstructured RCT manuscripts and multi-column tables into verified, audit-ready 7-sheet workbooks with explicit <code>not_reported</code> epistemic boundaries.
+                      </div>
+                    </div>
+
+                    <!-- Pillar II -->
+                    <div class="academic-pillar-card pillar-2">
+                      <div>
+                        <div class="pillar-top-row">
+                          <span class="pillar-numeral-badge p-badge-2">PILLAR II</span>
+                          <span class="pillar-stage-tag">Classical &amp; Advanced Pooling</span>
+                        </div>
+                        <div class="pillar-title">metafor-Grade Biostatistics &amp; Evidence Synthesis</div>
+                        <div class="pillar-subtitle">Exact Parametric &amp; Non-Parametric Trial Pooling</div>
+                        <div class="pillar-pills-container">
+                          <span class="academic-pill">DerSimonian-Laird (DL) &amp; REML Random-Effects</span>
+                          <span class="academic-pill">Inverse-Variance Fixed-Effects</span>
+                          <span class="academic-pill">Hedges' g (SMD) &amp; Mean Difference (MD)</span>
+                          <span class="academic-pill">Mantel-Haenszel OR / RR / RD</span>
+                          <span class="academic-pill">Cochran's Q, τ² &amp; Higgins' I² Heterogeneity</span>
+                          <span class="academic-pill">Egger's Asymmetry &amp; Leave-One-Out Sensitivity</span>
+                        </div>
+                      </div>
+                      <div class="pillar-desc">
+                        Executes publication-grade fixed and random-effects meta-analysis with full between-study variance decomposition, small-study bias diagnostics, and interactive Forest, Funnel, L'Abbé, and Galbraith visualizations.
+                      </div>
+                    </div>
+
+                    <!-- Pillar III -->
+                    <div class="academic-pillar-card pillar-3">
+                      <div>
+                        <div class="pillar-top-row">
+                          <span class="pillar-numeral-badge p-badge-3">PILLAR III</span>
+                          <span class="pillar-stage-tag">Heterogeneous Trial Intelligence</span>
+                        </div>
+                        <div class="pillar-title">Adaptive Cross-Drug Network Meta-Analysis &amp; Domain Bridging</div>
+                        <div class="pillar-subtitle">Multi-Active-Ingredient &amp; Cross-Scale Reconciliation</div>
+                        <div class="pillar-pills-container">
+                          <span class="academic-pill">Bucher's Indirect Treatment Comparison (NMA)</span>
+                          <span class="academic-pill">SUCRA-Inspired Treatment Surface Rankings</span>
+                          <span class="academic-pill">Cross-Domain Hedges' g Standardization</span>
+                          <span class="academic-pill">Baseline-Normalized Δ% Trajectory Alignment</span>
+                          <span class="academic-pill">Automated Methodological Divergence Auditing</span>
+                        </div>
+                      </div>
+                      <div class="pillar-desc">
+                        Reconciles trials across different active ingredients, dosage tiers, follow-up durations, and clinical scales while generating a transparent scientific disclosure of inter-trial heterogeneity.
+                      </div>
+                    </div>
+
+                    <!-- Pillar IV -->
+                    <div class="academic-pillar-card pillar-4">
+                      <div>
+                        <div class="pillar-top-row">
+                          <span class="pillar-numeral-badge p-badge-4">PILLAR IV</span>
+                          <span class="pillar-stage-tag">De-Novo Evidence Extrapolation</span>
+                        </div>
+                        <div class="pillar-title">Predictive Meta-Regression &amp; In-Silico Trial Discovery</div>
+                        <div class="pillar-subtitle">Virtual Trial Simulation &amp; Latent Endpoint Reconstruction</div>
+                        <div class="pillar-pills-container">
+                          <span class="academic-pill">Weighted Dose–Duration Meta-Regression</span>
+                          <span class="academic-pill">95% Confidence &amp; 95% Prediction Intervals (PI)</span>
+                          <span class="academic-pill">Multivariate Surrogate Endpoint Imputation</span>
+                          <span class="academic-pill">Bliss Independence / Loewe Pharmacological Synergy</span>
+                          <span class="academic-pill">De-Novo Optimal Protocol &amp; NNT Forecasting</span>
+                        </div>
+                      </div>
+                      <div class="pillar-desc">
+                        Projects unobserved dose-duration trajectories, reconstructs missing trial endpoints via cross-study covariance, and synthesizes de-novo optimal virtual clinical trial protocols.
+                      </div>
+                    </div>
                   </div>
                 </div>
                 """
@@ -2184,12 +2626,138 @@ def build_app():
 
         gr.HTML(
             """
-            <div style="margin-top: 35px; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: #64748B; font-size: 12px;">
-              <strong style="color: #94A3B8;">MANDOROS Academic Methodological Standards:</strong>
-              Split eligibility operators (<, =, >, between) • Pure parameter names with dedicated race & timepoint columns • 
-              100% filled sample sizes across all outcomes • Page-level provenance citations • metafor-grade Fixed/Random Effects (DL & REML) • 
-              95% Prediction Intervals (PI) • Full PRISMA / Cochrane compatibility.
-            </div>
+            <footer class="mandoros-institutional-footer">
+              <!-- Row 1: Methodological Standards & Statistical Rigor Bar (Glowing Spec Strip) -->
+              <div class="footer-spec-strip">
+                <div class="spec-badge">
+                  <span class="spec-badge-icon">📐</span>
+                  <span><strong>Statistical Core:</strong> wviechtb/metafor-Equivalent REML / DL Engine</span>
+                </div>
+                <div class="spec-badge">
+                  <span class="spec-badge-icon">🧬</span>
+                  <span><strong>Data Standard:</strong> 88-Field Canonical RCT Schema &amp; Atomic Provenance</span>
+                </div>
+                <div class="spec-badge">
+                  <span class="spec-badge-icon">🔀</span>
+                  <span><strong>Network Synthesis:</strong> Indirect Treatment Comparison &amp; SUCRA Ranking</span>
+                </div>
+                <div class="spec-badge">
+                  <span class="spec-badge-icon">🔮</span>
+                  <span><strong>Predictive Core:</strong> Longitudinal Meta-Regression &amp; In-Silico Bliss Synergy</span>
+                </div>
+                <div class="spec-badge">
+                  <span class="spec-badge-icon">🛡️</span>
+                  <span><strong>Epistemic Guardrails:</strong> Zero-Imputation Stage-1 / Ecological-Fallacy Protected Phase-2</span>
+                </div>
+              </div>
+
+              <!-- Row 2: 4-Column Academic Architecture Summary -->
+              <div class="footer-grid">
+                <!-- Column 1: MANDOROS Platform -->
+                <div class="footer-col">
+                  <div class="footer-col-title">
+                    <span style="color: #00F5D4;">◈</span> MANDOROS Platform
+                  </div>
+                  <div class="footer-platform-brand">
+                    <span class="footer-brand-title">M<span style="color: #00F5D4;">Λ</span>NDOROS</span>
+                    <span class="footer-acronym">Meta-Analysis Network for Data, Outcomes &amp; Research Optimization Synthesis</span>
+                  </div>
+                  <p class="footer-text">
+                    Engineered for clinical researchers, academic biostatisticians, and systematic reviewers worldwide. Transforms complex, unstructured clinical trial literature into standardized, audit-verified evidence networks, metafor-grade pooled analyses, and predictive in-silico discovery simulations.
+                  </p>
+                  <div class="footer-tag-list">
+                    <span class="footer-tag">PRISMA 2020 Compliant</span>
+                    <span class="footer-tag">Cochrane Handbook Core</span>
+                    <span class="footer-tag">CONSORT 2010 Aligned</span>
+                    <span class="footer-tag">GRADE Framework Ready</span>
+                    <span class="footer-tag">ICMJE Guidelines</span>
+                  </div>
+                </div>
+
+                <!-- Column 2: Extracted & Pooled Effect Estimators -->
+                <div class="footer-col">
+                  <div class="footer-col-title">
+                    <span style="color: #38BDF8;">◈</span> Extracted &amp; Pooled Estimators
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Continuous Parameters</div>
+                    <div class="footer-text">Mean Difference (MD), Hedges' <em>g</em> (SMD), Baseline-Normalized %Δ Shift, Longitudinal Rate/Week trajectory slope.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Dichotomous Endpoints</div>
+                    <div class="footer-text">Mantel-Haenszel Log-Odds Ratio (lnOR), Log-Risk Ratio (lnRR), Risk Difference (RD), Number Needed to Treat (NNT/NNH).</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Variance &amp; Heterogeneity</div>
+                    <div class="footer-text">DerSimonian-Laird &amp; REML τ², Cochran's Q, Higgins' I², Birge's H², 95% Confidence Intervals &amp; 95% Prediction Intervals (PI).</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Publication Bias &amp; Sensitivity</div>
+                    <div class="footer-text">Egger's Linear Regression Asymmetry, Begg-Mazumdar Rank Correlation, and Leave-One-Out Study-Level Sensitivity.</div>
+                  </div>
+                </div>
+
+                <!-- Column 3: Adaptive & Predictive Capabilities -->
+                <div class="footer-col">
+                  <div class="footer-col-title">
+                    <span style="color: #A855F7;">◈</span> Adaptive &amp; Predictive Capabilities
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Stage-1 Single-Trial Ingestion</div>
+                    <div class="footer-text">Mandatory 7-Sheet Relational Schema with 88 atomic fields, exact value/operator splits, and 100% page/quote-level provenance citations.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Phase-2 Cross-Trial Harmonization</div>
+                    <div class="footer-text">Automated pooling across heterogeneous active ingredients, dose levels, durations, and multi-arm trial geometries with full divergence audit.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Cross-Domain Bridging &amp; Ranking</div>
+                    <div class="footer-text">Scale-free SMD bridging across disparate clinical scales, Monte Carlo SUCRA ranking, and Cochran's Q_between subgroup meta-analysis.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">In-Silico Emergent Synthesis</div>
+                    <div class="footer-text">Cross-study surrogate covariance imputation, therapeutic sweet-spot discovery, and de-novo virtual clinical trial synthesis.</div>
+                  </div>
+                </div>
+
+                <!-- Column 4: Academic Governance & Reproducibility -->
+                <div class="footer-col">
+                  <div class="footer-col-title">
+                    <span style="color: #10B981;">◈</span> Academic Governance &amp; Reproducibility
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Deterministic Verification</div>
+                    <div class="footer-text">Full provenance logging from source PDF pages to final Excel cells. Zero hallucinated data points and explicit <code>not_reported</code> boundaries.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Ecological Fallacy Protection</div>
+                    <div class="footer-text">Meta-regression and dose-response modeling are rigorously governed as trial-level aggregate evidence and guarded against individual patient data misattribution.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Universal Export Artifacts</div>
+                    <div class="footer-text">Instant generation of 7-sheet single-trial workbooks, 10-sheet Master Cohort workbooks, and standalone interactive HTML dashboards for publication.</div>
+                  </div>
+                  <div class="footer-group">
+                    <div class="footer-group-label">Open Science &amp; Integrity</div>
+                    <div class="footer-text">Transparent analytical recipes reproducible across R (metafor, netmeta) and Python (SciPy, Statsmodels).</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 3: Signature Bottom Bar -->
+              <div class="footer-bottom-bar">
+                <div class="footer-bottom-left">
+                  <span class="footer-bottom-motto">MANDOROS — From Raw Trials to Global Clinical Verdicts</span>
+                  <span class="footer-bottom-dot">·</span>
+                  <span>Designed for Clinical Scientists, Meta-Analysts &amp; Biostatisticians Worldwide</span>
+                </div>
+                <div class="footer-bottom-right">
+                  <span>Powered by Open Science, PRISMA Standards &amp; Precision Evidence Synthesis</span>
+                  <span class="footer-bottom-dot">·</span>
+                  <span style="color: #38BDF8;">v2.6 Flagship Architecture</span>
+                </div>
+              </div>
+            </footer>
             """
         )
 
