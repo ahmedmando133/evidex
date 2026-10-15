@@ -11,6 +11,7 @@ import functools
 from pathlib import Path
 from typing import Any
 import gradio as gr
+import pandas as pd
 
 # Ensure workspace root in path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -396,6 +397,176 @@ def refresh_cohorts():
     return gr.update(choices=choices, value=choices[0] if choices else None)
 
 
+def render_queued_cohort_badge(files: list) -> str:
+    """Renders sleek colorful pills for every queued file and total count."""
+    if not files:
+        return """
+        <div style="background: rgba(15,23,42,0.6); border: 1px dashed rgba(148,163,184,0.2); border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 12px; color: #94A3B8; text-align: center;">
+          📂 <em>No custom files queued yet. Drop multiple files above or click "Upload / Add Multiple Trial Files".</em>
+        </div>
+        """
+    pills = []
+    for f in files:
+        fname = os.path.basename(f.name if hasattr(f, "name") else str(f))
+        is_pdf = fname.lower().endswith(".pdf")
+        border_col = "#38BDF8" if is_pdf else "#2DD4BF"
+        icon = "📄" if is_pdf else "📊"
+        pills.append(f"""
+        <span style="display: inline-flex; align-items: center; gap: 6px; background: rgba(15,23,42,0.9); border: 1px solid {border_col}88; color: #F8FAFC; padding: 4px 12px; border-radius: 9999px; font-size: 11.5px; font-weight: 600; box-shadow: 0 0 10px {border_col}22;">
+          <span>{icon}</span>
+          <span style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{fname}</span>
+        </span>
+        """)
+    return f"""
+    <div style="background: rgba(15,23,42,0.85); border: 1.5px solid rgba(45,212,191,0.45); border-radius: 14px; padding: 12px 16px; margin-top: 10px; box-shadow: 0 0 20px rgba(45,212,191,0.15);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-size: 12.5px; font-weight: 800; color: #2DD4BF; display: flex; align-items: center; gap: 6px;">
+          <span>✨</span>
+          <span>{len(files)} Trial File{'s' if len(files) > 1 else ''} Queued for Batch Analysis</span>
+        </span>
+        <span style="background: rgba(45,212,191,0.15); border: 1px solid #2DD4BF; color: #5EEAD4; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; text-transform: uppercase;">
+          Batch Ready
+        </span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+        {''.join(pills)}
+      </div>
+    </div>
+    """
+
+
+def accumulate_cohort_files(incoming_files, current_state):
+    """Accumulates incoming files into current_state, avoiding duplicate filenames."""
+    if not incoming_files:
+        current_state = current_state or []
+        return current_state, current_state, render_queued_cohort_badge(current_state)
+
+    current = list(current_state) if current_state else []
+    existing_basenames = {os.path.basename(f.name if hasattr(f, "name") else str(f)) for f in current if f}
+
+    incoming_list = incoming_files if isinstance(incoming_files, list) else [incoming_files]
+    for f in incoming_list:
+        if f is not None:
+            bname = os.path.basename(f.name if hasattr(f, "name") else str(f))
+            if bname not in existing_basenames:
+                current.append(f)
+                existing_basenames.add(bname)
+
+    badge_html = render_queued_cohort_badge(current)
+    return current, current, badge_html
+
+
+def clear_cohort_files():
+    """Clears all queued cohort files."""
+    empty_badge = """
+    <div style="background: rgba(15,23,42,0.6); border: 1px dashed rgba(148,163,184,0.2); border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 12px; color: #94A3B8; text-align: center;">
+      📂 <em>No custom files queued yet. Drop multiple files above or click "Upload / Add Multiple Trial Files".</em>
+    </div>
+    """
+    return [], None, empty_badge
+
+
+def get_default_single_study_preview():
+    """Loads pre-extracted Metformin study to eliminate empty 1|2|3 tables on startup."""
+    excel_path = "outputs/metformin_clinical_trial_extracted.xlsx"
+    default_master = pd.DataFrame()
+    default_matrix = pd.DataFrame()
+    default_outcomes = pd.DataFrame()
+    default_eligibility = pd.DataFrame()
+
+    if os.path.exists(excel_path):
+        try:
+            default_master = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Master_Extraction_Sheet"))
+            default_matrix = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Variables_Matrix"))
+            default_outcomes = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Outcomes"))
+            default_eligibility = deduplicate_columns(pd.read_excel(excel_path, sheet_name="Eligibility"))
+        except Exception:
+            pass
+
+    if default_master.empty:
+        default_master = pd.DataFrame(columns=["Variable Category", "Parameter Name", "Timepoint", "Control Arm (Value/SD)", "Experimental Arm (Value/SD)", "Relative Effect", "p-value", "Provenance Page"])
+    if default_matrix.empty:
+        default_matrix = pd.DataFrame(columns=["Clinical Domain", "Baseline Characteristics", "Week 12 Outcome", "Week 24 Outcome", "Adverse Event Rate", "Sample Size (N)"])
+    if default_outcomes.empty:
+        default_outcomes = pd.DataFrame(columns=["Parameter Name", "Raw Extracted Name", "Arm Name", "Timepoint (Wks)", "Mean / Events", "SD / Total N", "Unit", "p-value"])
+    if default_eligibility.empty:
+        default_eligibility = pd.DataFrame(columns=["Criterion Type", "Criterion Name", "Operator", "Threshold Value", "Unit", "Provenance Quote"])
+
+    preview_banner = """
+    <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.96) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(56,189,248,0.4); border-radius: 20px; padding: 24px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(56, 189, 248, 0.15); margin-bottom: 24px; backdrop-filter: blur(20px);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px;">
+        <div>
+          <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="background: rgba(56,189,248,0.18); border: 1px solid #38BDF8; color: #38BDF8; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+              💡 Live Interactive Showcase
+            </span>
+            <span style="background: rgba(16,185,129,0.18); border: 1px solid #10B981; color: #34D399; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+              DPP Metformin RCT Trial Benchmark
+            </span>
+          </div>
+          <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 20px; font-weight: 800;">
+            Extraction Preview: Metformin Diabetes Prevention Program (DPP)
+          </h2>
+          <p style="color: #94A3B8; margin: 0; font-size: 13px;">
+            Showing pre-extracted 7-sheet clinical evidence. Drop your own PDF on the left and click "Run Academic Deep Extraction" to extract a new study.
+          </p>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #38BDF8;">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Study Design</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">Parallel-Group RCT</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #10B981;">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Treatment Arms</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">Metformin 850mg vs Placebo</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #A855F7;">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Total Patients</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">1,073 Randomized</div>
+        </div>
+        <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; border-left: 3px solid #F59E0B;">
+          <div style="color: #94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase;">Audit Verification</div>
+          <div style="color: #F8FAFC; font-size: 16px; font-weight: 800; margin-top: 2px;">100% Provenance Logged</div>
+        </div>
+      </div>
+    </div>
+    """
+    return preview_banner, default_master, default_matrix, default_outcomes, default_eligibility
+
+
+def get_default_cohort_preview():
+    """Generates the initial rich preview state for Phase 2 so right-hand side is full, vibrant, and has zero 1|2|3 tables."""
+    try:
+        from src.cohort_pipeline import ActiveIngredientCohortPipeline
+        cohort_name = "Mixed_Metabolic_Cohort"
+        pipeline = CACHED_COHORT_PIPELINES.get(cohort_name)
+        if not pipeline:
+            pipeline = ActiveIngredientCohortPipeline(cohort_name=cohort_name)
+            pipeline.run_all()
+            CACHED_COHORT_PIPELINES[cohort_name] = pipeline
+
+        res = process_cohort(
+            ingest_mode="Select Existing Local Cohort Folder",
+            cohort_dropdown=cohort_name,
+            custom_drug_name="",
+            uploaded_files=None,
+            model_choice="⚡ Auto-Detect & Select Best Available Model (Recommended)",
+            api_key=""
+        )
+        return res
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        empty_cols_comp = ["Study ID", "Active Ingredient", "Arms & Dose", "Sample Size (N)", "Duration", "Primary Outcomes"]
+        empty_cols_meta = ["Clinical Parameter", "Measure", "Studies (k)", "Patients (N)", "Pooled RE Estimate", "95% CI Lower", "95% CI Upper", "95% Pred Interval", "p-value", "I² (%)", "tau²", "Evidence Strength"]
+        return (
+            "", "", pd.DataFrame(columns=empty_cols_comp), pd.DataFrame(), "", pd.DataFrame(columns=empty_cols_meta),
+            pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), "", "", pd.DataFrame(), pd.DataFrame(),
+            None, None, None, [], gr.update(), gr.update(), ""
+        )
+
+
 def simulate_virtual_trial_ui(
     mode: str,
     cohort_dropdown: str,
@@ -526,6 +697,8 @@ def process_cohort(
     try:
         # Determine Cohort Name and Input Files
         if "Upload" in str(ingest_mode) and uploaded_files:
+            if not isinstance(uploaded_files, list):
+                uploaded_files = [uploaded_files]
             clean_drug = re.sub(r'[^a-zA-Z0-9_\-]', '_', (custom_drug_name or "Custom_Drug").strip()).strip('_')
             if not clean_drug:
                 clean_drug = "Custom_Drug"
@@ -534,7 +707,7 @@ def process_cohort(
             target_dir.mkdir(parents=True, exist_ok=True)
             for uf in uploaded_files:
                 src_f = Path(uf.name if hasattr(uf, "name") else str(uf))
-                orig_name = getattr(uf, "orig_name", src_f.name)
+                orig_name = getattr(uf, "orig_name", None) or src_f.name
                 dst_f = target_dir / orig_name
                 shutil.copy2(src_f, dst_f)
         else:
@@ -1187,25 +1360,35 @@ def build_app():
     }
 
     /* Segmented Pill Tabs */
-    .tab-nav {
+    /* Segmented Pill Tabs - Clean Multi-Row Wrap without overflow menu cutoff */
+    .tab-nav, div.tab-nav, .tabs > .tabitem-header-container, div[role="tablist"] {
         background: rgba(15, 23, 42, 0.65) !important;
         border-radius: 9999px !important;
-        padding: 5px !important;
+        padding: 6px !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         margin-bottom: 20px !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+        overflow: visible !important;
+        gap: 8px !important;
+        max-width: 100% !important;
     }
 
-    .tab-nav button {
+    .tab-nav button, div[role="tab"] {
         border-radius: 9999px !important;
-        padding: 8px 22px !important;
+        padding: 8px 20px !important;
         font-weight: 600 !important;
-        font-size: 13px !important;
+        font-size: 12.5px !important;
         transition: all 0.2s ease !important;
         border: none !important;
         color: #94A3B8 !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
     }
 
-    .tab-nav button.selected {
+    .tab-nav button.selected, div[role="tab"][aria-selected="true"] {
         background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(99, 102, 241, 0.35)) !important;
         border: 1px solid rgba(56, 189, 248, 0.5) !important;
         color: #F8FAFC !important;
@@ -1213,23 +1396,37 @@ def build_app():
         box-shadow: 0 0 20px rgba(56, 189, 248, 0.3) !important;
     }
 
-    /* Apple.com Studio + GitHub Primer File Upload Dropzones */
-    div[data-testid="file-upload"], .gr-file, .file-upload-dropzone, div.file-preview-holder {
-        border: 1.5px dashed rgba(56, 189, 248, 0.38) !important;
-        border-radius: 18px !important;
-        background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.08) 0%, rgba(15, 23, 42, 0.65) 100%) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        padding: 18px !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+    /* Hide any Gradio three-dots overflow menu so all sub-tabs show up side by side */
+    .tab-nav .overflow-menu, .tab-nav button[aria-label="More tabs"] {
+        display: none !important;
     }
 
-    div[data-testid="file-upload"]:hover, .gr-file:hover, .file-upload-dropzone:hover {
+    /* Apple.com Studio + GitHub Primer File Upload Dropzones */
+    div[data-testid="file-upload"], 
+    div[data-testid="dropzone"],
+    .file-upload-dropzone, 
+    .dropzone, 
+    .gr-file, 
+    div.file-preview-holder {
+        border: 2px dashed rgba(45, 212, 191, 0.65) !important;
+        border-radius: 20px !important;
+        background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        padding: 22px 20px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 25px rgba(45, 212, 191, 0.06) !important;
+    }
+
+    div[data-testid="file-upload"]:hover, 
+    div[data-testid="dropzone"]:hover,
+    .file-upload-dropzone:hover, 
+    .dropzone:hover, 
+    .gr-file:hover {
         border-color: #2DD4BF !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 12px 30px -10px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.2) !important;
-        background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.14) 0%, rgba(15, 23, 42, 0.75) 100%) !important;
+        box-shadow: 0 14px 35px -8px rgba(45, 212, 191, 0.45), 0 0 25px rgba(45, 212, 191, 0.25) !important;
+        background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.18) 0%, rgba(15, 23, 42, 0.92) 100%) !important;
     }
 
     div[data-testid="file-upload"] button, .gr-file button {
@@ -1488,6 +1685,40 @@ def build_app():
                 """
             )
 
+        # Pre-load Rich Benchmark Previews so UI has 0% empty space and zero 1|2|3 tables on startup
+        p1_summary, p1_master_df, p1_matrix_df, p1_outcomes_df, p1_eligibility_df = get_default_single_study_preview()
+        p1_excel_val = "outputs/metformin_clinical_trial_extracted.xlsx" if os.path.exists("outputs/metformin_clinical_trial_extracted.xlsx") else None
+        p1_json_val = "outputs/metformin_clinical_trial_extracted.json" if os.path.exists("outputs/metformin_clinical_trial_extracted.json") else None
+
+        (
+            cohort_verdict_val,
+            cohort_divergence_val,
+            cohort_comp_val,
+            cohort_heatmap_val,
+            cohort_forest_val,
+            cohort_meta_val,
+            cohort_domain_val,
+            cohort_sucra_val,
+            cohort_subgroup_val,
+            cohort_pred_val,
+            discovery_summary_val,
+            discovery_plot_val,
+            discovery_recon_val,
+            discovery_vt_val,
+            cohort_excel_val,
+            cohort_html_val,
+            cohort_zip_val,
+            cohort_individual_vals,
+            sim_drug_update,
+            sim_param_update,
+            init_sim_html_val
+        ) = get_default_cohort_preview()
+
+        sim_drug_choices = sim_drug_update.get('choices', ['Pooled Cohort Average']) if isinstance(sim_drug_update, dict) else ['Pooled Cohort Average']
+        sim_drug_init_val = sim_drug_update.get('value', 'Pooled Cohort Average') if isinstance(sim_drug_update, dict) else 'Pooled Cohort Average'
+        sim_param_choices = sim_param_update.get('choices', ['HbA1c']) if isinstance(sim_param_update, dict) else ['HbA1c']
+        sim_param_init_val = sim_param_update.get('value', 'HbA1c') if isinstance(sim_param_update, dict) else 'HbA1c'
+
         with gr.Tabs() as main_nav_tabs:
             # ==========================================
             # TAB 1: PHASE 1 SINGLE-STUDY DEEP EXTRACTOR
@@ -1548,24 +1779,23 @@ def build_app():
                         extract_btn = gr.Button("🚀 Run Academic Deep Extraction", variant="primary", elem_classes=["extract-btn"])
 
                         gr.Markdown("### 📥 Step 3: Verified Outputs")
-                        excel_output = gr.File(label="📊 Standardized Multi-Sheet Excel (.xlsx)")
-                        json_output = gr.File(label="📄 Structured Trial Protocol Data (.json)")
+                        excel_output = gr.File(
+                            label="📊 Standardized Multi-Sheet Excel (.xlsx)",
+                            value=p1_excel_val
+                        )
+                        json_output = gr.File(
+                            label="📄 Structured Trial Protocol Data (.json)",
+                            value=p1_json_val
+                        )
 
                     # Right Column: Visual Dashboard & Interactive Tables
                     with gr.Column(scale=2):
-                        summary_output = gr.HTML(
-                            """
-                            <div style="background: rgba(30,41,59,0.5); border: 1.5px dashed rgba(99,102,241,0.3); border-radius: 18px; padding: 40px 20px; text-align: center; color: #94A3B8;">
-                              <div style="font-size: 38px; margin-bottom: 10px;">🩺</div>
-                              <h3 style="color: #F8FAFC; margin: 0 0 8px 0; font-size: 18px;">Awaiting Clinical Trial PDF</h3>
-                              <p style="margin: 0; font-size: 13px;">Upload an RCT paper on the left to extract full study metadata, randomized arms, atomic eligibility criteria, and 60–120+ clinical outcomes.</p>
-                            </div>
-                            """
-                        )
+                        summary_output = gr.HTML(value=p1_summary)
 
                         with gr.Tabs():
                             with gr.TabItem("📑 Master Extraction Sheet (Sheet 1 - Consolidated)"):
                                 master_table = gr.DataFrame(
+                                    value=p1_master_df,
                                     label="Consolidated Multi-Level Mining Table (Replicating Benchmark)",
                                     interactive=False,
                                     wrap=True,
@@ -1574,6 +1804,7 @@ def build_app():
 
                             with gr.TabItem("📊 Variables Matrix (Cross-Arm Comparison)"):
                                 matrix_table = gr.DataFrame(
+                                    value=p1_matrix_df,
                                     label="Horizontal Cross-Trial Variable Matrix",
                                     interactive=False,
                                     wrap=True,
@@ -1582,6 +1813,7 @@ def build_app():
 
                             with gr.TabItem("📋 Granular Outcomes (100% Sample Sizes)"):
                                 outcomes_table = gr.DataFrame(
+                                    value=p1_outcomes_df,
                                     label="Normalized Clinical & Safety Outcomes",
                                     interactive=False,
                                     wrap=True,
@@ -1590,6 +1822,7 @@ def build_app():
 
                             with gr.TabItem("⚖️ Eligibility Criteria Matrix (4 Operators)"):
                                 eligibility_table = gr.DataFrame(
+                                    value=p1_eligibility_df,
                                     label="Atomic Inclusion & Exclusion Criteria",
                                     interactive=False,
                                     wrap=True,
@@ -1619,10 +1852,11 @@ def build_app():
 
                         with gr.Group() as local_mode_group:
                             available_cohorts = list_available_cohorts()
+                            default_cohort = "Mixed_Metabolic_Cohort" if "Mixed_Metabolic_Cohort" in available_cohorts else (available_cohorts[0] if available_cohorts else None)
                             cohort_dropdown = gr.Dropdown(
                                 label="Select Active Ingredient Folder",
                                 choices=available_cohorts,
-                                value=available_cohorts[0] if available_cohorts else None
+                                value=default_cohort
                             )
                             refresh_cohorts_btn = gr.Button("🔄 Refresh Folder List", size="sm")
 
@@ -1652,9 +1886,27 @@ def build_app():
                                 """
                             )
                             upload_cohort_files = gr.File(
-                                label="Upload Trial PDFs or Pre-Extracted Excels",
+                                label="📂 Batch File Dropzone (Accepts Multiple PDFs & Excels)",
                                 file_count="multiple",
                                 file_types=[".pdf", ".xlsx"]
+                            )
+                            with gr.Row():
+                                add_more_files_btn = gr.UploadButton(
+                                    "➕ Upload / Add Multiple Trial Files (PDFs & Excels)",
+                                    file_count="multiple",
+                                    file_types=[".pdf", ".xlsx"],
+                                    variant="primary",
+                                    elem_classes=["extract-btn"]
+                                )
+                                clear_cohort_files_btn = gr.Button("🗑️ Clear Selected Files", variant="secondary")
+
+                            cohort_files_state = gr.State([])
+                            queued_cohort_badge = gr.HTML(
+                                """
+                                <div style="background: rgba(15,23,42,0.6); border: 1px dashed rgba(148,163,184,0.2); border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 12px; color: #94A3B8; text-align: center;">
+                                  📂 <em>No custom files queued yet. Drop multiple files above or click "Upload / Add Multiple Trial Files".</em>
+                                </div>
+                                """
                             )
 
                         gr.Markdown("### ⚡ Step 2: Auto-Extraction & AI Engine")
@@ -1683,35 +1935,39 @@ def build_app():
                         run_cohort_btn = gr.Button("🚀 Run End-to-End Cohort Extraction & Executive Analysis", variant="primary", elem_classes=["extract-btn"])
 
                         gr.Markdown("### 📥 Step 3: Executive Deliverables")
-                        cohort_excel_file = gr.File(label="📊 Master Comparison & Meta-Analysis Excel (.xlsx)")
-                        cohort_html_file = gr.File(label="🌐 Standalone Interactive HTML Executive Dashboard (.html)")
-                        cohort_zip_file = gr.File(label="📦 Download All Individual Trial Excels Bundle (.zip)")
+                        cohort_excel_file = gr.File(
+                            label="📊 Master Comparison & Meta-Analysis Excel (.xlsx)",
+                            value=cohort_excel_val
+                        )
+                        cohort_html_file = gr.File(
+                            label="🌐 Standalone Interactive HTML Executive Dashboard (.html)",
+                            value=cohort_html_val
+                        )
+                        cohort_zip_file = gr.File(
+                            label="📦 Download All Individual Trial Excels Bundle (.zip)",
+                            value=cohort_zip_val
+                        )
                         cohort_individual_files = gr.File(
                             label="📑 Individual Stage-1 Extracted Excels (Download Individually)",
-                            file_count="multiple"
+                            file_count="multiple",
+                            value=cohort_individual_vals
                         )
 
                     # Right Column: Visual Dashboard, Meta-Analysis & Virtual Trial Simulator
                     with gr.Column(scale=2):
-                        cohort_verdict_html = gr.HTML(
-                            """
-                            <div style="background: rgba(30,41,59,0.5); border: 1.5px dashed rgba(99,102,241,0.3); border-radius: 18px; padding: 40px 20px; text-align: center; color: #94A3B8;">
-                              <div style="font-size: 38px; margin-bottom: 10px;">🚀</div>
-                              <h3 style="color: #F8FAFC; margin: 0 0 8px 0; font-size: 18px;">Awaiting Cohort Selection</h3>
-                              <p style="margin: 0; font-size: 13px;">Select an active ingredient folder or upload multiple trial files on the left to run automatic extraction, cross-trial harmonization, metafor-grade meta-analysis, and predictive virtual trial simulation.</p>
-                            </div>
-                            """
-                        )
+                        cohort_verdict_html = gr.HTML(value=cohort_verdict_val)
 
                         with gr.Tabs():
                             with gr.TabItem("📑 Cross-Trial Comparison & Coverage"):
                                 cohort_comp_table = gr.DataFrame(
+                                    value=cohort_comp_val,
                                     label="Head-to-Head Comparative Matrix (Arms, Dosages, Durations, Sample Sizes)",
                                     interactive=False,
                                     wrap=True,
                                     max_height=450
                                 )
                                 cohort_heatmap_table = gr.DataFrame(
+                                    value=cohort_heatmap_val,
                                     label="Parameter Coverage Heatmap (Across Pooled Trials)",
                                     interactive=False,
                                     wrap=True,
@@ -1720,14 +1976,17 @@ def build_app():
 
                             with gr.TabItem("⚠️ Trial Divergence & How MANDOROS Adapted"):
                                 cohort_divergence_html = gr.HTML(
+                                    value=cohort_divergence_val,
                                     label="Explicit Divergence & Methodological Adaptation Strategy"
                                 )
 
                             with gr.TabItem("📊 metafor-Grade Meta-Analysis"):
                                 cohort_forest_html = gr.HTML(
+                                    value=cohort_forest_val,
                                     label="Forest & Funnel Plots"
                                 )
                                 cohort_meta_table = gr.DataFrame(
+                                    value=cohort_meta_val,
                                     label="Pooled Random-Effects Results (Estimate, 95% CI, 95% PI, I², tau², p-value, Egger Test)",
                                     interactive=False,
                                     wrap=True,
@@ -1736,18 +1995,21 @@ def build_app():
 
                             with gr.TabItem("🏆 Cross-Drug / Cross-Trial Domain Comparison & Ranking"):
                                 cohort_sucra_table = gr.DataFrame(
+                                    value=cohort_sucra_val,
                                     label="🏆 SUCRA Comparative Treatment Rankings & Hierarchy (Monte Carlo Simulation)",
                                     interactive=False,
                                     wrap=True,
                                     max_height=320
                                 )
                                 cohort_subgroup_table = gr.DataFrame(
+                                    value=cohort_subgroup_val,
                                     label="📊 Subgroup Meta-Analysis Across Active Ingredients & Regimen Tiers (Cochran's Q_between)",
                                     interactive=False,
                                     wrap=True,
                                     max_height=320
                                 )
                                 cohort_domain_table = gr.DataFrame(
+                                    value=cohort_domain_val,
                                     label="Clinical Domain Bridging (Scale-Free SMD Hedges' g across Divergent Scales)",
                                     interactive=False,
                                     wrap=True,
@@ -1759,13 +2021,13 @@ def build_app():
                                 with gr.Row():
                                     sim_drug_dropdown = gr.Dropdown(
                                         label="Active Drug Profile",
-                                        choices=["Pooled Cohort Average"],
-                                        value="Pooled Cohort Average"
+                                        choices=sim_drug_choices,
+                                        value=sim_drug_init_val
                                     )
                                     sim_param_dropdown = gr.Dropdown(
                                         label="Target Clinical Parameter / Domain",
-                                        choices=["HbA1c", "Body Weight", "Systolic BP"],
-                                        value="HbA1c"
+                                        choices=sim_param_choices,
+                                        value=sim_param_init_val
                                     )
                                 with gr.Row():
                                     sim_dose_slider = gr.Slider(
@@ -1784,15 +2046,10 @@ def build_app():
                                     )
 
                                 sim_run_btn = gr.Button("🔮 Simulate Virtual Trial Outcome", variant="secondary")
-                                sim_result_html = gr.HTML(
-                                    """
-                                    <div style="background: rgba(30,41,59,0.4); border: 1px dashed rgba(236,72,153,0.3); border-radius: 14px; padding: 20px; text-align: center; color: #94A3B8; margin: 10px 0;">
-                                      Adjust drug, dosage & duration sliders above and click Simulate to project outcome with 95% Confidence & Prediction Intervals and Extrapolation Risk Rating.
-                                    </div>
-                                    """
-                                )
+                                sim_result_html = gr.HTML(value=init_sim_html_val)
 
                                 cohort_pred_table = gr.DataFrame(
+                                    value=cohort_pred_val,
                                     label="Dose-Duration Extrapolation Matrix (with 95% Confidence & Prediction Intervals)",
                                     interactive=False,
                                     wrap=True,
@@ -1817,23 +2074,51 @@ def build_app():
                                     """
                                 )
                                 discovery_summary_html = gr.HTML(
+                                    value=discovery_summary_val,
                                     label="Emergent Hypotheses, Therapeutic Sweet-Spots & Super-Responder Phenotypes"
                                 )
                                 discovery_plot_html = gr.HTML(
+                                    value=discovery_plot_val,
                                     label="Interactive Comparison: Real Trials vs Pooled Meta-Estimate vs Synthesized Virtual Trial"
                                 )
                                 discovery_recon_table = gr.DataFrame(
+                                    value=discovery_recon_val,
                                     label="🧩 Reconstructed Missing Trial Evidence Matrix (Cross-Trial Surrogate Regression & Covariance Imputation)",
                                     interactive=False,
                                     wrap=True,
                                     max_height=420
                                 )
                                 discovery_vt_table = gr.DataFrame(
+                                    value=discovery_vt_val,
                                     label="🧬 Synthesized De-Novo Virtual Clinical Trial Protocol Blueprint (Bliss Synergy & Power Modeling)",
                                     interactive=False,
                                     wrap=True,
                                     max_height=360
                                 )
+
+                upload_cohort_files.upload(
+                    fn=accumulate_cohort_files,
+                    inputs=[upload_cohort_files, cohort_files_state],
+                    outputs=[cohort_files_state, upload_cohort_files, queued_cohort_badge]
+                )
+
+                add_more_files_btn.upload(
+                    fn=accumulate_cohort_files,
+                    inputs=[add_more_files_btn, cohort_files_state],
+                    outputs=[cohort_files_state, upload_cohort_files, queued_cohort_badge]
+                )
+
+                clear_cohort_files_btn.click(
+                    fn=clear_cohort_files,
+                    inputs=[],
+                    outputs=[cohort_files_state, upload_cohort_files, queued_cohort_badge]
+                )
+
+                upload_cohort_files.clear(
+                    fn=clear_cohort_files,
+                    inputs=[],
+                    outputs=[cohort_files_state, upload_cohort_files, queued_cohort_badge]
+                )
 
                 cohort_mode_radio.change(
                     fn=toggle_cohort_mode,
@@ -1853,7 +2138,7 @@ def build_app():
                         cohort_mode_radio,
                         cohort_dropdown,
                         custom_drug_input,
-                        upload_cohort_files,
+                        cohort_files_state,
                         cohort_model_selector,
                         cohort_api_key_input
                     ],
