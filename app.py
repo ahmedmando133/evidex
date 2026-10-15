@@ -271,14 +271,16 @@ def process_pdf(
         rows_map = {}
         for o in data.outcomes:
             cname = f"{o.parameter_name} ({o.unit})" if o.unit else o.parameter_name
-            k = (o.arm_id, o.race or "Overall", o.timepoint_value, o.timepoint_unit)
+            race_clean = o.race if (o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else ""
+            k = (o.arm_id, race_clean, o.gender or "", o.timepoint_value, o.timepoint_unit)
             if k not in rows_map:
                 arm_obj = arms_dict.get(o.arm_id)
                 arm_name = arm_obj.arm_name if arm_obj else o.arm_id
                 rows_map[k] = {
                     "Study": o.study_id,
                     "Arm": arm_name,
-                    "Race": o.race or "Overall",
+                    "Race": race_clean,
+                    "Gender": o.gender or "",
                     "Sample Size (N)": o.sample_size,
                     "Timepoint": f"{o.timepoint_value} {o.timepoint_unit}".strip()
                 }
@@ -286,55 +288,45 @@ def process_pdf(
             rows_map[k][cname] = val
         df_matrix = pd.DataFrame(list(rows_map.values()))
 
-        # C. Granular Outcomes DataFrame
+        # C. Granular Outcomes DataFrame (Strictly Typed Columns - Zero Mixed Headers)
         outcomes_rows = []
         for o in data.outcomes:
+            race_clean = o.race if (o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else ""
             outcomes_rows.append({
                 "Parameter": o.parameter_name,
+                "Domain": o.domain.title() if o.domain else "",
                 "Arm": o.arm_id,
-                "Race/Subgroup": o.race or "Overall",
+                "Race / Subgroup": race_clean,
+                "Gender": o.gender or "",
+                "Baseline / Follow-up": "Baseline (Time 0)" if (o.is_baseline or str(o.timepoint_value or "").strip() in ["0", "0.0"]) else "Follow-up",
                 "Sample Size (N)": o.sample_size,
                 "Timepoint": f"{o.timepoint_value} {o.timepoint_unit}".strip(),
-                "Mean / Events": o.mean if o.mean is not None else o.events,
-                "SD / %": o.sd if o.sd is not None else o.percentage,
+                "Mean": o.mean,
+                "SD": o.sd,
+                "Events (n)": o.events,
+                "Percentage (%)": o.percentage,
+                "Change Δ": o.change_value,
                 "Unit": o.unit or "",
                 "Page": o.source_page
             })
         df_outcomes = pd.DataFrame(outcomes_rows)
 
-        # D. Eligibility Criteria Matrix preview
+        # D. Eligibility Criteria Matrix preview (Strict Range Splitting & Dedicated Inclusion / Exclusion)
         elig_rows = []
-        for e in data.eligibility:
-            op_display = ""
-            val_display = ""
-            if e.between:
-                op_display = "between"
-                val_display = f"{e.min_value} – {e.max_value} {e.unit or ''}".strip()
-            elif e.greater_than and e.equal:
-                op_display = "≥"
-                val_display = f"{e.value} {e.unit or ''}".strip()
-            elif e.less_than and e.equal:
-                op_display = "≤"
-                val_display = f"{e.value} {e.unit or ''}".strip()
-            elif e.greater_than:
-                op_display = ">"
-                val_display = f"{e.value} {e.unit or ''}".strip()
-            elif e.less_than:
-                op_display = "<"
-                val_display = f"{e.value} {e.unit or ''}".strip()
-            elif e.equal:
-                op_display = "="
-                val_display = f"{e.value} {e.unit or ''}".strip()
-            else:
-                op_display = "Present / Categorical"
-                val_display = "Required" if e.criterion_type == "inclusion" else "Exclusion Criteria"
-
+        # Sort Inclusion first, then Exclusion
+        sorted_elig = sorted(data.eligibility, key=lambda x: 0 if x.criterion_type == "inclusion" else 1)
+        for e in sorted_elig:
+            is_num = (e.min_value is not None or e.max_value is not None or e.value is not None 
+                      or e.min_operator is not None or e.max_operator is not None or e.between is not None)
             elig_rows.append({
-                "Type": e.criterion_type.upper(),
+                "Classification": "INCLUSION CRITERIA" if e.criterion_type == "inclusion" else "EXCLUSION CRITERIA",
                 "Domain": e.domain.title(),
                 "Criterion": e.criterion_name.replace("_", " ").title(),
-                "Operator": op_display,
-                "Threshold / Value": val_display,
+                "Min Operator": e.min_operator or (">=" if e.min_value is not None else ("" if not is_num else ">=")),
+                "Min Value": e.min_value if e.min_value is not None else (e.value if (e.greater_than or e.min_operator) else None),
+                "Max Operator": e.max_operator or ("<=" if e.max_value is not None else ("" if not is_num else "<=")),
+                "Max Value": e.max_value if e.max_value is not None else (e.value if (e.less_than or e.max_operator) else None),
+                "Unit": e.unit or "",
                 "Source Protocol Text": e.raw_source_text,
                 "Page": e.source_page
             })
