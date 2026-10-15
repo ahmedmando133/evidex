@@ -2448,7 +2448,44 @@ def build_app():
     }
     """
 
-    with gr.Blocks(title="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis", css=custom_css, theme=gr.themes.Base()) as demo:
+    custom_head_tags = """
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis" />
+    <meta name="description" content="From Raw Trials to Global Clinical Verdicts. Atomic CONSORT/PRISMA Extraction, metafor-Grade REML Meta-Analysis, Cross-Trial SUCRA & In-Silico Virtual Trials." />
+
+    <!-- Open Graph / Facebook / LinkedIn / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mandoros.onrender.com/" />
+    <meta property="og:site_name" content="MANDOROS" />
+    <meta property="og:title" content="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis" />
+    <meta property="og:description" content="From Raw Trials to Global Clinical Verdicts. Atomic CONSORT/PRISMA Extraction, metafor-Grade REML Meta-Analysis, Cross-Trial SUCRA & In-Silico Virtual Trials." />
+    <meta property="og:image" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_og_preview.png" />
+    <meta property="og:image:secure_url" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_og_preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MANDOROS Biostatistical Evidence Synthesis & Virtual Trial Platform" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://mandoros.onrender.com/" />
+    <meta name="twitter:title" content="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis" />
+    <meta name="twitter:description" content="From Raw Trials to Global Clinical Verdicts. Atomic CONSORT/PRISMA Extraction, metafor-Grade REML Meta-Analysis, Cross-Trial SUCRA & In-Silico Virtual Trials." />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_og_preview.png" />
+    <meta name="twitter:image:alt" content="MANDOROS Biostatistical Evidence Synthesis & Virtual Trial Platform" />
+
+    <!-- Favicon & Mobile Touch Icons -->
+    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="128x128" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_favicon.png" />
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_logo_master.png" />
+    """
+
+    with gr.Blocks(
+        title="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis",
+        css=custom_css,
+        theme=gr.themes.Base(),
+        head=custom_head_tags
+    ) as demo:
         with gr.Column(elem_id="header-container"):
             gr.HTML(
                 """
@@ -3356,4 +3393,10 @@ if __name__ == "__main__":
     demo = build_app()
     demo.queue(default_concurrency_limit=5, max_size=25)
     port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    fav = "assets/favicon.ico" if os.path.exists("assets/favicon.ico") else None
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=port,
+        favicon_path=fav,
+        allowed_paths=["assets"]
+    )
