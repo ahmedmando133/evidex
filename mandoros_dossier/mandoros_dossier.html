@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MANDOROS — Official Platform Specification Dossier</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #0F172A;
+    background: #FFFFFF;
+    line-height: 1.42;
+    font-size: 8.8pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page {
+    height: 275mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    page-break-after: always;
+  }
+
+  .page-last {
+    height: 275mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    page-break-after: avoid;
+  }
+
+  /* Cover / Header Banner */
+  .hero-cover {
+    background: radial-gradient(circle at 50% 15%, #0d1e3d 0%, #071228 50%, #030712 100%);
+    border-radius: 14px;
+    padding: 18px 20px 16px 20px;
+    color: #FFFFFF;
+    text-align: center;
+    margin-bottom: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
+
+  .cover-logo {
+    margin-bottom: 4px;
+  }
+
+  .hero-title {
+    font-size: 24pt;
+    font-weight: 900;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+    background: linear-gradient(90deg, #2DD4BF 0%, #67E8F9 25%, #FFFFFF 52%, #60A5FA 78%, #F8FAFC 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .hero-subtitle {
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: #94A3B8;
+    margin-bottom: 6px;
+    letter-spacing: 0.03em;
+  }
+
+  .hero-tagline {
+    font-size: 8.8pt;
+    font-style: italic;
+    color: #38BDF8;
+    margin-bottom: 10px;
+  }
+
+  .cover-badges {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .c-badge {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(56,189,248,0.4);
+    padding: 2.5px 9px;
+    border-radius: 9999px;
+    font-size: 7pt;
+    font-weight: 700;
+    color: #E2E8F0;
+  }
+
+  /* Section Titles */
+  .section-title {
+    font-size: 11pt;
+    font-weight: 800;
+    color: #0A192F;
+    border-bottom: 1.5px solid #0EA5E9;
+    padding-bottom: 3px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .arabic-box {
+    direction: rtl;
+    text-align: right;
+    background: #F0FDF4;
+    border: 1.5px solid #86EFAC;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    line-height: 1.6;
+    font-size: 8.5pt;
+    color: #14532D;
+  }
+
+  .arabic-box h3 {
+    color: #15803D;
+    font-size: 9.5pt;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  /* 8-Node Pipeline Strip */
+  .grid-8 {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .node-pill {
+    background: #0F172A;
+    color: white;
+    border-radius: 8px;
+    padding: 6px 4px;
+    text-align: center;
+  }
+
+  .node-letter {
+    font-size: 12pt;
+    font-weight: 900;
+    margin-bottom: 1px;
+  }
+
+  .nl-1 { color: #00F5D4; }
+  .nl-2 { color: #38BDF8; }
+  .nl-3 { color: #818CF8; }
+  .nl-4 { color: #A78BFA; }
+  .nl-5 { color: #38BDF8; }
+  .nl-6 { color: #C084FC; }
+  .nl-7 { color: #2DD4BF; }
+  .nl-8 { color: #60A5FA; }
+
+  .node-label {
+    font-size: 7pt;
+    font-weight: 700;
+    color: #E2E8F0;
+    white-space: nowrap;
+  }
+
+  .node-sub {
+    font-size: 6pt;
+    color: #94A3B8;
+    line-height: 1.2;
+    margin-top: 2px;
+  }
+
+  /* 4 Pillars */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .card {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+
+  .card-badge {
+    font-size: 6.5pt;
+    font-weight: 800;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .card-title {
+    font-size: 9pt;
+    font-weight: 800;
+    color: #0F172A;
+  }
+
+  .card-desc {
+    font-size: 7.5pt;
+    color: #475569;
+    line-height: 1.35;
+  }
+
+  .pillar-1 { border-top: 2.5px solid #00F5D4; }
+  .pillar-2 { border-top: 2.5px solid #38BDF8; }
+  .pillar-3 { border-top: 2.5px solid #A855F7; }
+  .pillar-4 { border-top: 2.5px solid #10B981; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 10px 0;
+    font-size: 7.5pt;
+  }
+
+  th {
+    background: #0F172A;
+    color: #F8FAFC;
+    padding: 5px 8px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    padding: 4.5px 8px;
+    border-bottom: 1px solid #E2E8F0;
+    color: #1E293B;
+  }
+
+  tr:nth-child(even) td {
+    background: #F8FAFC;
+  }
+
+  /* Callouts */
+  .callout {
+    background: #F0F9FF;
+    border-left: 3.5px solid #0284C7;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 8pt;
+    color: #0369A1;
+    margin-top: 6px;
+  }
+
+  .footer-note {
+    border-top: 1px solid #CBD5E1;
+    padding-top: 6px;
+    font-size: 7pt;
+    color: #64748B;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ================= PAGE 1 ================= -->
+  <div class="page">
+    <div>
+      <div class="hero-cover">
+        <div class="cover-logo">
+          <svg width="76" height="58" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 14px rgba(0, 245, 212, 0.55)) drop-shadow(0 0 20px rgba(168, 85, 247, 0.45));">
+  <defs>
+    <linearGradient id="m_ribbon_left" x1="15%" y1="90%" x2="55%" y2="10%">
+      <stop offset="0%" stop-color="#00F5D4"/>
+      <stop offset="60%" stop-color="#00BBF9"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="m_ribbon_right" x1="45%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="35%" stop-color="#6366F1"/>
+      <stop offset="75%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="m_ribbon_glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#C084FC"/>
+    </linearGradient>
+  </defs>
+  <path d="M 28 74 C 20 54 26 24 46 18 C 58 14 65 30 58 56" stroke="url(#m_ribbon_left)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 62 56 C 55 30 62 14 74 18 C 94 24 100 54 92 74" stroke="url(#m_ribbon_right)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 46 20 C 58 28 62 46 60 56" stroke="url(#m_ribbon_glow)" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.95"/>
+</svg>
+        </div>
+        <div class="hero-title">MANDOROS</div>
+        <div class="hero-subtitle">Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis</div>
+        <div class="hero-tagline">— From Raw Trials to Global Clinical Verdicts —</div>
+        <div class="cover-badges">
+          <span class="c-badge">PRISMA 2020 Compliant</span>
+          <span class="c-badge">Cochrane Handbook Standards</span>
+          <span class="c-badge">metafor-Grade REML</span>
+          <span class="c-badge">Network Meta-Analysis & SUCRA</span>
+          <span class="c-badge">In-Silico Virtual Trials</span>
+        </div>
+      </div>
+
+      <!-- ARABIC EXECUTIVE SUMMARY -->
+      <div class="arabic-box">
+        <h3>📌 الهوية الرسمية لمنصة MANDOROS والشعار المعتمد</h3>
+        <p>
+          تم اعتماد <strong>حرف الـ M الانسيابي ثلاثي الأبعاد المضيء (M-Ribbon Emblem)</strong> رسميًا ليكون هوية المنصة والعلامة التجارية البصرية لـ MANDOROS. يرمز الشعار إلى ربط أذرع التجارب السريرية غير المتجانسة ودمجها في نسيج علمي موحد ينقل الطب القائم على الدليل من مرحلة البيانات الورقية الخام إلى أحكام سريرية قطعية واستكشافات افتراضية تنبؤية.
+        </p>
+        <p style="margin-top: 4px;">
+          عند مشاركة رابط المنصة (<strong>https://mandoros.onrender.com</strong>) عبر واتساب أو لينكد إن أو إكس/تويتر، تظهر بطاقة المعاينة الاجتماعية الفخمة (OpenGraph Social Card) تلقائيًا بالشعار المضيء والعنوان الميتاليك والوصف الأكاديمي المعتمد.
+        </p>
+      </div>
+
+      <!-- 8-NODE ARCHITECTURAL PIPELINE STRIP -->
+      <div class="section-title">🧬 The 8-Node MANDOROS Architectural Pipeline (M-A-N-D-O-R-O-S)</div>
+      <div class="grid-8">
+        <div class="node-pill">
+          <div class="node-letter nl-1">M</div>
+          <div class="node-label">Meta-Analysis</div>
+          <div class="node-sub">DL & REML Random-Effects</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-2">A</div>
+          <div class="node-label">AI Automation</div>
+          <div class="node-sub">Verbatim Quote Provenance</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-3">N</div>
+          <div class="node-label">Network NMA</div>
+          <div class="node-sub">Bucher & SUCRA Rankings</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-4">D</div>
+          <div class="node-label">Data Schema</div>
+          <div class="node-sub">88 Atomic Value/Unit Fields</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-5">O</div>
+          <div class="node-label">Outcomes</div>
+          <div class="node-sub">Continuous, Binary & Survival</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-6">R</div>
+          <div class="node-label">Research</div>
+          <div class="node-sub">CONSORT, PRISMA & Cochrane</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-7">O</div>
+          <div class="node-label">Optimization</div>
+          <div class="node-sub">Scale-Free SMD Standardization</div>
+        </div>
+        <div class="node-pill">
+          <div class="node-letter nl-8">S</div>
+          <div class="node-label">Synthesis</div>
+          <div class="node-sub">In-Silico Virtual Trial Protocol</div>
+        </div>
+      </div>
+
+      <!-- 4 ACADEMIC PILLARS -->
+      <div class="section-title">🏛️ The Four Academic & Methodological Pillars</div>
+      <div class="grid-2">
+        <div class="card pillar-1">
+          <div class="card-top">
+            <span class="card-title">Pillar I · Atomic Curation</span>
+            <span class="card-badge" style="background:#CCFBF1;color:#0F766E;">Stage-1 Engine</span>
+          </div>
+          <p class="card-desc">
+            Parses unstructured RCT PDF manuscripts into a 7-sheet canonical database. Deconstructs criteria with 4 relational operators (&lt;, &le;, &gt;, &ge;) and enforces zero-imputation guardrails with verbatim citation tags.
+          </p>
+        </div>
+
+        <div class="card pillar-2">
+          <div class="card-top">
+            <span class="card-title">Pillar II · metafor-Grade Pooling</span>
+            <span class="card-badge" style="background:#E0F2FE;color:#0369A1;">Classical & REML</span>
+          </div>
+          <p class="card-desc">
+            Executes Restricted Maximum Likelihood (REML) and DerSimonian-Laird random-effects pooling. Computes Cochran's Q, τ², Higgins' I², 95% Confidence Intervals, and 95% Prediction Intervals (PI).
+          </p>
+        </div>
+
+        <div class="card pillar-3">
+          <div class="card-top">
+            <span class="card-title">Pillar III · Network Meta & SUCRA</span>
+            <span class="card-badge" style="background:#F3E8FF;color:#7E22CE;">Multi-Arm NMA</span>
+          </div>
+          <p class="card-desc">
+            Reconciles disparate active ingredients and comparator arms. Generates Monte Carlo SUCRA surface rankings, Bucher indirect comparisons, and node-splitting inconsistency audits.
+          </p>
+        </div>
+
+        <div class="card pillar-4">
+          <div class="card-top">
+            <span class="card-title">Pillar IV · In-Silico Synthesis</span>
+            <span class="card-badge" style="background:#DCFCE7;color:#15803D;">Emergent Discovery</span>
+          </div>
+          <p class="card-desc">
+            Reconstructs missing trial cells via surrogate regression, performs dose-duration meta-regression, identifies therapeutic sweet-spots, and synthesizes de-novo virtual clinical trial protocols.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <span>MANDOROS Flagship Clinical AI Platform · Live at https://mandoros.onrender.com</span>
+      <span>Page 1 of 2</span>
+    </div>
+  </div>
+
+  <!-- ================= PAGE 2 ================= -->
+  <div class="page-last">
+    <div>
+      <div class="section-title">📑 Stage-1 Single-Study Extraction Specification (7 Canonical Sheets)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Relational Sheet</th>
+            <th>Target Clinical Domain</th>
+            <th>Atomic Columns Extracted</th>
+            <th>Verification & Epistemic Standard</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Master_Extraction_Sheet</strong></td>
+            <td>Consolidated Overview</td>
+            <td>Study ID, Title, DOI, Phase, Total N, Primary Endpoint, Safety Verdict</td>
+            <td>Page & quote coordinate provenance</td>
+          </tr>
+          <tr>
+            <td><strong>2. Study_Characteristics</strong></td>
+            <td>Design Rigor & Bias</td>
+            <td>Allocation, Masking, Setting, Centers, Funding Source, Risk of Bias</td>
+            <td>CONSORT Item 1-10 checklist audit</td>
+          </tr>
+          <tr>
+            <td><strong>3. Population_Baseline</strong></td>
+            <td>Demographics & Labs</td>
+            <td>Mean/SD Age, % Female, BMI, Disease Duration, Baseline Biomarkers</td>
+            <td>Cross-arm arithmetic conservation</td>
+          </tr>
+          <tr>
+            <td><strong>4. Intervention_Arms</strong></td>
+            <td>Regimens & Doses</td>
+            <td>Arm Name, Active Ingredient, Dosage, Route, Regimen Frequency</td>
+            <td>WHO ATC / RxNorm standardized</td>
+          </tr>
+          <tr>
+            <td><strong>5. Outcomes</strong></td>
+            <td>Efficacy & Safety Endpoints</td>
+            <td>Timepoint (Wks), Metric, Central Tendency, Dispersion, p-value</td>
+            <td>Value / Operator / Unit split</td>
+          </tr>
+          <tr>
+            <td><strong>6. Variables_Matrix</strong></td>
+            <td>Trajectory Grid</td>
+            <td>Normalized baseline vs multi-timepoint delta curves across all arms</td>
+            <td>Scale normalization & CFB audit</td>
+          </tr>
+          <tr>
+            <td><strong>7. Eligibility_Criteria</strong></td>
+            <td>Criteria Matrix</td>
+            <td>Category, Atomic Variable, Operator (&lt;, &le;, &gt;, &ge;), Threshold, Unit</td>
+            <td>4-Operator mathematical validation</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="section-title">🚀 Phase-2 Multi-Trial Evidence Synthesis & In-Silico Discovery Lab</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">1. Missing-Data Matrix Reconstruction</div>
+          <p class="card-desc">
+            When pooling heterogeneous trials, incomplete studies that omitted a specific follow-up timepoint or secondary biomarker are scientifically reconstructed using cross-study surrogate regression and longitudinal trajectory splines.
+          </p>
+        </div>
+        <div class="card">
+          <div class="card-title">2. Dose–Duration Virtual Trial Simulator</div>
+          <p class="card-desc">
+            Multivariate Weighted Least Squares (WLS) meta-regression models evaluate prospective target dosages (0–3,000 mg/day) and durations (4–156 weeks) with automated Extrapolation Risk Ratings (Interpolation vs Extrapolation).
+          </p>
+        </div>
+        <div class="card">
+          <div class="card-title">3. SUCRA Treatment Hierarchy & Subgroups</div>
+          <p class="card-desc">
+            Surface Under the Cumulative Ranking (SUCRA) scores quantify probability of superior efficacy across drug classes. Cochran's Q_between subgroup meta-analysis identifies significant interaction effects.
+          </p>
+        </div>
+        <div class="card">
+          <div class="card-title">4. De-Novo Virtual Protocol Synthesis</div>
+          <p class="card-desc">
+            Synthesizes the optimal next-generation trial protocol: pinpointing the therapeutic sweet-spot dose, duration saturation curve, super-responder phenotype, and statistical sample size for 90% power.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top: 10px;">📦 Universal Export Center & Institutional Compliance</div>
+      <div class="callout">
+        <strong>Universal Data Artifacts:</strong> Instant generation of 7-sheet single-study Excels, 10-sheet Master Cohort workbooks, standalone interactive HTML Forest/Funnel plot dashboards, structured JSON protocol trees, and individual per-study Excels packaged into an instant ZIP archive.
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <span>MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis</span>
+      <span>Page 2 of 2 · Confidential & Proprietary Document</span>
+    </div>
+  </div>
+
+</body>
+</html>
