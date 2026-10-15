@@ -761,6 +761,8 @@ def process_cohort(
                 "Worst Treatment Prob (%)": f"{s.get('worst_prob', 0):.1f}%",
                 "Efficacy Tier": s.get("tier", "Evaluated")
             })
+        sucra_df = deduplicate_columns(pd.DataFrame(sucra_rows))
+
         # Subgroup Meta-Analysis DataFrame
         subgroup_rows = []
         for sg in res.get("subgroup_results", []):
