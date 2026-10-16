@@ -761,19 +761,66 @@ class InSilicoDiscoveryEngine:
 
 
         dur_val = 4.0
+        dur_unit = "weeks"
         if hasattr(self, "studies_df") and not self.studies_df.empty:
             if "duration_value" in self.studies_df.columns:
                 d_s = self.studies_df["duration_value"].dropna()
                 if not d_s.empty:
-                    dur_val = float(d_s.iloc[0])
+                    try:
+                        dur_val = float(d_s.iloc[0])
+                    except Exception:
+                        pass
+            if "duration_unit" in self.studies_df.columns:
+                u_s = self.studies_df["duration_unit"].dropna()
+                if not u_s.empty:
+                    dur_unit = str(u_s.iloc[0]).lower().strip()
+
+        if "day" in dur_unit:
+            obs_dur_str = f"{int(dur_val)} Days (Observed)"
+        elif "month" in dur_unit:
+            obs_dur_str = f"{int(dur_val)} Months (Observed)"
+        elif "year" in dur_unit:
+            obs_dur_str = f"{int(dur_val)} Years (Observed)"
+        else:
+            obs_dur_str = f"{int(dur_val)} Wks (Observed)"
+
+        # Deterministic biostatistical sample-size derivation (Machin & Campbell / Chow et al.)
+        z_alpha = 1.95996  # two-sided alpha = 0.05
+        z_beta = 1.28155   # 90% power
+        attrition = 0.10   # 10% dropout
+        k_arms = 3         # 3-arm design (1:1:1)
+
+        if delta is not None and abs(delta) > 0.001 and sigma is not None and sigma > 0.001:
+            n_per_arm_calc = 2.0 * ((z_alpha + z_beta) ** 2) * (sigma ** 2) / (delta ** 2)
+            n_per_arm_eval = max(20, int(math.ceil(n_per_arm_calc)))
+            n_total_recruited = int(math.ceil(k_arms * n_per_arm_eval / (1.0 - attrition)))
+            sample_size_status = "DETERMINISTIC_DERIVATION_VALIDATED"
+            sample_size_formula = f"N_per_arm = ceil(2 * (1.96 + 1.282)^2 * sigma^2 / delta^2); N_total = ceil(3 * N_per_arm / (1 - 0.10))"
+            sample_size_summary = f"{n_total_recruited} Patients [Formula: N=2*(1.96+1.282)^2*sigma^2/delta^2/(1-0.10); {n_per_arm_eval}/arm, delta={delta:.2f}, sigma={sigma:.2f}, alpha=0.05, 90% Power]"
+        else:
+            n_per_arm_eval = 0
+            n_total_recruited = 0
+            sample_size_status = "SAMPLE_SIZE_REQUIRES_ASSUMPTIONS"
+            sample_size_formula = "2 * (Z_alpha/2 + Z_beta)^2 * sigma^2 / delta^2 / (1 - attrition)"
+            sample_size_summary = "SAMPLE_SIZE_REQUIRES_ASSUMPTIONS"
 
         self.virtual_trial_metadata = {
             "protocol_name": f"{protocol_name} [HYPOTHETICAL_SIMULATION_FRAMEWORK]",
             "primary_endpoint": primary_param,
             "target_population": "Adult Patients with Target Condition (Hypothetical Protocol Blueprint)",
-            "study_duration": f"{dur_val:.0f} Weeks (Observed) | 36 Weeks [HYPOTHETICAL_SIMULATION_HORIZON]",
-            "total_recruitment_n": f"{sum(a.recommended_sample_size for a in self.virtual_trial_arms):,} Patients [Power Formula: N=2(Z_alpha+Z_beta)^2*sigma^2/delta^2]",
-            "analytical_framework": "Hypothetical In-Silico Power Simulation (alpha=0.05 two-sided, 90% power, 1:1:1 allocation)",
+            "study_duration": f"{obs_dur_str} | 36 Weeks [HYPOTHETICAL_SIMULATION_HORIZON]",
+            "sample_size_status": sample_size_status,
+            "sample_size_formula": sample_size_formula,
+            "primary_endpoint_sized": primary_param,
+            "assumed_delta": round(delta, 2) if delta is not None else "N/A",
+            "assumed_sigma": round(sigma, 2) if sigma is not None else "N/A",
+            "alpha_level": 0.05,
+            "statistical_power": 0.90,
+            "allocation_ratio": "1:1:1",
+            "attrition_rate": 0.10,
+            "n_per_arm_evaluable": n_per_arm_eval,
+            "total_recruitment_n": sample_size_summary,
+            "analytical_framework": "Deterministic Power Calculation (two-sided alpha=0.05, 90% power, 1:1:1 allocation, 10% attrition)",
             "methodological_status": "HYPOTHETICAL_SIMULATION_FRAMEWORK (Not an empirical clinical trial result; requires Phase III confirmatory study)"
         }
 
@@ -804,22 +851,39 @@ class InSilicoDiscoveryEngine:
         """Formats the Synthesized De-Novo Virtual Trial blueprint into a clean DataFrame."""
         rows = []
         dur_val = 4.0
+        dur_unit = "weeks"
         if hasattr(self, "studies_df") and not self.studies_df.empty:
             if "duration_value" in self.studies_df.columns:
                 d_s = self.studies_df["duration_value"].dropna()
                 if not d_s.empty:
-                    dur_val = float(d_s.iloc[0])
+                    try:
+                        dur_val = float(d_s.iloc[0])
+                    except Exception:
+                        pass
+            if "duration_unit" in self.studies_df.columns:
+                u_s = self.studies_df["duration_unit"].dropna()
+                if not u_s.empty:
+                    dur_unit = str(u_s.iloc[0]).lower().strip()
+
+        if "day" in dur_unit:
+            obs_dur_str = f"{int(dur_val)} Days (Observed)"
+        elif "month" in dur_unit:
+            obs_dur_str = f"{int(dur_val)} Months (Observed)"
+        elif "year" in dur_unit:
+            obs_dur_str = f"{int(dur_val)} Years (Observed)"
+        else:
+            obs_dur_str = f"{int(dur_val)} Wks (Observed)"
 
         for arm in self.virtual_trial_arms:
             rows.append({
                 "Synthesized Virtual Arm": arm.arm_name,
                 "Protocol Regimen": arm.regimen,
                 "Target Dose": f"{arm.dose_mg:.0f} mg/day" if arm.dose_mg > 0 else "0 mg (Placebo)",
-                "Duration": f"{dur_val:.0f} Wks (Observed) | {arm.duration_weeks:.0f} Wks [Hypothetical Scenario]",
+                "Duration": f"{obs_dur_str} | {arm.duration_weeks:.0f} Wks [Hypothetical Scenario]",
                 "Projected Primary Delta ± 95% CI": f"{arm.predicted_primary_delta:+.2f} [{arm.ci_lower:+.2f}, {arm.ci_upper:+.2f}] [Hypothetical Model]",
                 "95% Prediction Interval": f"[{arm.pi_lower:+.2f}, {arm.pi_upper:+.2f}] [Hypothetical Model]",
                 "Secondary Endpoints (Projected)": "; ".join([f"{k}: {v:+.1f}" for k, v in arm.predicted_secondary_outcomes.items()]) + " [Unvalidated Scenario]",
-                "Required Sample Size (N)": f"{arm.recommended_sample_size:,} [Power Formula: N=2(Z_alpha+Z_beta)^2*sigma^2/delta^2, alpha=0.05, 90% Power]",
+                "Required Sample Size (N)": f"{arm.recommended_sample_size:,} per arm [Formula: N=2(Z_alpha+Z_beta)^2*sigma^2/delta^2, alpha=0.05, 90% Power]",
                 "Projected NNT": "NOT_ESTIMABLE_FROM_DATA [Hypothetical Planning Model]",
                 "Superiority Probability": "NOT_ESTIMABLE_FROM_DATA [Hypothetical Simulation Model]"
             })

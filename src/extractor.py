@@ -3343,12 +3343,12 @@ class RCTExtractor:
             ]
             for sec_header, param_name, dom, unit_str, mtype, s_l in t4_items:
                 if s_l + 4 < len(doc_lines):
-                    b_line = doc_lines[s_l + 1]
-                    c_line = doc_lines[s_l + 2]
-                    diff_line = doc_lines[s_l + 3]
+                    b_line = doc_lines[s_l + 1].replace('\u2212', '-').replace('\u2013', '-').replace('\u2014', '-').replace('–', '-').replace('—', '-')
+                    c_line = doc_lines[s_l + 2].replace('\u2212', '-').replace('\u2013', '-').replace('\u2014', '-').replace('–', '-').replace('—', '-')
+                    diff_line = doc_lines[s_l + 3].replace('\u2212', '-').replace('\u2013', '-').replace('\u2014', '-').replace('–', '-').replace('—', '-')
                     p_line = doc_lines[s_l + 4]
 
-                    diff_matches = re.findall(r'(-?[\d\.]+)\s*\((-?[\d\.]+),\s*(-?[\d\.]+)\)', diff_line)
+                    diff_matches = re.findall(r'(-?[\d\.]+)\s*\(\s*(-?[\d\.]+)\s*,\s*(-?[\d\.]+)\s*\)', diff_line)
                     p_matches = re.findall(r'([<>=]?\s*[\d\.]+)', p_line)
 
                     if mtype == "se":

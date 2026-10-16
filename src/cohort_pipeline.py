@@ -713,10 +713,12 @@ class ActiveIngredientCohortPipeline:
             dur_val = s.get("duration_value")
             dur_unit = str(s.get("duration_unit", "weeks")).lower()
             wks = float(dur_val) if dur_val and not math.isnan(float(dur_val)) else 12.0
-            if "month" in dur_unit:
-                wks *= 4.33
+            if "day" in dur_unit:
+                wks = round(float(dur_val) / 7.0, 2)
+            elif "month" in dur_unit:
+                wks = round(float(dur_val) * 4.33, 2)
             elif "year" in dur_unit:
-                wks *= 52.0
+                wks = round(float(dur_val) * 52.0, 2)
             study_durations[s_id] = wks
 
         # Group post-baseline outcomes by parameter
@@ -1530,6 +1532,48 @@ class ActiveIngredientCohortPipeline:
         for param, m_res in self.meta_results.items():
             verd = self.verdicts.get(param, {})
             dom = map_parameter_to_domain(param)
+            is_single_study = (m_res.k_studies < 2)
+
+            # Universal Biostatistical Law (Cochrane Handbook §23.3):
+            # For a single multi-arm trial (k=1, comparisons >= 2), comparisons sharing a control arm are correlated.
+            # Do NOT pool them into an artificial combined estimate (e.g. -33.915).
+            # Instead, retain and report each dose-specific comparison distinctly.
+            if is_single_study and len(m_res.study_results) > 1:
+                for eff in m_res.study_results:
+                    eff_param_name = f"{param} ({eff.arm_experimental} vs {eff.arm_control})"
+                    eff_n = int((eff.n_exp or 0) + (eff.n_ctrl or 0))
+                    eff_rep_est = eff.reported_yi
+                    eff_ci_l = eff.reported_ci_lower
+                    eff_ci_u = eff.reported_ci_upper
+                    eff_z = eff.yi / max(eff.se, 1e-9)
+                    eff_p = round(2.0 * (1.0 - 0.5 * (1.0 + math.erf(abs(eff_z) / math.sqrt(2.0)))), 5)
+                    eff_narrative = (
+                        f"Single-trial dose-specific estimate ({eff.arm_experimental} vs {eff.arm_control}). "
+                        f"Multi-arm comparisons sharing a control cannot be naively combined without unit-of-analysis error (Cochrane Handbook §23.3)."
+                    )
+                    vals = [
+                        eff_param_name,
+                        dom,
+                        eff.measure,
+                        1,
+                        eff_n,
+                        round(eff_rep_est, 3),
+                        round(eff_ci_l, 3),
+                        round(eff_ci_u, 3),
+                        "N/A (k=1)",
+                        eff_p,
+                        "N/A (k=1)",
+                        "N/A (k=1)",
+                        "Dose-Specific Observation",
+                        eff_narrative
+                    ]
+                    for c_idx, val in enumerate(vals, 1):
+                        c = ws_pool.cell(row=row_idx, column=c_idx, value=val)
+                        c.border = thin_border
+                        c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 13, 14] else "left")
+                    row_idx += 1
+                continue
+
             rep_est = m_res.reported_re_estimate
             rep_ci_l = m_res.reported_re_ci_lower
             rep_ci_u = m_res.reported_re_ci_upper
@@ -1542,7 +1586,6 @@ class ActiveIngredientCohortPipeline:
             else:
                 pi_fmt = f"[{rep_pi_l:+.2f}, {rep_pi_u:+.2f}]"
 
-            is_single_study = (m_res.k_studies < 2)
             i2_disp = "N/A (k=1)" if is_single_study else f"{m_res.i2:.1f}%"
             tau2_disp = "N/A (k=1)" if is_single_study else round(m_res.tau2, 4)
             pi_disp = "N/A (k=1)" if is_single_study else pi_fmt
@@ -1596,6 +1639,39 @@ class ActiveIngredientCohortPipeline:
         row_idx_exec = 5
         for param, m_res in self.meta_results.items():
             verd = self.verdicts.get(param, {})
+            is_single_study = (m_res.k_studies < 2)
+
+            if is_single_study and len(m_res.study_results) > 1:
+                for eff in m_res.study_results:
+                    eff_param_name = f"{param} ({eff.arm_experimental} vs {eff.arm_control})"
+                    eff_n = int((eff.n_exp or 0) + (eff.n_ctrl or 0))
+                    eff_rep_est = eff.reported_yi
+                    eff_ci_l = eff.reported_ci_lower
+                    eff_ci_u = eff.reported_ci_upper
+                    eff_z = eff.yi / max(eff.se, 1e-9)
+                    eff_p = round(2.0 * (1.0 - 0.5 * (1.0 + math.erf(abs(eff_z) / math.sqrt(2.0)))), 5)
+                    vals = [
+                        eff_param_name,
+                        eff.measure,
+                        1,
+                        eff_n,
+                        round(eff_rep_est, 3),
+                        round(eff_ci_l, 3),
+                        round(eff_ci_u, 3),
+                        "N/A (k=1)",
+                        eff_p,
+                        "N/A (k=1)",
+                        "N/A (k=1)",
+                        "Dose-Specific Observation",
+                        "NOT_ESTIMABLE_SINGLE_TRIAL"
+                    ]
+                    for c_idx, val in enumerate(vals, 1):
+                        c = ws_exec.cell(row=row_idx_exec, column=c_idx, value=val)
+                        c.border = thin_border
+                        c.alignment = Alignment(horizontal="center" if c_idx not in [1, 8, 12, 13] else "left")
+                    row_idx_exec += 1
+                continue
+
             rep_est = m_res.reported_re_estimate
             rep_ci_l = m_res.reported_re_ci_lower
             rep_ci_u = m_res.reported_re_ci_upper
@@ -1608,7 +1684,6 @@ class ActiveIngredientCohortPipeline:
             else:
                 pi_fmt = f"[{rep_pi_l:+.2f}, {rep_pi_u:+.2f}]"
 
-            is_single_study = (m_res.k_studies < 2)
             i2_disp = "N/A (k=1)" if is_single_study else f"{m_res.i2:.1f}%"
             tau2_disp = "N/A (k=1)" if is_single_study else round(m_res.tau2, 4)
             pi_disp = "N/A (k=1)" if is_single_study else pi_fmt
@@ -2103,7 +2178,7 @@ class ActiveIngredientCohortPipeline:
         # Section 1: Domain SMD Pooling
         ws8["A4"] = "Clinical Outcome Domain Pooling (Hedges' g SMD)"
         ws8["A4"].font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
-        headers8_dom = ["Clinical Domain", "Measure", "Studies (k)", "Patients (N)", "Pooled SMD (Hedges' g)", "95% CI Lower", "95% CI Upper", "p-value", "I^2 (%)", "tau^2", "Bridged Parameters", "Clinical Takeaway"]
+        headers8_dom = ["Clinical Domain", "Measure", "Studies (k)", "Unique Patients (N)", "Observed Comparisons (m)", "Pooled SMD (Hedges' g)", "95% CI Lower", "95% CI Upper", "p-value", "I^2 (%)", "tau^2", "Bridged Parameters", "Clinical Takeaway"]
         for c_idx, h in enumerate(headers8_dom, 1):
             cell = ws8.cell(row=5, column=c_idx, value=h)
             cell.font = header_font
@@ -2130,6 +2205,7 @@ class ActiveIngredientCohortPipeline:
                 d_res.measure,
                 d_res.k_studies,
                 d_res.total_n,
+                len(d_res.study_results),
                 smd_val,
                 ci_l_val,
                 ci_u_val,
@@ -2142,7 +2218,7 @@ class ActiveIngredientCohortPipeline:
             for c_idx, val in enumerate(vals, 1):
                 c = ws8.cell(row=r8, column=c_idx, value=val)
                 c.border = thin_border
-                c.alignment = Alignment(horizontal="center" if c_idx not in [1, 11, 12] else "left")
+                c.alignment = Alignment(horizontal="center" if c_idx not in [1, 12, 13] else "left")
             r8 += 1
 
         r8 += 1
@@ -2335,23 +2411,31 @@ class ActiveIngredientCohortPipeline:
 
         ws10["A7"] = "Hypothetical Planning Trial N:"
         ws10["A7"].font = Font(name="Calibri", size=10, bold=True)
-        ws10["B7"] = f"{vt_meta.get('total_recruitment_n', 450)} (alpha=0.05, 90% Statistical Power across 3 arms)"
+        ws10["B7"] = f"{vt_meta.get('total_recruitment_n', 'SAMPLE_SIZE_REQUIRES_ASSUMPTIONS')}"
 
-        ws10["A8"] = "Analytical Framework:"
+        ws10["A8"] = "Sample Size Derivation Method:"
         ws10["A8"].font = Font(name="Calibri", size=10, bold=True)
-        ws10["B8"] = vt_meta.get("analytical_framework", "Bayesian Hierarchical Superiority Design")
+        ws10["B8"] = f"Deterministic Machin-Campbell Power Calculation ({vt_meta.get('sample_size_formula', 'N/A')})"
 
-        ws10["A10"] = "Virtual Trial Arm Specifications & Projected Multi-Endpoint Deltas"
-        ws10["A10"].font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
+        ws10["A9"] = "Sample Size Assumptions:"
+        ws10["A9"].font = Font(name="Calibri", size=10, bold=True)
+        ws10["B9"] = f"Primary: {vt_meta.get('primary_endpoint_sized', 'Endpoint')} | Delta={vt_meta.get('assumed_delta', 'N/A')} | Sigma={vt_meta.get('assumed_sigma', 'N/A')} | Power={int(float(vt_meta.get('statistical_power', 0.9))*100)}% | 2-sided alpha={vt_meta.get('alpha_level', 0.05)} | 1:1:1 Allocation | Attrition={int(float(vt_meta.get('attrition_rate', 0.1))*100)}%"
+
+        ws10["A10"] = "Analytical Framework:"
+        ws10["A10"].font = Font(name="Calibri", size=10, bold=True)
+        ws10["B10"] = vt_meta.get("analytical_framework", "Deterministic Biostatistical Superiority Design")
+
+        ws10["A12"] = "Virtual Trial Arm Specifications & Projected Multi-Endpoint Deltas"
+        ws10["A12"].font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
 
         headers10 = ["Synthesized Virtual Arm", "Protocol Regimen", "Target Dose", "Duration", "Projected Primary Delta ± 95% CI", "95% Prediction Interval", "Secondary Endpoints (Projected)", "Required Sample Size (N)", "Projected NNT", "Superiority Probability"]
         for c_idx, h in enumerate(headers10, 1):
-            cell = ws10.cell(row=11, column=c_idx, value=h)
+            cell = ws10.cell(row=13, column=c_idx, value=h)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        r10 = 12
+        r10 = 14
         vt_df = self.discovery_results.get("virtual_trial_df", pd.DataFrame())
         if not vt_df.empty:
             for _, r in vt_df.iterrows():

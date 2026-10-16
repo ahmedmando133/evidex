@@ -95,7 +95,8 @@ def cmd_analyze_cohort(args) -> None:
     pipeline = ActiveIngredientCohortPipeline(
         cohort_name=args.cohort,
         api_key=api_key,
-        model_name=backend if backend != "rules" else None
+        model_name=backend if backend != "rules" else None,
+        force_extract=getattr(args, "force", False)
     )
     res = pipeline.run_all()
     print("\n" + "=" * 50)
@@ -156,6 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     ac.add_argument("--cohort", required=True, help="active ingredient name (subfolder in analysis/)")
     ac.add_argument("--backend", default="rules", choices=["rules", "openai", "anthropic", "gemini"])
     ac.add_argument("--api-key", default=None, help="optional LLM API key for unextracted PDFs")
+    ac.add_argument("--force", action="store_true", help="force fresh re-extraction of PDFs")
     ac.set_defaults(func=cmd_analyze_cohort)
 
     aa = sub.add_parser("analyze-all", help="run cohort meta-analysis on all subfolders in analysis/")

@@ -488,3 +488,76 @@ def test_zero_duplicate_outcomes_and_se_integrity():
                 pytest.fail(f"Illegal identical broadcast across all arms for {p} at {tp}: mean={means[0]}, disp={disps[0]}")
 
 
+def test_mandoros_final_audit_perfection():
+    """
+    Final System-Wide Acceptance Tests:
+    1. Table 4 Free Fatty Acids extracted accurately (10 mg = 1.7, 25 mg = 4.3).
+    2. Pooled_Effect_Estimates retains dose-specific estimates for single multi-arm trial (no combined -33.915).
+    3. Domain_Bridged_Meta_Analysis accurately reports true unique patients (N=60, not 450).
+    4. Predictive_Projections strictly gates 12, 24, 52 week predictions (INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION).
+    5. Synthesized_Virtual_Trial formats duration as '28 Days (Observed)' and provides deterministic sample size derivation.
+    """
+    master_path = "outputs/analysis/Custom_Drug/Custom_Drug_MANDOROS_Master_Report.xlsx"
+    assert os.path.exists(master_path), f"Missing {master_path}"
+    wb = openpyxl.load_workbook(master_path, data_only=True)
+
+    # 1. Free Fatty Acids in Meta_Analysis_Results
+    ws_meta = wb["Meta_Analysis_Results"]
+    ffa_effects = {}
+    for r in range(2, ws_meta.max_row + 1):
+        param = str(ws_meta.cell(r, 1).value or "").lower()
+        if "free fatty acids" in param:
+            exp_arm = str(ws_meta.cell(r, 3).value or "")
+            eff_val = ws_meta.cell(r, 7).value
+            ffa_effects[exp_arm] = eff_val
+
+    assert "Empagliflozin 10 mg" in ffa_effects, f"Missing 10 mg FFA: {ffa_effects}"
+    assert "Empagliflozin 25 mg" in ffa_effects, f"Missing 25 mg FFA: {ffa_effects}"
+    assert abs(ffa_effects["Empagliflozin 10 mg"] - 1.7) < 1e-3, f"Incorrect 10 mg FFA effect: {ffa_effects['Empagliflozin 10 mg']}"
+    assert abs(ffa_effects["Empagliflozin 25 mg"] - 4.3) < 1e-3, f"Incorrect 25 mg FFA effect: {ffa_effects['Empagliflozin 25 mg']}"
+
+    # 2. Multi-arm pooling in Pooled_Effect_Estimates
+    ws_pool = wb["Pooled_Effect_Estimates"]
+    pgf_pool_rows = []
+    for r in range(5, ws_pool.max_row + 1):
+        param = str(ws_pool.cell(r, 1).value or "")
+        if "8-iso" in param.lower() and "24h" in param.lower():
+            pgf_pool_rows.append((param, ws_pool.cell(r, 6).value))
+
+    assert len(pgf_pool_rows) >= 2, f"Expected dose-specific rows for 8-iso-PGF2a: {pgf_pool_rows}"
+    for name, val in pgf_pool_rows:
+        assert abs(float(val) - (-33.915)) > 0.1, f"Found combined artificial pooled effect -33.915 in {name}"
+        if "10 mg" in name:
+            assert abs(float(val) - (-24.7)) < 1e-2, f"10 mg estimate mismatch: {val}"
+        elif "25 mg" in name:
+            assert abs(float(val) - (-43.1)) < 1e-2, f"25 mg estimate mismatch: {val}"
+
+    # 3. Domain_Bridged_Meta_Analysis unique patients
+    ws_dom = wb["Domain_Bridged_Meta_Analysis"]
+    assert "Unique Patients (N)" in [ws_dom.cell(5, c).value for c in range(1, 10)]
+    for r in range(6, 11):
+        n_val = ws_dom.cell(r, 4).value
+        if n_val is not None and isinstance(n_val, (int, float)):
+            assert n_val <= 60, f"Domain participant count inflated beyond trial randomized N=60: row {r} = {n_val}"
+
+    # 4. Predictive_Projections longitudinal gating
+    ws_pred = wb["Predictive_Projections"]
+    long_term_rows = []
+    for r in range(5, ws_pred.max_row + 1):
+        dur = ws_pred.cell(r, 3).value
+        eff = ws_pred.cell(r, 4).value
+        if dur in [12, 24, 52, 12.0, 24.0, 52.0]:
+            long_term_rows.append(eff)
+
+    assert len(long_term_rows) > 0, "No long term rows found"
+    for eff in long_term_rows:
+        assert str(eff) == "INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION", f"Carried forward numerical value on long-term horizon: {eff}"
+
+    # 5. Synthesized_Virtual_Trial time unit and sample size
+    ws_vt = wb["Synthesized_Virtual_Trial"]
+    sample_size_str = str(ws_vt["B7"].value or "")
+    assert "Formula" in sample_size_str or "SAMPLE_SIZE" in sample_size_str, f"Sample size lack formula derivation: {sample_size_str}"
+    assert "28 Days (Observed)" in str(ws_vt.cell(14, 4).value or ""), f"Misclassified time unit in virtual trial: {ws_vt.cell(14, 4).value}"
+
+
+

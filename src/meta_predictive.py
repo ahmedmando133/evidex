@@ -827,6 +827,29 @@ class MetaPredictiveEngine:
         meas = self.effects[0].measure if self.effects else "MD"
         is_ratio_metric = meas.upper() in ["OR", "RR", "HR"]
 
+        # Strict Longitudinal Model Eligibility Gate
+        obs_durs = [float(e.duration_weeks) for e in self.effects if e.duration_weeks is not None and e.duration_weeks > 0]
+        max_obs = max(obs_durs) if obs_durs else 4.0
+        
+        # If duration is extrapolated beyond empirical study bounds (> 2.0x observed max duration)
+        # without multi-timepoint longitudinal kinetic modeling, return INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION
+        if duration_weeks > 2.0 * max_obs:
+            return PredictiveProjection(
+                parameter_name=param_name,
+                dose_mg=dose_mg,
+                duration_weeks=duration_weeks,
+                baseline_val=baseline_val,
+                predicted_effect=float("nan"),
+                ci_lower=float("nan"),
+                ci_upper=float("nan"),
+                pi_lower=float("nan"),
+                pi_upper=float("nan"),
+                measure=meas,
+                nnt=None,
+                nnt_text="N/A (Extrapolation beyond empirical bounds)",
+                clinical_interpretation=f"INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION: Extrapolating to {duration_weeks:.0f} weeks from a {max_obs:.1f}-week trial violates longitudinal validity bounds."
+            )
+
         if not self.fitted_model:
             # Simple meta-analytic projection
             yi = [e.yi for e in self.effects]
@@ -1039,8 +1062,8 @@ class MetaPredictiveEngine:
 
         if not durations:
             if max_obs_dur <= 4.5:
-                # Bounded by evidence window: strictly evaluate observed study horizon (e.g. 4 weeks)
-                durations = [round(max_obs_dur, 1)]
+                # Evidence-grounded horizon: evaluated across observed duration (e.g. 4 weeks) and standard milestones (12, 24, 52 weeks)
+                durations = [round(max_obs_dur, 1), 12.0, 24.0, 52.0]
             else:
                 durations = [12.0, 24.0, 52.0]
 
@@ -1203,12 +1226,29 @@ def run_domain_meta_analysis(domain_name: str, effects: List[EffectSizeResult]) 
     # Domain Pooling Eligibility Gate (Error 6)
     from src.statistical_eligibility import assess_domain_pooling_eligibility, count_independent_studies
     is_elig, status_code, rat = assess_domain_pooling_eligibility(effects, domain_name)
+
+    # Calculate true unique randomized patients across unique arms of each study
+    unique_arm_n_by_study = {}
+    for e in effects:
+        s_base = e.study_id.split(" [")[0].strip() if e.study_id else "Study"
+        if s_base not in unique_arm_n_by_study:
+            unique_arm_n_by_study[s_base] = {}
+        if e.arm_experimental and e.n_exp:
+            unique_arm_n_by_study[s_base][e.arm_experimental] = max(
+                unique_arm_n_by_study[s_base].get(e.arm_experimental, 0), int(e.n_exp)
+            )
+        if e.arm_control and e.n_ctrl:
+            unique_arm_n_by_study[s_base][e.arm_control] = max(
+                unique_arm_n_by_study[s_base].get(e.arm_control, 0), int(e.n_ctrl)
+            )
+    domain_unique_n = sum(sum(arms.values()) for arms in unique_arm_n_by_study.values()) if unique_arm_n_by_study else 0
+
     if not is_elig:
         return DomainMetaAnalysisResult(
             domain_name=domain_name,
             measure="SMD",
             k_studies=count_independent_studies([e.study_id for e in effects]),
-            total_n=sum(e.n_exp + e.n_ctrl for e in effects if e.n_exp and e.n_ctrl) if effects else 0,
+            total_n=domain_unique_n,
             pooled_smd=float("nan"),
             ci_lower=float("nan"),
             ci_upper=float("nan"),
@@ -1217,7 +1257,7 @@ def run_domain_meta_analysis(domain_name: str, effects: List[EffectSizeResult]) 
             p_value=float("nan"),
             i2=0.0,
             tau2=0.0,
-            parameters_included=list(set(e.parameter_name for e in effects)),
+            parameters_included=sorted(list(set(e.parameter_name for e in effects))),
             study_results=effects,
             interpretation=f"NOT_ESTIMABLE: {rat}"
         )
@@ -1288,7 +1328,7 @@ def run_domain_meta_analysis(domain_name: str, effects: List[EffectSizeResult]) 
         domain_name=domain_name,
         measure="SMD",
         k_studies=res.k_studies,
-        total_n=res.total_n,
+        total_n=domain_unique_n,
         pooled_smd=res.re_estimate,
         ci_lower=res.re_ci_lower,
         ci_upper=res.re_ci_upper,
