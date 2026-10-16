@@ -3,7 +3,7 @@ Data models and strict Pydantic schemas for AI-assisted clinical trial data extr
 Designed according to the Project Concept Note (13 October 2026).
 """
 
-from typing import List, Optional, Literal, Any, Dict
+from typing import List, Optional, Literal, Any, Dict, Union
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -207,7 +207,7 @@ class EligibilityCriterion(BaseModel):
     min_value: Optional[float] = Field(default=None, description="Lower limit or minimum threshold value")
     max_operator: Optional[str] = Field(default=None, description="Upper boundary operator, e.g. '<=', '<'")
     max_value: Optional[float] = Field(default=None, description="Upper limit or maximum threshold value")
-    value: Optional[float] = Field(default=None, description="Single threshold value if operator is =, >=, <=, >, <")
+    value: Optional[Union[float, str]] = Field(default=None, description="Single threshold value or qualitative condition specification")
     unit: Optional[str] = Field(default=None, description="Standardized unit, e.g. years, kg/m2, mg/dL, umol/L")
     raw_source_text: Optional[str] = Field(default=None, description="Original verbatim text snippet from paper")
     source_page: Optional[int] = Field(default=None, description="PDF page number")
@@ -257,7 +257,19 @@ class EligibilityCriterion(BaseModel):
             self.equal = None
             self.greater_than = None
             self.between = None
-            self.value = None
+            if not isinstance(self.value, str):
+                self.value = None
+            return
+
+        if isinstance(self.value, str) and self.value:
+            self.min_operator = None
+            self.min_value = None
+            self.max_operator = None
+            self.max_value = None
+            self.less_than = None
+            self.equal = None
+            self.greater_than = None
+            self.between = None
             return
 
         parsed = parse_clinical_range(self.raw_source_text or "", self.criterion_name or "")

@@ -1330,6 +1330,7 @@ class ActiveIngredientCohortPipeline:
                     max_operator=str(r.get("max_operator")) if pd.notna(r.get("max_operator")) else None,
                     max_value=float(r.get("max_value")) if pd.notna(r.get("max_value")) else None,
                     unit=str(r.get("unit")) if pd.notna(r.get("unit")) else None,
+                    value=r.get("value") if pd.notna(r.get("value")) else None,
                     raw_source_text=str(r.get("raw_source_text") or ""),
                     source_page=int(r.get("source_page")) if pd.notna(r.get("source_page")) else 1
                 ))

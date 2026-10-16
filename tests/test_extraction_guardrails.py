@@ -376,10 +376,9 @@ def test_master_extraction_sheet_and_row_continuity(tmp_path):
     assert "Dose Unit" in r3_subheaders
     assert "Frequency Value" in r3_subheaders
     assert "Frequency Unit" in r3_subheaders
-    assert "Min Operator" in r3_subheaders
-    assert "Min Value" in r3_subheaders
-    assert "Max Operator" in r3_subheaders
-    assert "Max Value" in r3_subheaders
+    assert "Min" in r3_subheaders
+    assert "Max" in r3_subheaders
+    assert "Unit" in r3_subheaders
     assert "Count (n)" in r3_subheaders
     assert "Percentage (%)" in r3_subheaders
     assert "Change from Baseline" in r3_subheaders

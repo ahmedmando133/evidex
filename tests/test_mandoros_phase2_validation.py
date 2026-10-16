@@ -560,4 +560,74 @@ def test_mandoros_final_audit_perfection():
     assert "28 Days (Observed)" in str(ws_vt.cell(14, 4).value or ""), f"Misclassified time unit in virtual trial: {ws_vt.cell(14, 4).value}"
 
 
+def test_mandoros_phase2_perfection_lock_and_3column_schema():
+    """
+    Perfection Lock verification (Achieving 40/40 benchmark):
+    1. Universal 3-column range schema (Min | Max | Unit) across Age, HbA1c blocks, and continuous criteria.
+    2. Exclusion criteria contain specific prohibited drugs and timeframe windows (zero bare 'Prohibited').
+    3. Contextual Race scanner correctly extracts Asian (Japanese) at 100% allocation.
+    4. Zero QA warnings in Validation_Log.
+    """
+    pdf_path = "data/raw/empa vs placebo 2doses (RCT4).pdf"
+    assert os.path.exists(pdf_path)
+    ext = RCTExtractor(pdf_path)
+    data = ext.extract_all(study_id_override="RCT4")
+
+    # 1. Continuous criteria use 3-column schema and discrete HbA1c blocks exist
+    elig_names = [e.criterion_name for e in data.eligibility]
+    assert "age" in elig_names
+    assert "hba1c_drug_naive" in elig_names
+    assert "hba1c_treated" in elig_names
+    assert "hba1c_run_in" in elig_names
+
+    # Check bounds
+    naive_e = next(e for e in data.eligibility if e.criterion_name == "hba1c_drug_naive")
+    assert naive_e.min_value == 7.0 and naive_e.max_value == 10.0 and naive_e.unit == "%"
+    treated_e = next(e for e in data.eligibility if e.criterion_name == "hba1c_treated")
+    assert treated_e.min_value == 7.0 and treated_e.max_value == 9.5 and treated_e.unit == "%"
+    runin_e = next(e for e in data.eligibility if e.criterion_name == "hba1c_run_in")
+    assert runin_e.min_value == 7.0 and runin_e.max_value == 10.0 and runin_e.unit == "%"
+
+    # 2. Specific unpacked exclusion criteria and timeframe windows
+    assert "prohibited_medications" in elig_names
+    prohib_e = next(e for e in data.eligibility if e.criterion_name == "prohibited_medications")
+    assert "Insulin" in str(prohib_e.value) and "GLP-1" in str(prohib_e.value)
+    assert "12 weeks" in str(prohib_e.value)
+
+    assert "anti_obesity_drugs" in elig_names
+    obesity_e = next(e for e in data.eligibility if e.criterion_name == "anti_obesity_drugs")
+    assert "12 weeks" in str(obesity_e.value)
+
+    assert "unstable_body_weight" in elig_names
+    wt_e = next(e for e in data.eligibility if e.criterion_name == "unstable_body_weight")
+    assert "screening" in str(wt_e.value).lower()
+
+    assert "systemic_steroids" in elig_names
+    steroid_e = next(e for e in data.eligibility if e.criterion_name == "systemic_steroids")
+    assert "consent" in str(steroid_e.value).lower()
+
+    assert "thyroid_hormone_change" in elig_names
+    thyroid_e = next(e for e in data.eligibility if e.criterion_name == "thyroid_hormone_change")
+    assert "6 weeks" in str(thyroid_e.value)
+
+    assert "alcohol_or_drug_abuse" in elig_names
+    alcohol_e = next(e for e in data.eligibility if e.criterion_name == "alcohol_or_drug_abuse")
+    assert "12 weeks" in str(alcohol_e.value)
+
+    assert "investigational_drug_intake" in elig_names
+    inv_e = next(e for e in data.eligibility if e.criterion_name == "investigational_drug_intake")
+    assert "30 days" in str(inv_e.value)
+
+    # 3. Demographic Race propagation
+    for arm in data.arms:
+        arm_outs = [o for o in data.outcomes if o.arm_id == arm.arm_id and o.race]
+        assert len(arm_outs) > 0, f"No race assigned for arm {arm.arm_name}"
+        for o in arm_outs:
+            assert "Asian" in o.race or "Japanese" in o.race
+
+    # 4. Zero QA warnings in Validation_Log
+    qa_warnings = [log for log in data.validation_log if getattr(log, "severity", "").upper() == "WARNING"]
+    assert len(qa_warnings) == 0, f"Found unexpected QA warnings: {qa_warnings}"
+
+
 

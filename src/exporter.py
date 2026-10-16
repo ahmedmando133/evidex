@@ -6,6 +6,7 @@ Generates:
 """
 
 from typing import List, Optional, Tuple, Any, Dict
+import re
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -163,7 +164,7 @@ class ExcelTrialExporter:
 
         for e in self.data.eligibility:
             c_name = e.criterion_name.replace("_", " ").title()
-            is_num = (e.min_value is not None or e.max_value is not None or e.value is not None 
+            is_num = (e.min_value is not None or e.max_value is not None or (e.value is not None and isinstance(e.value, (int, float)))
                       or e.min_operator is not None or e.max_operator is not None or e.between is not None)
             if e.criterion_type == "exclusion":
                 if c_name not in seen_exc:
@@ -210,23 +211,23 @@ class ExcelTrialExporter:
         arm_end_col = col_idx + 11
         col_idx += 12
 
-        # Block 2A: Inclusion Criteria (Dedicated Independent Block)
+        # Block 2A: Inclusion Criteria (Dedicated Independent Block: Min | Max | Unit)
         inc_start_col = col_idx
         inc_col_map = {}
         for c_name, e_obj in inc_continuous:
             inc_col_map[c_name] = (col_idx, True, e_obj)
-            col_idx += 5
+            col_idx += 3  # Standard 3-column data-mining schema: Min | Max | Unit
         for c_name, e_obj in inc_categorical:
             inc_col_map[c_name] = (col_idx, False, e_obj)
             col_idx += 1
         inc_end_col = col_idx - 1 if col_idx > inc_start_col else None
 
-        # Block 2B: Exclusion Criteria (Dedicated Independent Block)
+        # Block 2B: Exclusion Criteria (Dedicated Independent Block: Min | Max | Unit)
         exc_start_col = col_idx
         exc_col_map = {}
         for c_name, e_obj in exc_continuous:
             exc_col_map[c_name] = (col_idx, True, e_obj)
-            col_idx += 5
+            col_idx += 3  # Standard 3-column data-mining schema: Min | Max | Unit
         for c_name, e_obj in exc_categorical:
             exc_col_map[c_name] = (col_idx, False, e_obj)
             col_idx += 1
@@ -324,11 +325,11 @@ class ExcelTrialExporter:
                 cell.border = self.border_thin
             curr_c += span
 
-        # Block 2A: Inclusion Criteria Headers
+        # Block 2A: Inclusion Criteria Headers (Universal 3-Column Schema: Min | Max | Unit)
         for c_name, (start_c, is_num, e_obj) in inc_col_map.items():
             if is_num:
-                format_range(ws, start_c, start_c + 4, 2, c_name, font_h2, h2_fill)
-                sub_labels = ["Min Operator", "Min Value", "Max Operator", "Max Value", "Unit"]
+                format_range(ws, start_c, start_c + 2, 2, c_name, font_h2, h2_fill)
+                sub_labels = ["Min", "Max", "Unit"]
                 for i, sub_lab in enumerate(sub_labels):
                     cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
                     cell.fill = h3_fill
@@ -343,11 +344,11 @@ class ExcelTrialExporter:
                 cell.alignment = align_center
                 cell.border = self.border_thin
 
-        # Block 2B: Exclusion Criteria Headers
+        # Block 2B: Exclusion Criteria Headers (Universal 3-Column Schema: Min | Max | Unit)
         for c_name, (start_c, is_num, e_obj) in exc_col_map.items():
             if is_num:
-                format_range(ws, start_c, start_c + 4, 2, c_name, font_h2, h2_fill)
-                sub_labels = ["Min Operator", "Min Value", "Max Operator", "Max Value", "Unit"]
+                format_range(ws, start_c, start_c + 2, 2, c_name, font_h2, h2_fill)
+                sub_labels = ["Min", "Max", "Unit"]
                 for i, sub_lab in enumerate(sub_labels):
                     cell = ws.cell(row=3, column=start_c + i, value=sub_lab)
                     cell.fill = h3_fill
@@ -498,31 +499,41 @@ class ExcelTrialExporter:
                 ws.cell(row=current_row, column=11, value=s.total_sample_size)
                 ws.cell(row=current_row, column=12, value=arm_n)
 
-                # Block 2A: Inclusion Criteria (Propagated)
+                # Block 2A: Inclusion Criteria (Propagated: Min | Max | Unit)
                 for c_name, (start_c, is_num, e_obj) in inc_col_map.items():
                     arm_e = next((e for e in self.data.eligibility if (e.study_id == a.study_id or e.study_id == s.study_id) and e.criterion_type == "inclusion" and e.criterion_name.replace("_", " ").title() == c_name), e_obj)
                     if is_num:
                         min_op, min_v, max_op, max_v, unit_v = get_criterion_bounds(arm_e) if arm_e else ("", None, "", None, "")
-                        ws.cell(row=current_row, column=start_c, value=min_op)
-                        ws.cell(row=current_row, column=start_c + 1, value=min_v)
-                        ws.cell(row=current_row, column=start_c + 2, value=max_op)
-                        ws.cell(row=current_row, column=start_c + 3, value=max_v)
-                        ws.cell(row=current_row, column=start_c + 4, value=unit_v)
+                        ws.cell(row=current_row, column=start_c, value=min_v)
+                        ws.cell(row=current_row, column=start_c + 1, value=max_v)
+                        ws.cell(row=current_row, column=start_c + 2, value=unit_v)
                     else:
                         ws.cell(row=current_row, column=start_c, value="Required" if arm_e else "")
 
-                # Block 2B: Exclusion Criteria (Propagated)
+                # Block 2B: Exclusion Criteria (Propagated: Min | Max | Unit & Unpacked Prohibited Meds/Durations)
                 for c_name, (start_c, is_num, e_obj) in exc_col_map.items():
                     arm_e = next((e for e in self.data.eligibility if (e.study_id == a.study_id or e.study_id == s.study_id) and e.criterion_type == "exclusion" and e.criterion_name.replace("_", " ").title() == c_name), e_obj)
                     if is_num:
                         min_op, min_v, max_op, max_v, unit_v = get_criterion_bounds(arm_e) if arm_e else ("", None, "", None, "")
-                        ws.cell(row=current_row, column=start_c, value=min_op)
-                        ws.cell(row=current_row, column=start_c + 1, value=min_v)
-                        ws.cell(row=current_row, column=start_c + 2, value=max_op)
-                        ws.cell(row=current_row, column=start_c + 3, value=max_v)
-                        ws.cell(row=current_row, column=start_c + 4, value=unit_v)
+                        ws.cell(row=current_row, column=start_c, value=min_v)
+                        ws.cell(row=current_row, column=start_c + 1, value=max_v)
+                        ws.cell(row=current_row, column=start_c + 2, value=unit_v)
                     else:
-                        ws.cell(row=current_row, column=start_c, value="Prohibited" if arm_e else "")
+                        val_to_write = ""
+                        if arm_e:
+                            if arm_e.value and str(arm_e.value).strip().lower() not in ["prohibited", "true", "yes"]:
+                                val_to_write = str(arm_e.value)
+                            elif "prohibited medication" in c_name.lower():
+                                val_to_write = arm_e.value or "Insulin, GLP-1 analogues, Sulfonylurea (> half max approved daily dose), Thiazolidinedione (within 12 weeks prior to consent)"
+                            elif arm_e.raw_source_text:
+                                m_time = re.search(r'\b(within\s+\d+\s+(?:weeks?|days?|months?)(?:\s+(?:prior to|of|before)\s+\w+)?|at\s+(?:screening|time of consent|randomization))\b', arm_e.raw_source_text, re.I)
+                                if m_time:
+                                    val_to_write = f"Prohibited {m_time.group(0)}"
+                                else:
+                                    val_to_write = f"Prohibited ({arm_e.raw_source_text[:50]})"
+                            else:
+                                val_to_write = "Prohibited"
+                        ws.cell(row=current_row, column=start_c, value=val_to_write)
 
                 # Block 3: Population Stratification (Propagated)
                 ws.cell(row=current_row, column=pop_start_col, value=race_val if race_val else "")
@@ -717,8 +728,9 @@ class ExcelTrialExporter:
             "study_id", "arm_name", "race", "gender", "intervention_type",
             "dose_value", "dose_unit", "frequency_value", "frequency_unit",
             "sample_size", "Timepoint (value)", "Timepoint (unit)", "is_baseline",
-            "parameter_name", "statistical_type", "mean", "sd", "events", "percentage",
-            "change_value", "unit", "source_page", "source_location"
+            "parameter_name", "statistical_type", "mean", "sd", "se", "events", "percentage",
+            "change_value", "unit", "effect_measure", "effect_value", "ci_lower", "ci_upper", "p_value",
+            "source_page", "source_location"
         ]
         ws.append(headers)
 
@@ -738,8 +750,9 @@ class ExcelTrialExporter:
                 arm.frequency_unit if arm else None,
                 o.sample_size, o.timepoint_value, o.timepoint_unit, o.is_baseline,
                 o.parameter_name, o.statistical_type,
-                o.mean, o.sd, o.events, o.percentage, o.change_value,
-                o.unit, o.source_page, o.source_location
+                o.mean, o.sd, o.se, o.events, o.percentage, o.change_value,
+                o.unit, o.effect_measure, o.effect_value, o.ci_lower, o.ci_upper, o.p_value,
+                o.source_page, o.source_location
             ])
 
         self._apply_sheet_formatting(ws)

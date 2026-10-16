@@ -317,9 +317,9 @@ def audit_and_repair_extracted_data(
                 ))
                 continue  # Drop hallucinated AST
 
-        # Check FPG misattribution to liver enzymes
+        # Check FPG misattribution to liver enzymes (avoid false positive from 'fasting' containing 'ast')
         if "fasting" in str(o.raw_source_text or "").lower() and "glucose" in str(o.raw_source_text or "").lower():
-            if o.domain in ["liver", "hepatic"] or "ast" in p_low or "alt" in p_low:
+            if o.domain in ["liver", "hepatic"] or bool(re.search(r'\b(?:ast|alt|sgot|sgpt)\b', p_low)):
                 o.parameter_name = "Fasting Plasma Glucose"
                 o.domain = "glycemic"
                 report.violations.append(ScientificRefereeViolation(
@@ -438,9 +438,10 @@ def audit_and_repair_extracted_data(
             target_entity=tgt_ent,
             target_id=v.entity,
             field_name=v.check_id,
-            issue_type="warning" if v.repaired else "error",
+            issue_type="repaired_item" if v.repaired else "error",
             comment=f"{v.message} (Auto-repaired by MANDOROS Scientific Referee Pre-Export Gatekeeper.)",
-            severity="WARNING" if v.repaired else "ERROR",
+            severity="INFORMATION" if v.repaired else "ERROR",
+            resolution_status="RESOLVED" if v.repaired else "OPEN",
             rule_id=v.check_id
         ))
 

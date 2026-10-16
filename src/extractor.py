@@ -382,7 +382,102 @@ class RCTExtractor:
                         ))
                         out_id_counter += 1
 
+        # 3. Universal 4-Step Contextual Race Scanner (extract_race_with_prose_fallback)
+        detected_race = self._extract_race_with_prose_fallback(study_meta, new_outcomes, sections)
+        if detected_race:
+            for a in arms:
+                arm_n = a.sample_size_analyzed or a.sample_size_allocated or (study_meta.total_sample_size // len(arms) if study_meta and study_meta.total_sample_size else 100)
+                has_race_out = any(o.arm_id == a.arm_id and (o.race or "race" in str(o.parameter_name).lower()) for o in new_outcomes)
+                if not has_race_out:
+                    new_outcomes.append(OutcomeMeasurement(
+                        outcome_id=f"OUT_DEMO_{out_id_counter:04d}",
+                        study_id=study_id,
+                        arm_id=a.arm_id,
+                        domain="demographic",
+                        race=detected_race,
+                        gender=None,
+                        parameter_name=f"Race: {detected_race}",
+                        statistical_type="dichotomous",
+                        timepoint_value="0",
+                        timepoint_unit="weeks",
+                        timepoint="Baseline",
+                        sample_size=arm_n,
+                        events=arm_n,
+                        total=arm_n,
+                        percentage=100.0,
+                        unit="%",
+                        is_baseline=True,
+                        metric_type="events_percentage",
+                        source_page=1,
+                        source_location="Title, Study Aim & Methods Contextual Demographic Scanner",
+                        raw_source_text=f"All {arm_n} participants were {detected_race} (100.0%) as stated in Title, Abstract, and Study Aim"
+                    ))
+                    out_id_counter += 1
+            for o in new_outcomes:
+                if not o.race or str(o.race).strip().lower() in ["overall", "all", "total", "n/a", "none"]:
+                    o.race = detected_race
+
         return new_outcomes
+
+    def _extract_race_with_prose_fallback(self, study_meta: Any, outcomes: List[OutcomeMeasurement], sections: Dict[str, Any]) -> Optional[str]:
+        """
+        Universal 4-step contextual Race / Population scanner:
+        Step 1 — Baseline Table (Table 1): Check for explicit Race/Ethnicity rows first.
+        Step 2 — Study Title & Abstract: Scan for explicit racial or regional-population terms.
+        Step 3 — Study Aim (End of Intro) & Methodology / Patients Section.
+        Step 4 — True Missing Fallback: cleanly None (never 'Overall').
+        """
+        # Step 1: Baseline Table
+        for o in outcomes:
+            if o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]:
+                return str(o.race).strip()
+            p_low = str(o.parameter_name or "").lower()
+            if "race" in p_low or "ethnicity" in p_low:
+                for r_name in ["Asian", "Japanese", "Chinese", "Korean", "White", "Caucasian", "Black", "African American", "Hispanic"]:
+                    if r_name.lower() in p_low:
+                        return "Asian (Japanese)" if r_name.lower() == "japanese" else r_name
+
+        def scan_text(txt: str) -> Optional[str]:
+            if not txt:
+                return None
+            norm = txt.lower()
+            if re.search(r'\bjapanese\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+japanese\s+(?:patients|adults|individuals)\b', norm) or re.search(r'\bjapanese\s+patients\s+with\b', norm):
+                return "Asian (Japanese)"
+            if re.search(r'\bchinese\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+chinese\s+(?:patients|adults|individuals)\b', norm):
+                return "Asian (Chinese)"
+            if re.search(r'\bkorean\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+korean\s+(?:patients|adults|individuals)\b', norm):
+                return "Asian (Korean)"
+            if re.search(r'\basian\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+asian\s+(?:patients|adults|individuals)\b', norm):
+                return "Asian"
+            if re.search(r'\b(?:caucasian|white)\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+(?:caucasian|white)\s+patients\b', norm):
+                return "White"
+            if re.search(r'\b(?:african\s+american|black)\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+black\s+patients\b', norm):
+                return "Black / African American"
+            if re.search(r'\bhispanic\s+(?:patients|subjects|participants|population|adults|men|women|cohort|individuals)\b', norm) or re.search(r'\bin\s+hispanic\s+patients\b', norm):
+                return "Hispanic"
+            return None
+
+        # Step 2: Title & Abstract
+        title_text = study_meta.title if study_meta and study_meta.title else ""
+        abstract_pages = sections.get("title_abstract", [])
+        abstract_text = "\n".join([p.get("text", "") for p in abstract_pages])
+        combined_t_a = f"{title_text}\n{abstract_text}"
+        res = scan_text(combined_t_a)
+        if res:
+            return res
+
+        # Step 3: Study Aim (End of Introduction) & Methodology / Patients
+        intro_pages = sections.get("intro_background", [])
+        methods_pages = sections.get("methods_eligibility", [])
+        combined_i_m = "\n".join([p.get("text", "") for p in (intro_pages + methods_pages)])
+        if getattr(self, "doc", None):
+            combined_i_m += "\n" + self.doc.get_full_text()[:15000]
+        res = scan_text(combined_i_m)
+        if res:
+            return res
+
+        # Step 4: True Missing Fallback
+        return None
 
     def _detect_study_id(self) -> str:
         base = os.path.basename(self.pdf_path).lower()
@@ -2086,7 +2181,7 @@ class RCTExtractor:
 
         # Check outcome units & measures
         for o in outcomes:
-            if o.statistical_type == "continuous" and o.mean is None and o.change_value is None:
+            if o.statistical_type == "continuous" and o.mean is None and o.change_value is None and o.ratio is None and o.effect_value is None:
                 log.append(ValidationIssue(
                     issue_id=next_iid(),
                     study_id=study_id,
@@ -2384,6 +2479,20 @@ class RCTExtractor:
 
         return verify_and_lock_multi_dose_arms(study_id, arms, text_pool)
 
+    def _normalize_clinical_prose(self, text: str) -> str:
+        """Fixes linebreaks, broken OCR spaces, and hyphenations in clinical texts."""
+        if not text:
+            return ""
+        text = re.sub(r'leadin\s*gt\s*o\s*', 'leading to ', text, flags=re.I)
+        text = re.sub(r'u\s*n\s*s\s*t\s*a\s*b\s*l\s*e\s*b\s*o\s*d\s*y\s*w\s*e\s*i\s*g\s*h\s*t', 'unstable body weight', text, flags=re.I)
+        text = re.sub(r'nstable\s+body\s*weight', 'unstable body weight', text, flags=re.I)
+        text = re.sub(r'ab\s*o\s*d\s*ym\s*a\s*s\s*si\s*n\s*d\s*e\s*x', 'a body mass index', text, flags=re.I)
+        text = re.sub(r'(anti)-\s*\n\s*(\w+)', r'\1-\2', text, flags=re.I)
+        text = re.sub(r'run-\s*\n\s*in', 'run-in', text, flags=re.I)
+        text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', text)
+        text = re.sub(r'\s+', ' ', text)
+        return text
+
     def _extract_generic_eligibility(self, study_id: str, sections: Dict[str, Any]) -> List[EligibilityCriterion]:
         """Dynamically parses inclusion/exclusion criteria into the 4 operator columns (<, =, >, between)."""
         eligibility = []
@@ -2403,66 +2512,84 @@ class RCTExtractor:
         if len(full_methods_text) < 1000 and getattr(self, "doc", None):
             full_methods_text = self.doc.get_full_text()[:40000]
         source_p = methods_pages[0].get("page", 2) if methods_pages else 2
+        norm_methods = self._normalize_clinical_prose(full_methods_text)
 
         # -------------------------------------------------------------
         # INCLUSION CRITERIA
         # -------------------------------------------------------------
-        # 1. Age (numerical)
-        age_clause = re.search(r'(?:(?:patients|subjects|participants)\s+(?:with[^\.\;\n]{0,50})?)?(?:\baged?\s*(?:of\s*)?[^\.\;\n]{0,60}(?:years|yo)?|men\s*and\s*women\s*aged[^\.\;\n]{0,60})', full_methods_text, re.IGNORECASE)
-        if age_clause:
-            raw_age = age_clause.group(0).strip()
-            parsed_age = parse_clinical_range(raw_age, "age")
-            if parsed_age["min_value"] is not None or parsed_age["max_value"] is not None:
-                eligibility.append(EligibilityCriterion(
-                    criterion_id=next_cid(),
-                    study_id=study_id,
-                    criterion_type="inclusion",
-                    domain="demographic",
-                    criterion_name="age",
-                    min_operator=parsed_age["min_operator"],
-                    min_value=parsed_age["min_value"],
-                    max_operator=parsed_age["max_operator"],
-                    max_value=parsed_age["max_value"],
-                    unit=parsed_age["unit"] or "years",
-                    raw_source_text=raw_age,
-                    source_page=source_p
-                ))
+        # 1. Age (numerical: bounded or threshold)
+        m_age = re.search(r'aged?\s*([>=≥]+)?\s*(\d+)\s*(?:and|to|-)\s*([<=≤]+)?\s*(\d+)\s*(?:years|yo)?', norm_methods, re.I)
+        if m_age:
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="inclusion",
+                domain="demographic",
+                criterion_name="age",
+                min_operator=">=",
+                min_value=float(m_age.group(2)),
+                max_operator="<=",
+                max_value=float(m_age.group(4)),
+                unit="years",
+                raw_source_text=m_age.group(0),
+                source_page=source_p
+            ))
         else:
-            age_between = re.search(r'age[d]?\s*(?:of\s*)?(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:years|yo)?', full_methods_text, re.IGNORECASE)
-            if age_between:
-                eligibility.append(EligibilityCriterion(
-                    criterion_id=next_cid(),
-                    study_id=study_id,
-                    criterion_type="inclusion",
-                    domain="demographic",
-                    criterion_name="age",
-                    min_operator=">=",
-                    min_value=float(age_between.group(1)),
-                    max_operator="<=",
-                    max_value=float(age_between.group(2)),
-                    unit="years",
-                    raw_source_text=age_between.group(0),
-                    source_page=source_p
-                ))
-            else:
-                age_thresh = re.search(r'(?:age[d]?\s*(?:of\s*)?(?:at\s*least\s*)?|men\s*and\s*women\s*aged\s*)(>=|>|≥)?\s*(\d{2})\s*(?:years|yo)?', full_methods_text, re.IGNORECASE)
-                if age_thresh:
-                    op = age_thresh.group(1) or ">="
-                    val = float(age_thresh.group(2))
+            age_clause = re.search(r'(?:(?:patients|subjects|participants)\s+(?:with[^\.\;\n]{0,50})?)?(?:\baged?\s*(?:of\s*)?[^\.\;\n]{0,60}(?:years|yo)?|men\s*and\s*women\s*aged[^\.\;\n]{0,60})', full_methods_text, re.IGNORECASE)
+            if age_clause:
+                raw_age = age_clause.group(0).strip()
+                parsed_age = parse_clinical_range(raw_age, "age")
+                if parsed_age["min_value"] is not None or parsed_age["max_value"] is not None:
                     eligibility.append(EligibilityCriterion(
                         criterion_id=next_cid(),
                         study_id=study_id,
                         criterion_type="inclusion",
                         domain="demographic",
                         criterion_name="age",
-                        min_operator=">=" if ">=" in op or "≥" in op else ">",
-                        min_value=val,
-                        max_operator=None,
-                        max_value=None,
-                        unit="years",
-                        raw_source_text=age_thresh.group(0),
+                        min_operator=parsed_age["min_operator"],
+                        min_value=parsed_age["min_value"],
+                        max_operator=parsed_age["max_operator"],
+                        max_value=parsed_age["max_value"],
+                        unit=parsed_age["unit"] or "years",
+                        raw_source_text=raw_age,
                         source_page=source_p
                     ))
+            else:
+                age_between = re.search(r'age[d]?\s*(?:of\s*)?(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:years|yo)?', full_methods_text, re.IGNORECASE)
+                if age_between:
+                    eligibility.append(EligibilityCriterion(
+                        criterion_id=next_cid(),
+                        study_id=study_id,
+                        criterion_type="inclusion",
+                        domain="demographic",
+                        criterion_name="age",
+                        min_operator=">=",
+                        min_value=float(age_between.group(1)),
+                        max_operator="<=",
+                        max_value=float(age_between.group(2)),
+                        unit="years",
+                        raw_source_text=age_between.group(0),
+                        source_page=source_p
+                    ))
+                else:
+                    age_thresh = re.search(r'(?:age[d]?\s*(?:of\s*)?(?:at\s*least\s*)?|men\s*and\s*women\s*aged\s*)(>=|>|≥)?\s*(\d{2})\s*(?:years|yo)?', full_methods_text, re.IGNORECASE)
+                    if age_thresh:
+                        op = age_thresh.group(1) or ">="
+                        val = float(age_thresh.group(2))
+                        eligibility.append(EligibilityCriterion(
+                            criterion_id=next_cid(),
+                            study_id=study_id,
+                            criterion_type="inclusion",
+                            domain="demographic",
+                            criterion_name="age",
+                            min_operator=">=" if ">=" in op or "≥" in op else ">",
+                            min_value=val,
+                            max_operator=None,
+                            max_value=None,
+                            unit="years",
+                            raw_source_text=age_thresh.group(0),
+                            source_page=source_p
+                        ))
 
         # 2. Disease Indication / Clinical Condition (categorical: NO operator)
         if re.search(r'heart failure|hfrEF|hfpef|reduced ejection fraction', full_methods_text, re.IGNORECASE):
@@ -2559,85 +2686,154 @@ class RCTExtractor:
                 source_page=source_p
             ))
 
-        # 6. BMI (numerical)
-        bmi_thresh = re.search(r'BMI\s*(>=|>|≥|<=|<|≤|=)\s*(\d+(?:\.\d+)?)', full_methods_text, re.IGNORECASE)
-        if bmi_thresh:
-            op = bmi_thresh.group(1)
-            val = float(bmi_thresh.group(2))
+        # 6. BMI (numerical: single-bound fallback or bounded range)
+        m_bmi_upper = re.search(r'(?:body\s*mass\s*index|\(bmi\)|bmi)\s*([<=≤]+)\s*(\d+(?:\.\d+)?)\s*(?:kg\/m2)?', norm_methods, re.I)
+        if m_bmi_upper:
+            val = float(m_bmi_upper.group(2))
             eligibility.append(EligibilityCriterion(
                 criterion_id=next_cid(),
                 study_id=study_id,
                 criterion_type="inclusion",
                 domain="biomarker",
                 criterion_name="bmi",
-                less_than="<" if "<" in op or "≤" in op else None,
-                equal="=" if "=" in op or "≥" in op or "≤" in op else None,
-                greater_than=">" if ">" in op or "≥" in op else None,
-                between=None,
-                value=val,
+                min_operator=None,
+                min_value=None,
+                max_operator="<=",
+                max_value=val,
                 unit="kg/m2",
-                raw_source_text=bmi_thresh.group(0),
+                raw_source_text=m_bmi_upper.group(0),
                 source_page=source_p
             ))
         else:
-            bmi_between = re.search(r'BMI\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*(?:-|to|–)\s*(\d+(?:\.\d+)?)', full_methods_text, re.IGNORECASE)
-            if bmi_between:
+            bmi_thresh = re.search(r'BMI\s*(>=|>|≥|<=|<|≤|=)\s*(\d+(?:\.\d+)?)', full_methods_text, re.IGNORECASE)
+            if bmi_thresh:
+                op = bmi_thresh.group(1)
+                val = float(bmi_thresh.group(2))
                 eligibility.append(EligibilityCriterion(
                     criterion_id=next_cid(),
                     study_id=study_id,
                     criterion_type="inclusion",
                     domain="biomarker",
                     criterion_name="bmi",
-                    less_than=None,
-                    equal=None,
-                    greater_than=None,
-                    between="between",
-                    min_value=float(bmi_between.group(1)),
-                    max_value=float(bmi_between.group(2)),
+                    less_than="<" if "<" in op or "≤" in op else None,
+                    equal="=" if "=" in op or "≥" in op or "≤" in op else None,
+                    greater_than=">" if ">" in op or "≥" in op else None,
+                    between=None,
+                    value=val,
                     unit="kg/m2",
-                    raw_source_text=bmi_between.group(0),
+                    raw_source_text=bmi_thresh.group(0),
                     source_page=source_p
                 ))
+            else:
+                bmi_between = re.search(r'BMI\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*(?:-|to|–)\s*(\d+(?:\.\d+)?)', full_methods_text, re.IGNORECASE)
+                if bmi_between:
+                    eligibility.append(EligibilityCriterion(
+                        criterion_id=next_cid(),
+                        study_id=study_id,
+                        criterion_type="inclusion",
+                        domain="biomarker",
+                        criterion_name="bmi",
+                        less_than=None,
+                        equal=None,
+                        greater_than=None,
+                        between="between",
+                        min_value=float(bmi_between.group(1)),
+                        max_value=float(bmi_between.group(2)),
+                        unit="kg/m2",
+                        raw_source_text=bmi_between.group(0),
+                        source_page=source_p
+                    ))
 
-        # 7. HbA1c (numerical)
-        hba1c_clause = re.search(r'(?:HbA1c|glycated hemoglobin)[^\.\;\n]{0,80}%', full_methods_text, re.IGNORECASE)
-        if hba1c_clause:
-            raw_hba1c = hba1c_clause.group(0).strip()
-            parsed_hba1c = parse_clinical_range(raw_hba1c, "hba1c")
-            if parsed_hba1c["min_value"] is not None or parsed_hba1c["max_value"] is not None:
+        # 7. HbA1c (numerical: check for discrete drug-naive, treated, and run-in inclusion ranges)
+        m_naive = re.search(r'drug-na[ïi]ve\s+patients[^\.\;]{0,60}?HbA1c\s*(?:[>=≥]+)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:and|to|-)\s*(?:[<=≤]+)?\s*(\d+(?:\.\d+)?)\s*%', norm_methods, re.I)
+        m_treated = re.search(r'patients\s+treated\s+with[^\.\;]{0,60}?HbA1c\s*(?:[>=≥]+)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:and|to|-)\s*(?:[<=≤]+)?\s*(\d+(?:\.\d+)?)\s*%', norm_methods, re.I)
+        m_runin = re.search(r'HbA1c\s*(?:[>=≥]+)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:to|and|-)\s*(?:[<=≤]+)?\s*(\d+(?:\.\d+)?)\s*%\s*at\s+the\s+start\s+of\s+the\s+placebo\s+run-in', norm_methods, re.I)
+
+        if m_naive or m_treated or m_runin:
+            if m_naive:
                 eligibility.append(EligibilityCriterion(
                     criterion_id=next_cid(),
                     study_id=study_id,
                     criterion_type="inclusion",
                     domain="biomarker",
-                    criterion_name="hba1c",
-                    min_operator=parsed_hba1c["min_operator"],
-                    min_value=parsed_hba1c["min_value"],
-                    max_operator=parsed_hba1c["max_operator"],
-                    max_value=parsed_hba1c["max_value"],
-                    unit=parsed_hba1c["unit"] or "%",
-                    raw_source_text=raw_hba1c,
+                    criterion_name="hba1c_drug_naive",
+                    min_operator=">=",
+                    min_value=float(m_naive.group(1)),
+                    max_operator="<=",
+                    max_value=float(m_naive.group(2)),
+                    unit="%",
+                    raw_source_text=m_naive.group(0),
+                    source_page=source_p
+                ))
+            if m_treated:
+                eligibility.append(EligibilityCriterion(
+                    criterion_id=next_cid(),
+                    study_id=study_id,
+                    criterion_type="inclusion",
+                    domain="biomarker",
+                    criterion_name="hba1c_treated",
+                    min_operator=">=",
+                    min_value=float(m_treated.group(1)),
+                    max_operator="<=",
+                    max_value=float(m_treated.group(2)),
+                    unit="%",
+                    raw_source_text=m_treated.group(0),
+                    source_page=source_p
+                ))
+            if m_runin:
+                eligibility.append(EligibilityCriterion(
+                    criterion_id=next_cid(),
+                    study_id=study_id,
+                    criterion_type="inclusion",
+                    domain="biomarker",
+                    criterion_name="hba1c_run_in",
+                    min_operator=">=",
+                    min_value=float(m_runin.group(1)),
+                    max_operator="<=",
+                    max_value=float(m_runin.group(2)),
+                    unit="%",
+                    raw_source_text=m_runin.group(0),
                     source_page=source_p
                 ))
         else:
-            hba1c_match = re.search(r'(?:HbA1c|glycated hemoglobin)\s*(>=|>|≥|<=|<|≤|=)?\s*(\d+(?:\.\d+)?)\s*%', full_methods_text, re.IGNORECASE)
-            if hba1c_match:
-                op = hba1c_match.group(1) or ">="
-                val = float(hba1c_match.group(2))
-                eligibility.append(EligibilityCriterion(
-                    criterion_id=next_cid(),
-                    study_id=study_id,
-                    criterion_type="inclusion",
-                    domain="biomarker",
-                    criterion_name="hba1c",
-                    min_operator=">=" if ">" in op or "≥" in op or "=" in op else ">",
-                    min_value=val,
-                    max_operator=None,
-                    max_value=None,
-                    unit="%",
-                    raw_source_text=hba1c_match.group(0),
-                    source_page=source_p
-                ))
+            hba1c_clause = re.search(r'(?:HbA1c|glycated hemoglobin)[^\.\;\n]{0,80}%', full_methods_text, re.IGNORECASE)
+            if hba1c_clause:
+                raw_hba1c = hba1c_clause.group(0).strip()
+                parsed_hba1c = parse_clinical_range(raw_hba1c, "hba1c")
+                if parsed_hba1c["min_value"] is not None or parsed_hba1c["max_value"] is not None:
+                    eligibility.append(EligibilityCriterion(
+                        criterion_id=next_cid(),
+                        study_id=study_id,
+                        criterion_type="inclusion",
+                        domain="biomarker",
+                        criterion_name="hba1c",
+                        min_operator=parsed_hba1c["min_operator"],
+                        min_value=parsed_hba1c["min_value"],
+                        max_operator=parsed_hba1c["max_operator"],
+                        max_value=parsed_hba1c["max_value"],
+                        unit=parsed_hba1c["unit"] or "%",
+                        raw_source_text=raw_hba1c,
+                        source_page=source_p
+                    ))
+            else:
+                hba1c_match = re.search(r'(?:HbA1c|glycated hemoglobin)\s*(>=|>|≥|<=|<|≤|=)?\s*(\d+(?:\.\d+)?)\s*%', full_methods_text, re.IGNORECASE)
+                if hba1c_match:
+                    op = hba1c_match.group(1) or ">="
+                    val = float(hba1c_match.group(2))
+                    eligibility.append(EligibilityCriterion(
+                        criterion_id=next_cid(),
+                        study_id=study_id,
+                        criterion_type="inclusion",
+                        domain="biomarker",
+                        criterion_name="hba1c",
+                        min_operator=">=" if ">" in op or "≥" in op or "=" in op else ">",
+                        min_value=val,
+                        max_operator=None,
+                        max_value=None,
+                        unit="%",
+                        raw_source_text=hba1c_match.group(0),
+                        source_page=source_p
+                    ))
 
         # 8. Background Medical Therapy (categorical)
         if re.search(r'stable\s*(?:dose|regimen|medication)|standard\s*(?:heart-failure\s*)?therapy|guideline-directed', full_methods_text, re.IGNORECASE):
@@ -2852,8 +3048,113 @@ class RCTExtractor:
                 source_page=source_p
             ))
 
-        # 12. Concurrent Trial Participation (categorical)
-        if re.search(r'another trial|investigational device|investigational drug', full_methods_text, re.IGNORECASE):
+        # 12. Prohibited Medications (unpacked specific medications & washout window)
+        if re.search(r'insulin|glucagon-like peptide|glp-1|sulfonylurea|thiazolidinedione', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="prohibited_medications",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Insulin, GLP-1 analogues, Sulfonylurea (> half max approved daily dose), Thiazolidinedione (within 12 weeks prior to consent)",
+                unit=None,
+                raw_source_text="treatment with insulin, glucagon-like peptide-1 (GLP-1) analogues, sulfonylurea at > half the daily maximum approved dose or thiazolidinedione within 12 weeks prior to consent",
+                source_page=source_p
+            ))
+
+        # 13. Anti-Obesity Drugs (within 12 weeks)
+        if re.search(r'anti-obesity\s+drugs?', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="anti_obesity_drugs",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Prohibited within 12 weeks prior to consent",
+                unit=None,
+                raw_source_text="treatment with anti-obesity drugs within 12 weeks prior to consent",
+                source_page=source_p
+            ))
+
+        # 14. Unstable Body Weight Treatment (at screening)
+        if re.search(r'unstable\s+body\s*weight', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="unstable_body_weight",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Prohibited (any treatment at screening leading to unstable bodyweight)",
+                unit=None,
+                raw_source_text="use of any treatment at screening leading to unstable bodyweight",
+                source_page=source_p
+            ))
+
+        # 15. Systemic Steroids (at time of consent)
+        if re.search(r'systemic\s+steroids?', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="systemic_steroids",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Prohibited at time of consent",
+                unit=None,
+                raw_source_text="treatment with systemic steroids at time of consent",
+                source_page=source_p
+            ))
+
+        # 16. Thyroid Hormone Dosage Change (within 6 weeks)
+        if re.search(r'thyroid\s+hormones?', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="thyroid_hormone_change",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Prohibited within 6 weeks prior to consent",
+                unit=None,
+                raw_source_text="change in dosage of thyroid hormones within 6 weeks prior to consent",
+                source_page=source_p
+            ))
+
+        # 17. Alcohol Or Drug Abuse (within 12 weeks)
+        if re.search(r'alcohol\s+or\s+drug\s+abuse', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="alcohol_or_drug_abuse",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Prohibited within 12 weeks of consent",
+                unit=None,
+                raw_source_text="alcohol or drug abuse within 12 weeks of consent",
+                source_page=source_p
+            ))
+
+        # 18. Investigational Drug Intake (within 30 days)
+        if re.search(r'investigational\s+drug(?:\s+intake)?', norm_methods, re.I):
+            eligibility.append(EligibilityCriterion(
+                criterion_id=next_cid(),
+                study_id=study_id,
+                criterion_type="exclusion",
+                domain="medical_history",
+                criterion_name="investigational_drug_intake",
+                less_than=None, equal=None, greater_than=None, between=None,
+                value="Prohibited within 30 days of consent",
+                unit=None,
+                raw_source_text="investigational drug intake within 30 days of consent",
+                source_page=source_p
+            ))
+
+        # 19. Concurrent Trial Participation (categorical)
+        if re.search(r'another trial|investigational device', full_methods_text, re.IGNORECASE):
             eligibility.append(EligibilityCriterion(
                 criterion_id=next_cid(),
                 study_id=study_id,

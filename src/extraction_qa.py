@@ -369,8 +369,16 @@ class SecondPassExtractionAuditor:
         # -------------------------------------------------------------------------
         # RULE FAMILY 3: Demographic Proportions & Complementary Calculation
         # -------------------------------------------------------------------------
-        male_outs = [o for o in outcomes if o.gender == "Male" or "male" in str(o.parameter_name).lower()]
-        female_outs = [o for o in outcomes if o.gender == "Female" or "female" in str(o.parameter_name).lower()]
+        def _is_male_rec(o):
+            p = str(o.parameter_name or "").lower()
+            return o.gender == "Male" or (bool(re.search(r'\b(?:male|men)\b', p)) and not bool(re.search(r'\b(?:female|women)\b', p)))
+
+        def _is_female_rec(o):
+            p = str(o.parameter_name or "").lower()
+            return o.gender == "Female" or bool(re.search(r'\b(?:female|women)\b', p))
+
+        male_outs = [o for o in outcomes if _is_male_rec(o)]
+        female_outs = [o for o in outcomes if _is_female_rec(o)]
 
         for m_o in male_outs:
             if m_o.percentage is not None and (m_o.percentage < 0 or m_o.percentage > 100):
