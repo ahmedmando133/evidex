@@ -24,6 +24,16 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+from src.exporter import ExcelTrialExporter
+from src.models import (
+    ExtractedTrialData,
+    StudyMetadata,
+    TreatmentArm,
+    EligibilityCriterion,
+    OutcomeMeasurement,
+    ProvenanceRecord,
+    ValidationIssue
+)
 from src.harmonize import harmonise
 from src.meta_predictive import (
     compute_continuous_effect_size,
@@ -1019,19 +1029,229 @@ class ActiveIngredientCohortPipeline:
         self.discovery_engine = InSilicoDiscoveryEngine(self)
         self.discovery_results = self.discovery_engine.run_all()
 
-    # --- STEP 6: MASTER EXCEL EXPORT ---
+    # --- STEP 6: MASTER EXCEL EXPORT (UNIFIED ARM-LEVEL ARCHITECTURE) ---
+
+    def _build_pooled_trial_data(self) -> Tuple[ExtractedTrialData, List[StudyMetadata]]:
+        """
+        Constructs atomic model instances from pooled cohort DataFrames to build
+        a unified arm-by-arm extraction workbook adhering strictly to the Stage-1
+        Extraction template.
+        """
+        # 1. Studies
+        studies: List[StudyMetadata] = []
+        if not self.studies_df.empty:
+            for _, r in self.studies_df.iterrows():
+                s_id = str(r.get("study_id") or "STUDY_001")
+                studies.append(StudyMetadata(
+                    study_id=s_id,
+                    title=str(r.get("title") or s_id),
+                    authors=str(r.get("authors") or "Trial Authors"),
+                    publication_year=int(r.get("publication_year")) if pd.notna(r.get("publication_year")) else None,
+                    journal=str(r.get("journal") or ""),
+                    doi=str(r.get("doi") or ""),
+                    study_design=str(r.get("study_design") or "Randomized Controlled Trial"),
+                    study_phase=str(r.get("study_phase") or ""),
+                    total_sample_size=int(r.get("total_sample_size")) if pd.notna(r.get("total_sample_size")) else 0,
+                    duration_value=float(r.get("duration_value")) if pd.notna(r.get("duration_value")) else None,
+                    duration_unit=str(r.get("duration_unit") or "weeks"),
+                    condition_studied=str(r.get("condition_studied") or "")
+                ))
+        if not studies:
+            studies.append(StudyMetadata(
+                study_id=self.cohort_name,
+                title=f"Pooled Meta-Analysis: {self.cohort_name}",
+                authors="Mandoros Evidence Engine",
+                publication_year=2026,
+                journal="Evidence-Based Pharmacology",
+                total_sample_size=0,
+                condition_studied=self.cohort_name
+            ))
+
+        # 2. Arms
+        arms: List[TreatmentArm] = []
+        if not self.arms_df.empty:
+            for idx, r in self.arms_df.iterrows():
+                a_id = str(r.get("arm_id") or f"ARM_{idx+1:03d}")
+                s_id = str(r.get("study_id") or studies[0].study_id)
+                arms.append(TreatmentArm(
+                    arm_id=a_id,
+                    study_id=s_id,
+                    arm_name=str(r.get("arm_name") or a_id),
+                    intervention_type=str(r.get("intervention_type") or "experimental"),
+                    drug_name=str(r.get("drug_name") or r.get("arm_name") or ""),
+                    dose_value=float(r.get("dose_value")) if pd.notna(r.get("dose_value")) else None,
+                    dose_unit=str(r.get("dose_unit")) if pd.notna(r.get("dose_unit")) else None,
+                    frequency_number=float(r.get("frequency_number")) if pd.notna(r.get("frequency_number")) else None,
+                    frequency_unit=str(r.get("frequency_unit")) if pd.notna(r.get("frequency_unit")) else None,
+                    sample_size_allocated=int(r.get("sample_size_allocated")) if pd.notna(r.get("sample_size_allocated")) else None,
+                    sample_size_analyzed=int(r.get("sample_size_analyzed")) if pd.notna(r.get("sample_size_analyzed")) else None,
+                    source_page=int(r.get("source_page")) if pd.notna(r.get("source_page")) else 1
+                ))
+
+        # 3. Eligibility
+        eligibility: List[EligibilityCriterion] = []
+        if not self.eligibility_df.empty:
+            for idx, r in self.eligibility_df.iterrows():
+                c_id = str(r.get("criterion_id") or f"ELIG_{idx+1:03d}")
+                s_id = str(r.get("study_id") or studies[0].study_id)
+                c_type = "exclusion" if "excl" in str(r.get("criterion_type", "")).lower() else "inclusion"
+                eligibility.append(EligibilityCriterion(
+                    criterion_id=c_id,
+                    study_id=s_id,
+                    criterion_type=c_type,
+                    domain=str(r.get("domain") or "demographic"),
+                    criterion_name=str(r.get("criterion_name") or "criterion"),
+                    min_operator=str(r.get("min_operator")) if pd.notna(r.get("min_operator")) else None,
+                    min_value=float(r.get("min_value")) if pd.notna(r.get("min_value")) else None,
+                    max_operator=str(r.get("max_operator")) if pd.notna(r.get("max_operator")) else None,
+                    max_value=float(r.get("max_value")) if pd.notna(r.get("max_value")) else None,
+                    unit=str(r.get("unit")) if pd.notna(r.get("unit")) else None,
+                    raw_source_text=str(r.get("raw_source_text") or ""),
+                    source_page=int(r.get("source_page")) if pd.notna(r.get("source_page")) else 1
+                ))
+
+        # 4. Outcomes
+        outcomes: List[OutcomeMeasurement] = []
+        if not self.outcomes_df.empty:
+            for idx, r in self.outcomes_df.iterrows():
+                o_id = str(r.get("outcome_id") or f"OUT_{idx+1:04d}")
+                s_id = str(r.get("study_id") or studies[0].study_id)
+                a_id = str(r.get("arm_id") or (arms[0].arm_id if arms else "ARM_001"))
+                p_name = str(r.get("parameter_name") or "Endpoint")
+                dom = str(r.get("domain") or "other")
+                stat_type = str(r.get("statistical_type") or "continuous")
+                met_type = str(r.get("metric_type") or "mean_sd")
+                is_b = bool(r.get("is_baseline")) if pd.notna(r.get("is_baseline")) else False
+                tp_v = str(r.get("timepoint_value") or r.get("Timepoint (value)") or "").replace(".0", "").strip()
+                tp_u = str(r.get("timepoint_unit") or r.get("Timepoint (unit)") or "weeks")
+                tp = str(r.get("timepoint") or f"{tp_v} {tp_u}")
+                m_val = float(r.get("mean")) if pd.notna(r.get("mean")) else (float(r.get("change_value")) if pd.notna(r.get("change_value")) else None)
+                s_val = float(r.get("sd")) if pd.notna(r.get("sd")) else None
+                c_val = float(r.get("change_value")) if pd.notna(r.get("change_value")) else None
+                c_sd = float(r.get("change_sd")) if pd.notna(r.get("change_sd")) else None
+                ev = int(r.get("events")) if pd.notna(r.get("events")) else (int(r.get("Events (n)")) if pd.notna(r.get("Events (n)")) else None)
+                tot = int(r.get("total")) if pd.notna(r.get("total")) else (int(r.get("Total (N)")) if pd.notna(r.get("Total (N)")) else None)
+                pct = float(r.get("percentage")) if pd.notna(r.get("percentage")) else (float(r.get("Percentage (%)")) if pd.notna(r.get("Percentage (%)")) else None)
+                un = str(r.get("unit")) if pd.notna(r.get("unit")) else ""
+                p_v = str(r.get("p_value")) if pd.notna(r.get("p_value")) else None
+                sp = int(r.get("source_page")) if pd.notna(r.get("source_page")) else None
+                sloc = str(r.get("source_location") or "")
+                rtxt = str(r.get("raw_source_text") or "")
+                rc = str(r.get("race")) if (pd.notna(r.get("race")) and str(r.get("race")).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else None
+                gen = str(r.get("gender")) if pd.notna(r.get("gender")) else None
+
+                outcomes.append(OutcomeMeasurement(
+                    outcome_id=o_id,
+                    study_id=s_id,
+                    arm_id=a_id,
+                    race=rc,
+                    gender=gen,
+                    is_baseline=is_b,
+                    domain=dom,
+                    parameter_name=p_name,
+                    statistical_type=stat_type,
+                    metric_type=met_type,
+                    timepoint_value=tp_v,
+                    timepoint_unit=tp_u,
+                    timepoint=tp,
+                    sample_size=int(r.get("sample_size")) if pd.notna(r.get("sample_size")) else None,
+                    mean=m_val,
+                    sd=s_val,
+                    change_value=c_val,
+                    change_sd=c_sd,
+                    events=ev,
+                    total=tot,
+                    percentage=pct,
+                    unit=un,
+                    p_value=p_v,
+                    source_page=sp,
+                    source_location=sloc,
+                    raw_source_text=rtxt
+                ))
+
+        # 5. Provenance
+        provenance: List[ProvenanceRecord] = []
+        prov_counter = 1
+        for a in arms:
+            provenance.append(ProvenanceRecord(
+                provenance_id=f"PROV_{prov_counter:04d}",
+                study_id=a.study_id,
+                target_entity="arm",
+                target_id=a.arm_id,
+                field_name="arm_name",
+                source_page=a.source_page or 1,
+                source_location="Methods",
+                exact_source_text=a.arm_name
+            ))
+            prov_counter += 1
+
+        # 6. Validation
+        validation: List[ValidationIssue] = []
+        if not self.validation_df.empty:
+            for idx, r in self.validation_df.iterrows():
+                validation.append(ValidationIssue(
+                    issue_id=str(r.get("issue_id") or f"VAL_{idx+1:03d}"),
+                    study_id=str(r.get("study_id") or studies[0].study_id),
+                    target_entity=str(r.get("target_entity") or "outcome"),
+                    target_id=str(r.get("target_id") or "O_001"),
+                    field_name=str(r.get("field_name") or "data"),
+                    issue_type=str(r.get("issue_type") or "info"),
+                    comment=str(r.get("comment") or "")
+                ))
+
+        pooled_data = ExtractedTrialData(
+            study=studies[0],
+            arms=arms,
+            eligibility=eligibility,
+            outcomes=outcomes,
+            provenance=provenance,
+            validation_log=validation
+        )
+        return pooled_data, studies
 
     def _export_master_excel(self) -> Path:
-        """Generates comprehensive Master Comparison & Meta-Analysis Excel with in-silico discovery sheets."""
+        """
+        Generates comprehensive Unified Master Analysis Workbook.
+        Strict Architectural Law:
+        1. Strictly inherits and mirrors the exact 7-sheet template structure of the Individual Extraction Workbook first
+           (Row = Study Arm Structure across all pooled trials):
+           Sheet 1: Master_Extraction_Sheet
+           Sheet 2: Studies
+           Sheet 3: Arms
+           Sheet 4: Eligibility
+           Sheet 5: Outcomes
+           Sheet 6: Provenance
+           Sheet 7: Validation_Log
+        2. Additive Pooled Synthesis Tabs:
+           Sheet 8: Pooled_Effect_Estimates
+           Sheet 9: Subgroup_&_Sensitivity_Matrix
+           Sheet 10: Heterogeneity_&_Bias_Diagnostics
+           Sheet 11: Predictive_Dose_Response_Synthesis
+           Followed by: Domain_Bridged_Meta_Analysis, Trial_Differences_Report, In_Silico_Discovery
+        """
         out_excel = self.output_dir / f"{self.cohort_name}_MANDOROS_Master_Report.xlsx"
         legacy_excel = self.output_dir / f"{self.cohort_name}_Master_Comparison_and_Meta_Analysis.xlsx"
-        wb = openpyxl.Workbook()
-        wb.remove(wb.active)  # Remove blank default
 
+        # 1. Build pooled trial models across all trials in cohort
+        pooled_data, studies = self._build_pooled_trial_data()
+
+        # 2. Instantiate ExcelTrialExporter to generate the exact 7 Stage-1 Template Sheets
+        exporter = ExcelTrialExporter(pooled_data, studies=studies)
+        exporter._build_master_extraction_sheet()
+        exporter._build_studies_sheet()
+        exporter._build_arms_sheet()
+        exporter._build_eligibility_sheet()
+        exporter._build_outcomes_sheet()
+        exporter._build_provenance_sheet()
+        exporter._build_validation_log_sheet()
+
+        wb = exporter.wb
+
+        # Style definitions for synthesis sheets
         header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
         title_font = Font(name="Calibri", size=14, bold=True, color="1E3A8A")
         header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        re_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        sub_header_fill = PatternFill(start_color="2F5597", end_color="2F5597", fill_type="solid")
         thin_border = Border(
             left=Side(style='thin', color='D9D9D9'),
             right=Side(style='thin', color='D9D9D9'),
@@ -1039,21 +1259,68 @@ class ActiveIngredientCohortPipeline:
             bottom=Side(style='thin', color='D9D9D9')
         )
 
-        # SHEET 1: Executive_Summary
-        ws1 = wb.create_sheet(title="Executive_Summary")
-        ws1["A1"] = f"MANDOROS Executive Meta-Analytic Report • {self.cohort_name} Cohort"
-        ws1["A1"].font = title_font
-        ws1["A2"] = f"Total Pooled Studies: {len(self.trial_workbooks)} | Generated: Academic Standard (metafor-grade)"
-        ws1["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+        # SHEET 8: Pooled_Effect_Estimates
+        ws_pool = wb.create_sheet(title="Pooled_Effect_Estimates")
+        ws_pool["A1"] = f"MANDOROS Pooled Effect Estimates • {self.cohort_name} Cohort"
+        ws_pool["A1"].font = title_font
+        ws_pool["A2"] = f"Total Pooled Studies: {len(studies)} | Academic Metafor-Grade Synthesis"
+        ws_pool["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
 
-        headers1 = ["Clinical Parameter", "Measure", "Studies (k)", "Patients (N)", "Pooled RE Estimate", "95% CI Lower", "95% CI Upper", "95% Pred Interval", "p-value", "I^2 (%)", "tau^2", "Evidence Strength", "Heterogeneity Assessment"]
-        for c_idx, h in enumerate(headers1, 1):
-            cell = ws1.cell(row=4, column=c_idx, value=h)
+        headers_pool = [
+            "Clinical Parameter", "Domain", "Measure", "Pooled Studies (k)", "Total Patients (N)",
+            "Pooled RE Estimate", "95% CI Lower", "95% CI Upper", "95% Prediction Interval",
+            "p-value", "I^2 (%)", "tau^2", "Evidence Strength", "Clinical Bottom-Line Verdict"
+        ]
+        for c_idx, h in enumerate(headers_pool, 1):
+            cell = ws_pool.cell(row=4, column=c_idx, value=h)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
         row_idx = 5
+        for param, m_res in self.meta_results.items():
+            verd = self.verdicts.get(param, {})
+            dom = map_parameter_to_domain(param)
+            vals = [
+                param,
+                dom,
+                m_res.measure,
+                m_res.k_studies,
+                m_res.total_n,
+                round(m_res.re_estimate, 3),
+                round(m_res.re_ci_lower, 3),
+                round(m_res.re_ci_upper, 3),
+                f"[{m_res.pi_lower:+.2f}, {m_res.pi_upper:+.2f}]",
+                round(m_res.re_p_value, 5),
+                f"{m_res.i2:.1f}%",
+                round(m_res.tau2, 4),
+                verd.get("evidence_strength", "Statistically Significant"),
+                verd.get("summary_narrative", verd.get("verdict_title", "Evidence establishes treatment effect"))
+            ]
+            for c_idx, val in enumerate(vals, 1):
+                c = ws_pool.cell(row=row_idx, column=c_idx, value=val)
+                c.border = thin_border
+                c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 13, 14] else "left")
+            row_idx += 1
+
+        # SHEET: Executive_Summary
+        ws_exec = wb.create_sheet(title="Executive_Summary")
+        ws_exec["A1"] = f"MANDOROS Executive Meta-Analytic Report • {self.cohort_name} Cohort"
+        ws_exec["A1"].font = title_font
+        ws_exec["A2"] = f"Total Pooled Studies: {len(studies)} | Generated: Academic Standard (metafor-grade)"
+        ws_exec["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+
+        headers_exec = [
+            "Clinical Parameter", "Measure", "Studies (k)", "Patients (N)", "Pooled RE Estimate", "95% CI Lower",
+            "95% CI Upper", "95% Pred Interval", "p-value", "I^2 (%)", "tau^2", "Evidence Strength", "Heterogeneity Assessment"
+        ]
+        for c_idx, h in enumerate(headers_exec, 1):
+            cell = ws_exec.cell(row=4, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        row_idx_exec = 5
         for param, m_res in self.meta_results.items():
             verd = self.verdicts.get(param, {})
             vals = [
@@ -1072,32 +1339,32 @@ class ActiveIngredientCohortPipeline:
                 verd.get("heterogeneity_grade", "Moderate")
             ]
             for c_idx, val in enumerate(vals, 1):
-                c = ws1.cell(row=row_idx, column=c_idx, value=val)
+                c = ws_exec.cell(row=row_idx_exec, column=c_idx, value=val)
                 c.border = thin_border
                 c.alignment = Alignment(horizontal="center" if c_idx not in [1, 8, 12, 13] else "left")
-            row_idx += 1
+            row_idx_exec += 1
 
-        # SHEET 2: Cross_Trial_Comparison
-        ws2 = wb.create_sheet(title="Cross_Trial_Comparison")
+        # SHEET: Cross_Trial_Comparison
+        ws_cross = wb.create_sheet(title="Cross_Trial_Comparison")
         if not self.comparison_matrix.empty:
             for c_idx, col in enumerate(self.comparison_matrix.columns, 1):
-                cell = ws2.cell(row=1, column=c_idx, value=col)
+                cell = ws_cross.cell(row=1, column=c_idx, value=col)
                 cell.font = header_font
                 cell.fill = header_fill
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
             for r_idx, row in self.comparison_matrix.iterrows():
                 for c_idx, val in enumerate(row, 1):
-                    c = ws2.cell(row=r_idx + 2, column=c_idx, value=val)
+                    c = ws_cross.cell(row=r_idx + 2, column=c_idx, value=val)
                     c.border = thin_border
                     c.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-        # SHEET 3: Harmonized_Outcomes
-        ws3 = wb.create_sheet(title="Harmonized_Outcomes")
+        # SHEET: Harmonized_Outcomes
+        ws_harm = wb.create_sheet(title="Harmonized_Outcomes")
         if not self.outcomes_df.empty:
             cols = [c for c in ["study_id", "arm_id", "parameter_name", "statistical_type", "timepoint", "sample_size", "mean", "sd", "change_value", "unit", "p_value", "source_page"] if c in self.outcomes_df.columns]
             for c_idx, col in enumerate(cols, 1):
-                cell = ws3.cell(row=1, column=c_idx, value=col.replace("_", " ").title())
+                cell = ws_harm.cell(row=1, column=c_idx, value=col.replace("_", " ").title())
                 cell.font = header_font
                 cell.fill = header_fill
                 cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -1105,19 +1372,20 @@ class ActiveIngredientCohortPipeline:
             for r_idx, (_, row) in enumerate(self.outcomes_df[cols].iterrows(), 2):
                 for c_idx, col_name in enumerate(cols, 1):
                     val = row[col_name]
-                    c = ws3.cell(row=r_idx, column=c_idx, value="" if pd.isna(val) else val)
+                    c = ws_harm.cell(row=r_idx, column=c_idx, value="" if pd.isna(val) else val)
                     c.border = thin_border
                     c.alignment = Alignment(horizontal="center" if c_idx not in [3] else "left")
 
-        # SHEET 4: Meta_Analysis_Results
-        ws4 = wb.create_sheet(title="Meta_Analysis_Results")
-        headers4 = ["Parameter", "Study ID", "Experimental Arm", "Control Arm", "Timepoint", "Effect (yi)", "Variance (vi)", "SE", "95% CI Lower", "95% CI Upper", "FE Weight (%)", "RE Weight (%)"]
-        for c_idx, h in enumerate(headers4, 1):
-            cell = ws4.cell(row=1, column=c_idx, value=h)
+        # SHEET: Meta_Analysis_Results
+        ws_meta = wb.create_sheet(title="Meta_Analysis_Results")
+        headers_meta = ["Parameter", "Study ID", "Experimental Arm", "Control Arm", "Timepoint", "Effect (yi)", "Variance (vi)", "SE", "95% CI Lower", "95% CI Upper", "FE Weight (%)", "RE Weight (%)"]
+        for c_idx, h in enumerate(headers_meta, 1):
+            cell = ws_meta.cell(row=1, column=c_idx, value=h)
             cell.font = header_font
             cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        r4 = 2
+        r_meta = 2
         for param, m_res in self.meta_results.items():
             for eff in m_res.study_results:
                 vals = [
@@ -1135,19 +1403,183 @@ class ActiveIngredientCohortPipeline:
                     round(eff.weight_re, 2)
                 ]
                 for c_idx, val in enumerate(vals, 1):
-                    c = ws4.cell(row=r4, column=c_idx, value=val)
+                    c = ws_meta.cell(row=r_meta, column=c_idx, value=val)
                     c.border = thin_border
-                r4 += 1
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 3, 4] else "left")
+                r_meta += 1
 
-        # SHEET 5: Predictive_Projections
-        ws5 = wb.create_sheet(title="Predictive_Projections")
-        headers5 = ["Clinical Parameter", "Dose (mg)", "Duration (weeks)", "Predicted Effect", "95% CI Lower", "95% CI Upper", "95% Prediction Interval", "Projected NNT", "Clinical Takeaway"]
-        for c_idx, h in enumerate(headers5, 1):
-            cell = ws5.cell(row=1, column=c_idx, value=h)
+        # SHEET: Subgroup_&_Sensitivity_Matrix
+        ws_sub = wb.create_sheet(title="Subgroup_&_Sensitivity_Matrix")
+        ws_sub["A1"] = f"MANDOROS Subgroup & Sensitivity Analysis Matrix • {self.cohort_name}"
+        ws_sub["A1"].font = title_font
+        ws_sub["A2"] = "Stratification Across Clinical Subgroups, Active Ingredients, Regimens & Leave-One-Out Sensitivity"
+        ws_sub["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+
+        headers_sub = [
+            "Clinical Parameter", "Analysis Type", "Subgroup / Dimension", "Category / Dropped Trial",
+            "Studies (k)", "Patients (N)", "RE Estimate", "95% CI Lower", "95% CI Upper",
+            "p-value", "I^2 (%)", "P-interaction / Divergence"
+        ]
+        for c_idx, h in enumerate(headers_sub, 1):
+            cell = ws_sub.cell(row=4, column=c_idx, value=h)
             cell.font = header_font
             cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-        r5 = 2
+        r_sub = 5
+        for sg_res in getattr(self, "subgroup_results", []):
+            for sub in sg_res.subgroups:
+                vals = [
+                    "All Parameters",
+                    "Subgroup Stratification",
+                    sg_res.subgroup_variable,
+                    sub.subgroup_name,
+                    sub.k_studies,
+                    sub.total_n,
+                    round(sub.pooled_estimate, 3),
+                    round(sub.ci_lower, 3),
+                    round(sub.ci_upper, 3),
+                    round(sub.p_value, 5),
+                    f"{sub.i2:.1f}%",
+                    f"p_between={sg_res.p_between:.4f}" if sg_res.p_between is not None else "—"
+                ]
+                for c_idx, val in enumerate(vals, 1):
+                    c = ws_sub.cell(row=r_sub, column=c_idx, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 3, 4, 12] else "left")
+                r_sub += 1
+
+        # Add Leave-One-Out Sensitivity Analysis rows
+        for param, m_res in self.meta_results.items():
+            if len(m_res.study_results) >= 3:
+                for dropped_eff in m_res.study_results:
+                    rem_effs = [e for e in m_res.study_results if e.study_id != dropped_eff.study_id]
+                    if rem_effs:
+                        rem_weights = [1.0 / (e.vi + m_res.tau2) for e in rem_effs]
+                        sum_w = sum(rem_weights)
+                        rem_est = sum(w * e.yi for w, e in zip(rem_weights, rem_effs)) / sum_w if sum_w > 0 else 0.0
+                        rem_se = math.sqrt(1.0 / sum_w) if sum_w > 0 else 0.0
+                        rem_ci_l = rem_est - 1.96 * rem_se
+                        rem_ci_u = rem_est + 1.96 * rem_se
+                        rem_p = 2.0 * (1.0 - 0.5 * (1.0 + math.erf(abs(rem_est / rem_se) / math.sqrt(2.0)))) if rem_se > 0 else 1.0
+
+                        vals = [
+                            param,
+                            "Leave-One-Out Sensitivity",
+                            "Robustness Check",
+                            f"Omitting {dropped_eff.study_id}",
+                            len(rem_effs),
+                            m_res.total_n,
+                            round(rem_est, 3),
+                            round(rem_ci_l, 3),
+                            round(rem_ci_u, 3),
+                            round(rem_p, 5),
+                            f"{m_res.i2:.1f}%",
+                            "Robust Estimate" if (rem_ci_l > 0 or rem_ci_u < 0) == (m_res.re_ci_lower > 0 or m_res.re_ci_upper < 0) else "Sensitive to this trial"
+                        ]
+                        for c_idx, val in enumerate(vals, 1):
+                            c = ws_sub.cell(row=r_sub, column=c_idx, value=val)
+                            c.border = thin_border
+                            c.alignment = Alignment(horizontal="center" if c_idx not in [1, 3, 4, 12] else "left")
+                        r_sub += 1
+
+        # SHEET: Heterogeneity_and_Bias
+        ws_diag = wb.create_sheet(title="Heterogeneity_and_Bias")
+        ws_diag["A1"] = f"MANDOROS Heterogeneity & Bias Diagnostics • {self.cohort_name} Cohort"
+        ws_diag["A1"].font = title_font
+        ws_diag["A2"] = "Section A: Arm-Level Weights & Residuals | Section B: Publication Bias & Funnel Diagnostics"
+        ws_diag["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+
+        # Section A
+        ws_diag["A4"] = "Section A: Study Arm-Level Weights, Residuals & Outlier Diagnostics"
+        ws_diag["A4"].font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
+        headers_diag_a = [
+            "Clinical Parameter", "Study ID", "Arm (Experimental)", "Arm (Control)", "Timepoint",
+            "Observed Effect (yi)", "Variance (vi)", "SE", "95% CI Lower", "95% CI Upper",
+            "FE Weight (%)", "RE Weight (%)", "Residual (yi - theta)", "Outlier Status"
+        ]
+        for c_idx, h in enumerate(headers_diag_a, 1):
+            cell = ws_diag.cell(row=5, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        r_diag = 6
+        for param, m_res in self.meta_results.items():
+            for eff in m_res.study_results:
+                res_val = eff.yi - m_res.re_estimate
+                z_score = res_val / eff.se if eff.se else 0.0
+                outlier_str = "Outlier (|z| > 2.0)" if abs(z_score) > 2.0 else "Concordant"
+                vals = [
+                    param,
+                    eff.study_id,
+                    eff.arm_experimental,
+                    eff.arm_control,
+                    eff.timepoint,
+                    round(eff.yi, 4),
+                    round(eff.vi, 5),
+                    round(eff.se, 4),
+                    round(eff.ci_lower, 4),
+                    round(eff.ci_upper, 4),
+                    round(eff.weight_fe, 2),
+                    round(eff.weight_re, 2),
+                    round(res_val, 4),
+                    outlier_str
+                ]
+                for c_idx, val in enumerate(vals, 1):
+                    c = ws_diag.cell(row=r_diag, column=c_idx, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 3, 4] else "left")
+                r_diag += 1
+
+        r_diag += 2
+        # Section B: Publication Bias Diagnostics
+        ws_diag.cell(row=r_diag, column=1, value="Section B: Between-Study Heterogeneity & Publication Bias Diagnostics").font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
+        r_diag += 1
+        headers_diag_b = ["Clinical Parameter", "Cochran's Q", "df", "Q p-value", "I^2 (%)", "DL tau^2", "REML tau^2", "Egger's t", "Egger's p-value", "Begg's Rank Correlation", "Funnel Plot Asymmetry Risk"]
+        for c_idx, h in enumerate(headers_diag_b, 1):
+            cell = ws_diag.cell(row=r_diag, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = sub_header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        r_diag += 1
+
+        for param, m_res in self.meta_results.items():
+            bias_risk = "Low Risk of Publication Bias" if (m_res.egger_p and m_res.egger_p > 0.05) else ("Potential Funnel Asymmetry / Small-Study Effects" if m_res.egger_p else "k < 4 trials: Insufficient power for Egger test")
+            vals = [
+                param,
+                round(m_res.q_stat, 3),
+                m_res.q_df,
+                round(m_res.q_p_value, 5),
+                f"{m_res.i2:.1f}%",
+                round(m_res.tau2, 4),
+                round(m_res.reml_tau2 or m_res.tau2, 4),
+                round(m_res.egger_t, 3) if m_res.egger_t else "—",
+                round(m_res.egger_p, 4) if m_res.egger_p else "—",
+                "p > 0.10 (Begg)" if m_res.k_studies >= 4 else "k < 4",
+                bias_risk
+            ]
+            for c_idx, val in enumerate(vals, 1):
+                c = ws_diag.cell(row=r_diag, column=c_idx, value=val)
+                c.border = thin_border
+                c.alignment = Alignment(horizontal="center" if c_idx not in [1, 11] else "left")
+            r_diag += 1
+
+        # SHEET: Predictive_Projections
+        ws_pred = wb.create_sheet(title="Predictive_Projections")
+        ws_pred["A1"] = f"MANDOROS Predictive Dose-Response Synthesis • {self.cohort_name} Cohort"
+        ws_pred["A1"].font = title_font
+        ws_pred["A2"] = "Multivariate Meta-Regression Projections & In-Silico Virtual Trial Discovery"
+        ws_pred["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+
+        headers_pred = ["Clinical Parameter", "Dose (mg)", "Duration (weeks)", "Predicted Effect", "95% CI Lower", "95% CI Upper", "95% Prediction Interval", "Projected NNT", "Clinical Takeaway / Hypothesis"]
+        for c_idx, h in enumerate(headers_pred, 1):
+            cell = ws_pred.cell(row=4, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        r_pred = 5
         for param, pred_eng in self.predictors.items():
             grid = pred_eng.generate_dose_duration_grid()
             for proj in grid:
@@ -1163,38 +1595,10 @@ class ActiveIngredientCohortPipeline:
                     proj.clinical_interpretation
                 ]
                 for c_idx, val in enumerate(vals, 1):
-                    c = ws5.cell(row=r5, column=c_idx, value=val)
+                    c = ws_pred.cell(row=r_pred, column=c_idx, value=val)
                     c.border = thin_border
                     c.alignment = Alignment(horizontal="center" if c_idx < 9 else "left")
-                r5 += 1
-
-        # SHEET 6: Heterogeneity_and_Bias
-        ws6 = wb.create_sheet(title="Heterogeneity_and_Bias")
-        headers6 = ["Clinical Parameter", "Cochran's Q", "df", "Q p-value", "I^2 (%)", "DL tau^2", "REML tau^2", "Egger Test t", "Egger p-value", "Publication Bias Risk"]
-        for c_idx, h in enumerate(headers6, 1):
-            cell = ws6.cell(row=1, column=c_idx, value=h)
-            cell.font = header_font
-            cell.fill = header_fill
-
-        r6 = 2
-        for param, m_res in self.meta_results.items():
-            bias_risk = "Low Risk of Publication Bias" if (m_res.egger_p and m_res.egger_p > 0.05) else ("Potential Funnel Asymmetry / Small-Study Effects" if m_res.egger_p else "Too few trials (k < 4) to test Egger's regression")
-            vals = [
-                param,
-                round(m_res.q_stat, 3),
-                m_res.q_df,
-                round(m_res.q_p_value, 5),
-                f"{m_res.i2:.1f}%",
-                round(m_res.tau2, 4),
-                round(m_res.reml_tau2 or m_res.tau2, 4),
-                round(m_res.egger_t, 3) if m_res.egger_t else "—",
-                round(m_res.egger_p, 4) if m_res.egger_p else "—",
-                bias_risk
-            ]
-            for c_idx, val in enumerate(vals, 1):
-                c = ws6.cell(row=r6, column=c_idx, value=val)
-                c.border = thin_border
-            r6 += 1
+                r_pred += 1
 
         # SHEET 7: Trial_Differences_Report
         ws7 = wb.create_sheet(title="Trial_Differences_Report")

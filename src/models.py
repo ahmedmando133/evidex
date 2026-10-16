@@ -3,7 +3,7 @@ Data models and strict Pydantic schemas for AI-assisted clinical trial data extr
 Designed according to the Project Concept Note (13 October 2026).
 """
 
-from typing import List, Optional, Literal, Any
+from typing import List, Optional, Literal, Any, Dict
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -72,6 +72,112 @@ class TreatmentArm(BaseModel):
         return "other"
 
 
+def parse_clinical_range(raw_text: str, criterion_name: str = "") -> Dict[str, Any]:
+    """
+    Deterministic clinical range and operator parser.
+    - Case A (Bounded Range): If two bounds exist (e.g. '>= 20 and <= 74 years', '20-74', '7.0 to 10.0 %',
+      'aged≥20 and ≤74 years', 'HbA1c ≥7% and ≤10%'), strictly populates:
+      min_operator ('>=' or '>'), min_value (float), max_operator ('<=' or '<'), max_value (float), unit (str).
+    - Case B (Single Inequality): If a study only reports a single threshold (e.g. '>= 18 years', '<= 40 kg/m2',
+      'eGFR below 30 ml/min/1.73m2', 'systolic blood pressure of less than 95 mm Hg'),
+      populates ONLY the respective Min or Max operator and value, and leaves the opposite boundary strictly None.
+    - Case C (Categorical / Qualitative): For qualitative conditions (e.g. pregnancy, written consent),
+      leaves all operators and numeric values as None.
+    """
+    import re
+    raw = str(raw_text or "").strip()
+    cname = str(criterion_name or "").lower()
+    raw_l = raw.lower()
+
+    res = {
+        "min_operator": None,
+        "min_value": None,
+        "max_operator": None,
+        "max_value": None,
+        "unit": None,
+        "value": None,
+        "is_bounded": False
+    }
+
+    # Extract unit if present
+    unit_m = re.search(r'\b(years|yo|year-old|kg/m\s*2|kg/m2|mg/dl|mmol/l|umol/l|ml/min(?:/1\.73m2)?|pg/ml|%|mm\s*hg|weeks?|days?|months?)\b', raw, re.I)
+    if unit_m:
+        u = unit_m.group(1).strip()
+        if "kg/m" in u.lower():
+            u = "kg/m2"
+        elif "mm" in u.lower() and "hg" in u.lower():
+            u = "mmHg"
+        elif u.lower() in ["yo", "year-old"]:
+            u = "years"
+        res["unit"] = u
+    elif "%" in raw:
+        res["unit"] = "%"
+
+    # Categorical exclusions (pregnancy, consent, cancer, etc.)
+    if any(k in cname or k in raw_l for k in ["pregnancy", "breastfeeding", "lactation", "consent", "malignancy", "cancer", "transplant", "contraindication"]):
+        return res
+
+    # Standardize operators in raw string: normalize unicode
+    norm = raw.replace("≥", ">=").replace("≤", "<=").replace("–", "-").replace("—", "-")
+
+    # Case A1: explicit compound range with operators: e.g. '>= 20 and <= 74', '>=7% and <=10%', '>= 7 to <= 10'
+    m_bounded_op = re.search(r'([><]=?)\s*(\d+(?:\.\d+)?)\s*(?:%|\w+)?\s*(?:and|to|-)\s*([><]=?)\s*(\d+(?:\.\d+)?)', norm, re.I)
+    if m_bounded_op:
+        res["min_operator"] = m_bounded_op.group(1)
+        res["min_value"] = float(m_bounded_op.group(2))
+        res["max_operator"] = m_bounded_op.group(3)
+        res["max_value"] = float(m_bounded_op.group(4))
+        res["is_bounded"] = True
+        return res
+
+    # Case A2: between X and Y or X to Y or X-Y with numbers: e.g. 'between 18 and 65', '18-65', '7.0 to 10.0'
+    m_between = re.search(r'(?:between\s+)?(\d+(?:\.\d+)?)\s*(?:%|\w+)?\s*(?:to|-|and)\s*(\d+(?:\.\d+)?)\s*(?:%|\w+)?', norm, re.I)
+    if m_between and any(k in raw_l for k in ["between", "to", "-", "–"]):
+        v1 = float(m_between.group(1))
+        v2 = float(m_between.group(2))
+        if v1 < v2:
+            res["min_operator"] = ">="
+            res["min_value"] = v1
+            res["max_operator"] = "<="
+            res["max_value"] = v2
+            res["is_bounded"] = True
+            return res
+
+    # Case B1: Lower bound only (>= X, > X, at least X, X or older, X or greater)
+    m_lower = re.search(r'(?:>=|>|\bat least\b|\babove\b)\s*(\d+(?:\.\d+)?)', norm, re.I)
+    if not m_lower:
+        m_lower = re.search(r'(\d+(?:\.\d+)?)\s*(?:years of age or older|or older|or greater|or more)', norm, re.I)
+        if m_lower:
+            res["min_operator"] = ">="
+            res["min_value"] = float(m_lower.group(1))
+            res["value"] = res["min_value"]
+            return res
+    else:
+        op = ">=" if (">=" in m_lower.group(0) or "least" in m_lower.group(0)) else ">"
+        res["min_operator"] = op
+        res["min_value"] = float(m_lower.group(1))
+        res["value"] = res["min_value"]
+        return res
+
+    # Case B2: Upper bound only (<= X, < X, at most X, X or less, below X, less than X)
+    m_upper = re.search(r'(?:<=|<|\bat most\b|\bbelow\b|\bless than\b)\s*(\d+(?:\.\d+)?)', norm, re.I)
+    if not m_upper:
+        m_upper = re.search(r'(\d+(?:\.\d+)?)\s*(?:or less|or fewer|or below)', norm, re.I)
+        if m_upper:
+            res["max_operator"] = "<="
+            res["max_value"] = float(m_upper.group(1))
+            res["value"] = res["max_value"]
+            return res
+    else:
+        op = "<=" if ("<=" in m_upper.group(0) or "most" in m_upper.group(0) or "less" in m_upper.group(0)) else "<"
+        res["max_operator"] = op
+        res["max_value"] = float(m_upper.group(1))
+        res["value"] = res["max_value"]
+        return res
+
+    return res
+
+
 # ---------------------------------------------------------
 # 3. Eligibility Criteria (Atomic decomposition)
 # ---------------------------------------------------------
@@ -128,56 +234,73 @@ class EligibilityCriterion(BaseModel):
         return "other"
 
     def model_post_init(self, __context: Any) -> None:
-        """Ensures atomic boundaries (min_operator, min_value, max_operator, max_value) are populated."""
-        import re
-        raw = str(self.raw_source_text or "")
-        cname = str(self.criterion_name or "").lower()
-        raw_l = raw.lower()
-
-        # 0. Sanitize categorical criteria
-        if any(kw in cname or kw in raw_l for kw in ["pregnancy", "breastfeeding", "lactation", "malignancy", "cancer", "consent", "transplantation"]):
+        """Ensures atomic boundaries (min_operator, min_value, max_operator, max_value) are deterministically populated."""
+        c_name_low = str(self.criterion_name or "").lower()
+        cat_keywords = [
+            "pregnan", "breastfeed", "nursing", "cancer", "malignan",
+            "consent", "informed_consent", "diagnosis", "participation",
+            "trial_participation", "severe_hepatic", "cardiovascular_event"
+        ]
+        if any(k in c_name_low for k in cat_keywords):
+            self.min_operator = None
+            self.min_value = None
+            self.max_operator = None
+            self.max_value = None
             self.less_than = None
             self.equal = None
             self.greater_than = None
             self.between = None
             self.value = None
-            self.unit = None
-            self.min_operator = None
-            self.min_value = None
-            self.max_operator = None
-            self.max_value = None
             return
 
-        # 1. Parse explicit compound ranges like '>= 20 and <= 74' or '>= 18 to <= 75'
-        compound_m = re.search(r'([><]=?)\s*(\d+(?:\.\d+)?)\s*(?:and|to|-|–)\s*([><]=?)\s*(\d+(?:\.\d+)?)', raw, re.I)
-        if compound_m:
-            if not self.min_operator:
-                self.min_operator = compound_m.group(1)
-            if self.min_value is None:
-                self.min_value = float(compound_m.group(2))
-            if not self.max_operator:
-                self.max_operator = compound_m.group(3)
-            if self.max_value is None:
-                self.max_value = float(compound_m.group(4))
+        parsed = parse_clinical_range(self.raw_source_text or "", self.criterion_name or "")
 
-        # 2. Parse between X and Y or simple range '7 to 10' or '18-75'
-        between_m = re.search(r'between\s+(\d+(?:\.\d+)?)\s*(?:and|to|-|–)\s*(\d+(?:\.\d+)?)', raw, re.I)
-        if between_m and self.min_value is None and self.max_value is None:
-            self.min_operator = ">="
-            self.min_value = float(between_m.group(1))
-            self.max_operator = "<="
-            self.max_value = float(between_m.group(2))
+        if not self.unit and parsed["unit"]:
+            self.unit = parsed["unit"]
+
+        # Case A: Bounded range detected from text
+        if parsed["is_bounded"]:
+            self.min_operator = parsed["min_operator"] or ">="
+            self.min_value = parsed["min_value"]
+            self.max_operator = parsed["max_operator"] or "<="
+            self.max_value = parsed["max_value"]
             self.between = "between"
-        else:
-            simple_range = re.search(r'\b(\d+(?:\.\d+)?)\s*(?:to|-|–)\s*(\d+(?:\.\d+)?)\b', raw, re.I)
-            if simple_range and self.min_value is None and self.max_value is None:
-                self.min_operator = ">="
-                self.min_value = float(simple_range.group(1))
-                self.max_operator = "<="
-                self.max_value = float(simple_range.group(2))
-                self.between = "between"
+            return
 
-        # 3. Align with legacy fields
+        # Explicit min_value & max_value provided on model
+        if self.min_value is not None and self.max_value is not None:
+            if not self.min_operator:
+                self.min_operator = ">="
+            if not self.max_operator:
+                self.max_operator = "<="
+            self.between = "between"
+            return
+
+        # Case B1: Lower bound only
+        if parsed["min_value"] is not None:
+            self.min_operator = parsed["min_operator"]
+            self.min_value = parsed["min_value"]
+            self.max_operator = None
+            self.max_value = None
+            self.greater_than = ">"
+            if "=" in (parsed["min_operator"] or ""):
+                self.equal = "="
+            self.value = parsed["min_value"]
+            return
+
+        # Case B2: Upper bound only
+        if parsed["max_value"] is not None:
+            self.max_operator = parsed["max_operator"]
+            self.max_value = parsed["max_value"]
+            self.min_operator = None
+            self.min_value = None
+            self.less_than = "<"
+            if "=" in (parsed["max_operator"] or ""):
+                self.equal = "="
+            self.value = parsed["max_value"]
+            return
+
+        # Align with legacy fields
         if self.between == "between" or (self.min_value is not None and self.max_value is not None):
             if not self.min_operator:
                 self.min_operator = ">="
@@ -187,18 +310,28 @@ class EligibilityCriterion(BaseModel):
             if self.greater_than and self.equal:
                 self.min_operator = ">="
                 self.min_value = self.value
+                self.max_operator = None
+                self.max_value = None
             elif self.greater_than:
                 self.min_operator = ">"
                 self.min_value = self.value
+                self.max_operator = None
+                self.max_value = None
             elif self.less_than and self.equal:
                 self.max_operator = "<="
                 self.max_value = self.value
+                self.min_operator = None
+                self.min_value = None
             elif self.less_than:
                 self.max_operator = "<"
                 self.max_value = self.value
+                self.min_operator = None
+                self.min_value = None
             elif self.equal:
                 self.min_operator = "="
                 self.min_value = self.value
+                self.max_operator = None
+                self.max_value = None
 
 
 # ---------------------------------------------------------

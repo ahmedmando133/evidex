@@ -5,17 +5,46 @@ Generates:
 2. Optional 7th sheet: Flattened_View (for direct side-by-side comparison with traditional data mining sheets).
 """
 
-from typing import List
+from typing import List, Optional, Tuple, Any, Dict
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-from src.models import ExtractedTrialData
+from src.models import ExtractedTrialData, StudyMetadata
+
+
+def get_criterion_bounds(e_obj) -> Tuple[str, Any, str, Any, str]:
+    """
+    Deterministic Range & Operator extractor for Clinical Trial Criteria.
+    Case A (Bounded): >= min and <= max -> (min_op, min_v, max_op, max_v, unit)
+    Case B (Single Inequality): >= min -> (min_op, min_v, '', None, unit)
+                                <= max -> ('', None, max_op, max_v, unit)
+    """
+    if not e_obj:
+        return ("", None, "", None, "")
+    if e_obj.min_value is not None and e_obj.max_value is not None:
+        return (e_obj.min_operator or ">=", e_obj.min_value, e_obj.max_operator or "<=", e_obj.max_value, e_obj.unit or "")
+    elif e_obj.min_value is not None:
+        return (e_obj.min_operator or ">=", e_obj.min_value, "", None, e_obj.unit or "")
+    elif e_obj.max_value is not None:
+        return ("", None, e_obj.max_operator or "<=", e_obj.max_value, e_obj.unit or "")
+    elif e_obj.greater_than:
+        return (">", e_obj.value, "", None, e_obj.unit or "")
+    elif e_obj.less_than:
+        return ("", None, "<", e_obj.value, e_obj.unit or "")
+    elif e_obj.equal:
+        return ("=", e_obj.value, "", None, e_obj.unit or "")
+    elif e_obj.between and len(e_obj.between) == 2:
+        return (">=", e_obj.between[0], "<=", e_obj.between[1], e_obj.unit or "")
+    else:
+        return ("", None, "", None, e_obj.unit or "")
 
 
 class ExcelTrialExporter:
-    def __init__(self, data: ExtractedTrialData):
+    def __init__(self, data: ExtractedTrialData, studies: Optional[List[StudyMetadata]] = None):
         self.data = data
+        self.studies = studies if studies else ([data.study] if data.study else [])
+        self.study_map = {s.study_id: s for s in self.studies}
         self.wb = openpyxl.Workbook()
         # Remove default empty sheet
         self.wb.remove(self.wb.active)
@@ -388,6 +417,7 @@ class ExcelTrialExporter:
         is_even = False
 
         for a in self.data.arms:
+            s = self.study_map.get(a.study_id, self.data.study)
             arm_outcomes = [o for o in self.data.outcomes if o.arm_id == a.arm_id]
             timepoints = set()
             for o in arm_outcomes:
@@ -465,25 +495,29 @@ class ExcelTrialExporter:
 
                 # Block 2A: Inclusion Criteria (Propagated)
                 for c_name, (start_c, is_num, e_obj) in inc_col_map.items():
+                    arm_e = next((e for e in self.data.eligibility if (e.study_id == a.study_id or e.study_id == s.study_id) and e.criterion_type == "inclusion" and e.criterion_name.replace("_", " ").title() == c_name), e_obj)
                     if is_num:
-                        ws.cell(row=current_row, column=start_c, value=e_obj.min_operator or (">=" if e_obj.min_value is not None else ""))
-                        ws.cell(row=current_row, column=start_c + 1, value=e_obj.min_value if e_obj.min_value is not None else e_obj.value)
-                        ws.cell(row=current_row, column=start_c + 2, value=e_obj.max_operator or ("<=" if e_obj.max_value is not None else ""))
-                        ws.cell(row=current_row, column=start_c + 3, value=e_obj.max_value)
-                        ws.cell(row=current_row, column=start_c + 4, value=e_obj.unit)
+                        min_op, min_v, max_op, max_v, unit_v = get_criterion_bounds(arm_e) if arm_e else ("", None, "", None, "")
+                        ws.cell(row=current_row, column=start_c, value=min_op)
+                        ws.cell(row=current_row, column=start_c + 1, value=min_v)
+                        ws.cell(row=current_row, column=start_c + 2, value=max_op)
+                        ws.cell(row=current_row, column=start_c + 3, value=max_v)
+                        ws.cell(row=current_row, column=start_c + 4, value=unit_v)
                     else:
-                        ws.cell(row=current_row, column=start_c, value="Required")
+                        ws.cell(row=current_row, column=start_c, value="Required" if arm_e else "")
 
                 # Block 2B: Exclusion Criteria (Propagated)
                 for c_name, (start_c, is_num, e_obj) in exc_col_map.items():
+                    arm_e = next((e for e in self.data.eligibility if (e.study_id == a.study_id or e.study_id == s.study_id) and e.criterion_type == "exclusion" and e.criterion_name.replace("_", " ").title() == c_name), e_obj)
                     if is_num:
-                        ws.cell(row=current_row, column=start_c, value=e_obj.min_operator or (">=" if e_obj.min_value is not None else ""))
-                        ws.cell(row=current_row, column=start_c + 1, value=e_obj.min_value if e_obj.min_value is not None else e_obj.value)
-                        ws.cell(row=current_row, column=start_c + 2, value=e_obj.max_operator or ("<=" if e_obj.max_value is not None else ""))
-                        ws.cell(row=current_row, column=start_c + 3, value=e_obj.max_value)
-                        ws.cell(row=current_row, column=start_c + 4, value=e_obj.unit)
+                        min_op, min_v, max_op, max_v, unit_v = get_criterion_bounds(arm_e) if arm_e else ("", None, "", None, "")
+                        ws.cell(row=current_row, column=start_c, value=min_op)
+                        ws.cell(row=current_row, column=start_c + 1, value=min_v)
+                        ws.cell(row=current_row, column=start_c + 2, value=max_op)
+                        ws.cell(row=current_row, column=start_c + 3, value=max_v)
+                        ws.cell(row=current_row, column=start_c + 4, value=unit_v)
                     else:
-                        ws.cell(row=current_row, column=start_c, value="Prohibited")
+                        ws.cell(row=current_row, column=start_c, value="Prohibited" if arm_e else "")
 
                 # Block 3: Population Stratification (Propagated)
                 ws.cell(row=current_row, column=pop_start_col, value=race_val if race_val else "")
@@ -559,13 +593,14 @@ class ExcelTrialExporter:
         ]
         ws.append(headers)
 
-        s = self.data.study
-        row = [
-            s.study_id, s.title, s.authors, s.publication_year, s.journal, s.doi,
-            s.study_design, s.study_phase, s.total_sample_size, s.duration_value,
-            s.duration_unit, s.condition_studied
-        ]
-        ws.append(row)
+        studies_to_write = self.studies if self.studies else ([self.data.study] if self.data.study else [])
+        for s in studies_to_write:
+            row = [
+                s.study_id, s.title, s.authors, s.publication_year, s.journal, s.doi,
+                s.study_design, s.study_phase, s.total_sample_size, s.duration_value,
+                s.duration_unit, s.condition_studied
+            ]
+            ws.append(row)
         self._apply_sheet_formatting(ws)
 
     def _build_arms_sheet(self):
@@ -599,13 +634,10 @@ class ExcelTrialExporter:
         sorted_elig = sorted(self.data.eligibility, key=lambda x: 0 if x.criterion_type == "inclusion" else 1)
 
         for e in sorted_elig:
+            min_op, min_v, max_op, max_v, unit_v = get_criterion_bounds(e)
             ws.append([
                 e.criterion_id, e.study_id, e.criterion_type, e.domain, e.criterion_name,
-                e.min_operator or (">=" if e.min_value is not None else ""),
-                e.min_value if e.min_value is not None else (e.value if e.greater_than else None),
-                e.max_operator or ("<=" if e.max_value is not None else ""),
-                e.max_value if e.max_value is not None else (e.value if e.less_than else None),
-                e.unit,
+                min_op, min_v, max_op, max_v, unit_v,
                 e.less_than, e.equal, e.greater_than, e.between,
                 e.value, e.raw_source_text, e.source_page
             ])
