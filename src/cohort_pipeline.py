@@ -362,7 +362,16 @@ class ActiveIngredientCohortPipeline:
         if studies_list:
             self.studies_df = pd.concat(studies_list, ignore_index=True).drop_duplicates(subset=["study_id"], keep="first")
         if arms_list:
-            self.arms_df = pd.concat(arms_list, ignore_index=True)
+            raw_arms = pd.concat(arms_list, ignore_index=True)
+            from src.extraction_engine import get_arm_composite_key
+            composite_rows = []
+            seen_comp_keys = set()
+            for _, a_row in raw_arms.iterrows():
+                comp_k = get_arm_composite_key(a_row)
+                if comp_k not in seen_comp_keys:
+                    seen_comp_keys.add(comp_k)
+                    composite_rows.append(a_row)
+            self.arms_df = pd.DataFrame(composite_rows) if composite_rows else raw_arms
         if elig_list:
             self.eligibility_df = pd.concat(elig_list, ignore_index=True)
         if outcomes_list:

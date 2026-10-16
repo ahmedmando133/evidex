@@ -112,6 +112,8 @@ class RCTExtractor:
 
         # 2. Arms
         arms = self._extract_treatment_arms(study_id, sections)
+        from src.extraction_engine import verify_and_lock_multi_dose_arms
+        arms = verify_and_lock_multi_dose_arms(study_id, arms, full_text)
 
         # 3. Eligibility Criteria
         eligibility = self._extract_eligibility(study_id, sections)
@@ -2210,9 +2212,15 @@ class RCTExtractor:
 
         # Check Table 1 header for "Placebo Empagliflozin 10 mg Empagliflozin 25 mg \n N 21 20 19"
         tab1_ns = None
-        tab1_header_m = re.search(r'Table 1[^\n]*\n([^\n]+)\n[^\n]*\bN\s+(\d+)\s+(\d+)\s+(\d+)', text_pool, re.I)
-        if tab1_header_m:
-            tab1_ns = [int(tab1_header_m.group(2)), int(tab1_header_m.group(3)), int(tab1_header_m.group(4))]
+        t1_m4 = re.search(r'Table 1[\s\S]{1,400}?\bN\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)', text_pool, re.I)
+        t1_m3 = re.search(r'Table 1[\s\S]{1,400}?\bN\s+(\d+)\s+(\d+)\s+(\d+)', text_pool, re.I)
+        t1_m2 = re.search(r'Table 1[\s\S]{1,400}?\bN\s+(\d+)\s+(\d+)', text_pool, re.I)
+        if t1_m4:
+            tab1_ns = [int(t1_m4.group(i)) for i in range(1, 5)]
+        elif t1_m3:
+            tab1_ns = [int(t1_m3.group(i)) for i in range(1, 4)]
+        elif t1_m2:
+            tab1_ns = [int(t1_m2.group(i)) for i in range(1, 3)]
 
         arms = []
         arm_num = 1
@@ -2222,10 +2230,10 @@ class RCTExtractor:
         has_placebo = bool(re.search(r'\bplacebo\b', text_pool, re.I))
         if has_placebo:
             plac_n = None
-            if "placebo" in arm_n_map:
-                plac_n = arm_n_map["placebo"]
-            elif tab1_ns:
+            if tab1_ns:
                 plac_n = tab1_ns[0]
+            elif "placebo" in arm_n_map:
+                plac_n = arm_n_map["placebo"]
 
             arms.append(TreatmentArm(
                 arm_id=f"ARM_{arm_num:03d}",
@@ -2263,12 +2271,13 @@ class RCTExtractor:
             seen_keys.add(arm_key)
 
             d_n = None
-            for k_arm, n_v in arm_n_map.items():
-                if str(int(dose_val)) in k_arm or f"{dose_val}" in k_arm:
-                    d_n = n_v
-                    break
-            if d_n is None and tab1_ns and (idx_d + 1) < len(tab1_ns):
+            if tab1_ns and (idx_d + 1) < len(tab1_ns):
                 d_n = tab1_ns[idx_d + 1]
+            if d_n is None:
+                for k_arm, n_v in arm_n_map.items():
+                    if str(int(dose_val)) in k_arm or f"{dose_val}" in k_arm:
+                        d_n = n_v
+                        break
 
             arms.append(TreatmentArm(
                 arm_id=f"ARM_{arm_num:03d}",
@@ -2305,7 +2314,8 @@ class RCTExtractor:
                     a.sample_size_allocated = 100
                     a.sample_size_analyzed = 100
 
-        return arms
+        from src.extraction_engine import verify_and_lock_multi_dose_arms
+        return verify_and_lock_multi_dose_arms(study_id, arms, text_pool)
 
     def _extract_generic_eligibility(self, study_id: str, sections: Dict[str, Any]) -> List[EligibilityCriterion]:
         """Dynamically parses inclusion/exclusion criteria into the 4 operator columns (<, =, >, between)."""
@@ -3545,6 +3555,8 @@ DOCUMENT CONTEXT:
             except Exception:
                 pass
 
+        from src.extraction_engine import verify_and_lock_multi_dose_arms
+        arms_list = verify_and_lock_multi_dose_arms(study_id, arms_list, doc_sample)
         return s_obj, arms_list
 
     def _extract_llm_stage2_eligibility(self, study_id: str, sections: Dict[str, Any]) -> List[EligibilityCriterion]:

@@ -90,6 +90,15 @@ def process_pdf(
         json_path = f"outputs/{clean_base}_extracted.json"
         os.makedirs("outputs", exist_ok=True)
 
+        from src.extraction_engine import purge_stale_cache
+        purge_stale_cache()
+        for old_f in [excel_path, json_path]:
+            if os.path.exists(old_f):
+                try:
+                    os.remove(old_f)
+                except Exception:
+                    pass
+
         # 1. Map Model Choice
         model_name = "auto"
         if "Auto" in model_choice or "auto" in model_choice.lower():
@@ -2007,6 +2016,8 @@ def process_cohort(
     from pathlib import Path
     import pandas as pd
     from src.cohort_pipeline import ActiveIngredientCohortPipeline
+    from src.extraction_engine import purge_stale_cache
+    purge_stale_cache()
 
     progress(0.05, desc="🔍 Initializing Active Ingredient Cohort Pipeline...")
 
@@ -4451,6 +4462,8 @@ def build_app():
 
 
 if __name__ == "__main__":
+    from src.extraction_engine import purge_stale_cache
+    purge_stale_cache()
     demo = build_app()
     demo.queue(default_concurrency_limit=5, max_size=25)
     port = int(os.environ.get("PORT", 7860))

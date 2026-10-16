@@ -418,7 +418,7 @@ class ExcelTrialExporter:
 
         for a in self.data.arms:
             s = self.study_map.get(a.study_id, self.data.study)
-            arm_outcomes = [o for o in self.data.outcomes if o.arm_id == a.arm_id]
+            arm_outcomes = [o for o in self.data.outcomes if o.arm_id == a.arm_id and (not getattr(o, 'study_id', None) or o.study_id == a.study_id)]
             timepoints = set()
             for o in arm_outcomes:
                 tp_v = str(o.timepoint_value or "").strip()
