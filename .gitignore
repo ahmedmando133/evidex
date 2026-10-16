@@ -19,6 +19,10 @@ outputs/analysis/
 !outputs/dapagliflozin_structured_extracted.xlsx
 !outputs/RCT4_Empagliflozin_Fully_Corrected_Validated.xlsx
 !outputs/RCT4_Extraction_Error_Report.xlsx
+!Custom_Drug_MANDOROS_Master_Report_CORRECTED.xlsx
+!MANDOROS_Phase2_Validation_and_Error_Report.xlsx
+!outputs/Custom_Drug_MANDOROS_Master_Report_CORRECTED.xlsx
+!outputs/MANDOROS_Phase2_Validation_and_Error_Report.xlsx
 .DS_Store
 Thumbs.db
 *.log

@@ -326,3 +326,60 @@ def validate_therapeutic_optimum(
         )
 
     return True, "EVIDENCE_BOUNDED_OPTIMUM", candidate_dose_mg
+
+
+class StatisticalEligibilityEngine:
+    """Convenience class providing unified access to all eligibility checks."""
+
+    @staticmethod
+    def extract_unique_study_id(raw_study_label: str) -> str:
+        return extract_unique_study_id(raw_study_label)
+
+    @staticmethod
+    def count_independent_studies(study_labels: List[str]) -> int:
+        return count_independent_studies(study_labels)
+
+    @staticmethod
+    def compute_true_cohort_n(arms_df: pd.DataFrame, studies_df: Optional[pd.DataFrame] = None) -> int:
+        return compute_true_cohort_n(arms_df, studies_df)
+
+    @staticmethod
+    def check_meta_analysis_eligibility(effects: List[Any], parameter_name: str = "", studies_df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+        rep = assess_meta_analysis_eligibility(effects, studies_df, parameter_name)
+        k_unique = count_independent_studies([getattr(e, "study_id", "") for e in effects if e])
+        k_comp = len([e for e in effects if e])
+        return {
+            "eligible": rep.is_eligible,
+            "status_code": rep.status_code,
+            "k_studies": k_unique,
+            "k_comparisons": k_comp,
+            "heterogeneity_estimable": k_unique >= 2,
+            "model_recommended": "Random-Effects (REML/DL)" if k_unique >= 3 else ("Fixed-Effect (Single Trial)" if k_unique < 2 else "Fixed-Effect (Two Studies)"),
+            "rationale": rep.methodological_rationale
+        }
+
+    @staticmethod
+    def check_publication_bias_eligibility(k_studies: int) -> Dict[str, Any]:
+        return {
+            "eligible": k_studies >= 10,
+            "status": "ESTIMABLE" if k_studies >= 10 else f"NOT_ESTIMABLE_INSUFFICIENT_INDEPENDENT_STUDIES (k < 10)",
+            "reason": f"Funnel plot asymmetry tests require at least 10 independent studies (observed k={k_studies})." if k_studies < 10 else "Sufficient independent studies for publication bias diagnostics."
+        }
+
+    @staticmethod
+    def check_nma_network(treatments: List[str], comparisons: List[Tuple[str, str]], k_studies: int) -> Dict[str, Any]:
+        rep = assess_network_meta_and_sucra_eligibility(k_studies, len(treatments))
+        return {
+            "eligible": rep.is_eligible,
+            "status_code": rep.status_code,
+            "reason": rep.methodological_rationale
+        }
+
+    @staticmethod
+    def check_predictive_projection_eligibility(observed_doses: List[float], observed_durations: List[float], target_dose: float, target_duration: float) -> Tuple[bool, str, str]:
+        return assess_predictive_projection_eligibility(observed_doses, observed_durations, target_dose, target_duration)
+
+    @staticmethod
+    def validate_therapeutic_optimum(candidate_dose_mg: float, observed_doses: List[float], drug_name: str = "") -> Tuple[bool, str, float]:
+        return validate_therapeutic_optimum(candidate_dose_mg, observed_doses, drug_name)
+
