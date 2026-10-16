@@ -597,7 +597,8 @@ class ExcelTrialExporter:
                 # Block 4C: Safety & Adverse Events
                 # Safety data is evaluated across the cumulative study treatment period.
                 # Display safety counts on the primary follow-up row for this arm (e.g. Day 28 or study duration), and display reference markers '—' on interim intra-day rows.
-                target_safe_tp = str(s.duration_value) if any(t[0] == str(s.duration_value) for t in sorted_timepoints) else (sorted_timepoints[-1][0] if sorted_timepoints else "28")
+                dur_str = str(int(s.duration_value)) if (s.duration_value is not None and float(s.duration_value).is_integer()) else str(s.duration_value or "")
+                target_safe_tp = dur_str if any(t[0] == dur_str for t in sorted_timepoints) else (sorted_timepoints[-1][0] if sorted_timepoints else "28")
                 is_safety_display_row = (tp_v == target_safe_tp)
                 for p_name, start_c in safe_col_map.items():
                     matched_safe = next((o for o in arm_outcomes if (o.parameter_name.strip() == p_name or (p_name == "Any Adverse Event" and o.parameter_name.lower().strip() in ["adverse events", "any adverse events", "any adverse event"])) and o.domain == "safety_adverse_events"), None)
