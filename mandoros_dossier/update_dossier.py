@@ -5,7 +5,7 @@ from pathlib import Path
 
 DOSSIER_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = DOSSIER_DIR.parent
-ARTIFACT_DIR = Path(r"C:\Users\Mando\.gemini\antigravity\brain\15684f81-3661-4ee4-ac9e-9e2058e52711")
+ARTIFACT_DIR = Path(r"C:\Users\Mando\.gemini\antigravity\brain\9da39fe9-4038-4a04-9811-0da98b4666f1")
 
 CHROME_BIN = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 if not os.path.exists(CHROME_BIN):
@@ -1880,11 +1880,6 @@ def update_all():
 
     # 1. Dossier PDF
     html_file = DOSSIER_DIR / "mandoros_dossier.html"
-    scratch_file = Path(r"C:\Users\Mando\.gemini\antigravity\brain\15684f81-3661-4ee4-ac9e-9e2058e52711\scratch\mandoros_dossier.html")
-    
-    if scratch_file.exists():
-        shutil.copy2(scratch_file, html_file)
-    
     pdf_out_dossier = DOSSIER_DIR / "MANDOROS_Platform_Specification_Dossier.pdf"
     pdf_out_root = PROJECT_ROOT / "MANDOROS_Platform_Specification_Dossier.pdf"
     pdf_out_artifact = ARTIFACT_DIR / "MANDOROS_Platform_Specification_Dossier.pdf"
@@ -1904,28 +1899,50 @@ def update_all():
             shutil.copy2(pdf_out_dossier, pdf_out_artifact)
         print(f"[OK] Dossier PDF: {pdf_out_dossier.name} ({pdf_out_dossier.stat().st_size:,} bytes)")
 
-    # 2. Synchronize Presentations (PPTX, PDF, HTML)
+    # 2. Presentation PDF compilation from HTML
+    pres_html = PROJECT_ROOT / "MANDOROS_Global_Academic_Presentation.html"
+    pres_pdf_root = PROJECT_ROOT / "MANDOROS_Global_Academic_Presentation.pdf"
+    pres_pdf_dossier = DOSSIER_DIR / "MANDOROS_Global_Academic_Presentation.pdf"
+    pres_pdf_artifact = ARTIFACT_DIR / "MANDOROS_Global_Academic_Presentation.pdf"
+
+    if pres_html.exists():
+        cmd_pres = [
+            CHROME_BIN,
+            "--headless=new",
+            "--disable-gpu",
+            "--no-pdf-header-footer",
+            f"--print-to-pdf={str(pres_pdf_root)}",
+            str(pres_html.resolve())
+        ]
+        subprocess.run(cmd_pres, check=True)
+        shutil.copy2(pres_pdf_root, pres_pdf_dossier)
+        if ARTIFACT_DIR.exists():
+            shutil.copy2(pres_pdf_root, pres_pdf_artifact)
+        print(f"[OK] Presentation PDF recompiled: {pres_pdf_root.name} ({pres_pdf_root.stat().st_size:,} bytes)")
+
+    # 3. Synchronize Presentations (PPTX, PDF, HTML)
     for ext in [".pptx", ".pdf", ".html"]:
         deck_file = DOSSIER_DIR / f"MANDOROS_Global_Academic_Presentation{ext}"
         root_deck = PROJECT_ROOT / f"MANDOROS_Global_Academic_Presentation{ext}"
         artifact_deck = ARTIFACT_DIR / f"MANDOROS_Global_Academic_Presentation{ext}"
         
-        # Sync between dossier, root, and artifacts
+        # Priority: Root -> Dossier -> Artifact
         source = None
-        if deck_file.exists():
+        if root_deck.exists():
+            source = root_deck
+        elif deck_file.exists():
             source = deck_file
         elif artifact_deck.exists():
             source = artifact_deck
-            shutil.copy2(source, deck_file)
-        elif root_deck.exists():
-            source = root_deck
-            shutil.copy2(source, deck_file)
 
         if source and source.exists():
-            shutil.copy2(source, root_deck)
-            if ARTIFACT_DIR.exists():
+            if source.resolve() != root_deck.resolve():
+                shutil.copy2(source, root_deck)
+            if source.resolve() != deck_file.resolve():
+                shutil.copy2(source, deck_file)
+            if ARTIFACT_DIR.exists() and source.resolve() != artifact_deck.resolve():
                 shutil.copy2(source, artifact_deck)
-            print(f"[OK] Presentation ({ext}): {deck_file.name} ({deck_file.stat().st_size:,} bytes)")
+            print(f"[OK] Presentation ({ext}): {root_deck.name} ({root_deck.stat().st_size:,} bytes)")
 
     print(f"[OK] All documentation and presentations synchronized successfully across project root, dossier archive, and conversation artifacts.")
 
