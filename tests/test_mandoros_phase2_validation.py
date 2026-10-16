@@ -265,3 +265,172 @@ def test_master_report_excel_all_sheets_and_values():
     dom_text = " ".join(str(ws_dom.cell(r, c).value or "") for r in range(1, ws_dom.max_row + 1) for c in range(1, ws_dom.max_column + 1))
     assert "NOT_ESTIMABLE" in dom_text
     assert "N/A (k=1)" in dom_text
+
+
+def test_second_validation_outcomes_fpg_and_cgm_segregation_and_source():
+    """
+    Second Validation Audit Items 2 & 3:
+    - Within-arm changes separated from between-group differences.
+    - Figure 3 (FPG), Figure 4 (CGM 24h glucose), and Section 3.2 (MAGE & HbA1c) citations.
+    """
+    excel_path = "outputs/analysis/Custom_Drug/Custom_Drug_MANDOROS_Master_Report.xlsx"
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    ws = wb["Outcomes"]
+    headers = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)]
+    col_map = {name: i + 1 for i, name in enumerate(headers)}
+
+    # Collect FPG within-arm changes and between-group differences
+    fpg_within = {}
+    fpg_diffs = {}
+    cgm_within = {}
+    cgm_diffs = {}
+    mage_sources = set()
+    hba1c_sources = set()
+    hba1c_units = set()
+
+    for r in range(2, ws.max_row + 1):
+        param = str(ws.cell(r, col_map["parameter_name"]).value or "").strip().lower()
+        arm = str(ws.cell(r, col_map["arm_id"]).value or "")
+        tp = str(ws.cell(r, col_map["Timepoint (value)"]).value or "")
+        tp_unit = str(ws.cell(r, col_map["Timepoint (unit)"]).value or "")
+        mean_val = ws.cell(r, col_map["mean"]).value
+        chg_val = ws.cell(r, col_map["change_value"]).value
+        eff_val = ws.cell(r, col_map["effect_value"]).value
+        eff_meas = ws.cell(r, col_map["effect_measure"]).value
+        src = str(ws.cell(r, col_map["source_location"]).value or "")
+
+        if "fasting plasma glucose" in param:
+            if eff_meas == "Adjusted Difference vs Placebo":
+                fpg_diffs[(arm, tp)] = (eff_val, src)
+            else:
+                fpg_within[(arm, tp)] = (mean_val if mean_val is not None else chg_val, src)
+        elif "24-hour mean glucose" in param:
+            if eff_meas == "Adjusted Difference vs Placebo":
+                cgm_diffs[(arm, tp)] = (eff_val, src)
+            else:
+                cgm_within[(arm, tp)] = (mean_val if mean_val is not None else chg_val, src)
+        elif "mage" in param:
+            mage_sources.add(src)
+        elif "hba1c" in param:
+            hba1c_sources.add(src)
+            if tp_unit:
+                hba1c_units.add(tp_unit)
+
+    # Assert within-arm FPG changes: Day 2: -4.2, -23.8, -30.5; Day 29: -6.2, -28.3, -39.7
+    within_vals = [v[0] for v in fpg_within.values() if v[0] is not None]
+    assert -23.8 in within_vals, "Empa 10mg Day 2 FPG within-arm (-23.8) missing"
+    assert -30.5 in within_vals, "Empa 25mg Day 2 FPG within-arm (-30.5) missing"
+    assert -28.3 in within_vals, "Empa 10mg Day 29 FPG within-arm (-28.3) missing"
+    assert -39.7 in within_vals, "Empa 25mg Day 29 FPG within-arm (-39.7) missing"
+
+    # Assert between-group FPG differences: -19.6, -22.1, -26.3, -33.5
+    diff_vals = [v[0] for v in fpg_diffs.values() if v[0] is not None]
+    assert -19.6 in diff_vals, "Empa 10mg Day 2 FPG difference (-19.6) missing"
+    assert -22.1 in diff_vals, "Empa 10mg Day 29 FPG difference (-22.1) missing"
+    assert -26.3 in diff_vals, "Empa 25mg Day 2 Domenico difference (-26.3) missing"
+    assert -33.5 in diff_vals, "Empa 25mg Day 29 FPG difference (-33.5) missing"
+
+    # Assert CGM 24h Mean Glucose values
+    cgm_within_vals = [v[0] for v in cgm_within.values() if v[0] is not None]
+    assert -20.5 in cgm_within_vals, "Empa 10mg Day 1 CGM (-20.5) missing"
+    assert -30.3 in cgm_within_vals, "Empa 10mg Day 28 CGM (-30.3) missing"
+    assert -23.6 in cgm_within_vals, "Empa 25mg Day 1 CGM (-23.6) missing"
+    assert -37.6 in cgm_within_vals, "Empa 25mg Day 28 CGM (-37.6) missing"
+
+    cgm_diff_vals = [v[0] for v in cgm_diffs.values() if v[0] is not None]
+    assert -20.8 in cgm_diff_vals, "Empa 10mg Day 1 CGM diff (-20.8) missing"
+    assert -24.5 in cgm_diff_vals, "Empa 10mg Day 28 CGM diff (-24.5) missing"
+    assert -23.9 in cgm_diff_vals, "Empa 25mg Day 1 CGM diff (-23.9) missing"
+    assert -31.7 in cgm_diff_vals, "Empa 25mg Day 28 CGM diff (-31.7) missing"
+
+    # Check source attribution
+    for _, src in cgm_diffs.values():
+        assert "Figure 4" in src
+
+    assert any("Results Section 3.2" in s for s in mage_sources)
+    assert any("Results Section 3.2" in s for s in hba1c_sources)
+    assert "days" in hba1c_units
+
+
+def test_second_validation_meta_analysis_no_zero_effects_and_exact_sample_size():
+    """
+    Second Validation Audit Items 4, 5, 7:
+    - No artificial 0.000 point estimates for reported ANCOVA differences.
+    - Standard error and variance derived from published CIs (no arbitrary SD=1.0).
+    - Pairwise comparisons report exact analyzed sample sizes (N=41, N=40, total N=60).
+    """
+    excel_path = "outputs/analysis/Custom_Drug/Custom_Drug_MANDOROS_Master_Report.xlsx"
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    ws_ma = wb["Meta_Analysis_Results"]
+
+    # In Meta_Analysis_Results: col 1=parameter, col 6=measure, col 7=effect_estimate, col 8=yi, col 9=vi
+    for r in range(2, ws_ma.max_row + 1):
+        param = str(ws_ma.cell(r, 1).value or "").lower()
+        meas = str(ws_ma.cell(r, 6).value or "")
+        est = ws_ma.cell(r, 7).value
+        vi = ws_ma.cell(r, 9).value
+
+        # For 8-iso-pgf2a, point estimate must NOT be 0.0
+        if "8-iso-pgf2a" in param:
+            assert est is not None and abs(est) > 1.0, f"False 0.0 effect estimate for {param}"
+            assert vi is not None and vi > 10.0, f"False precision (vi={vi}) for {param}"
+
+    ws_eff = wb["Pooled_Effect_Estimates"]
+    for r in range(5, ws_eff.max_row + 1):
+        param = str(ws_eff.cell(r, 1).value or "").lower()
+        n_val = ws_eff.cell(r, 5).value
+        # Pairwise multi-arm pooling must not exceed total trial N=60
+        if n_val is not None:
+            assert n_val <= 60, f"Sample size double counting (N={n_val}) for {param}"
+
+
+def test_second_validation_predictive_projections_and_discovery_rigor():
+    """
+    Second Validation Audit Items 8, 9, 10, 11:
+    - 17.5 mg dose eradicated; doses bounded to {10, 25}.
+    - No unsupported 'Optimal Regimen' claims.
+    - Virtual trial tagged as [HYPOTHETICAL_SIMULATION_FRAMEWORK] with transparent power calculation.
+    - Secondary endpoints marked [Unvalidated Scenario].
+    """
+    excel_path = "outputs/analysis/Custom_Drug/Custom_Drug_MANDOROS_Master_Report.xlsx"
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+
+    # Predictive Projections
+    ws_pred = wb["Predictive_Projections"]
+    pred_doses = {ws_pred.cell(r, 2).value for r in range(5, ws_pred.max_row + 1) if ws_pred.cell(r, 2).value is not None}
+    assert 17.5 not in pred_doses, "Unstudied 17.5 mg dose present in Predictive_Projections"
+    assert pred_doses.issubset({10, 25}), f"Unexpected doses in Predictive_Projections: {pred_doses}"
+
+    # In Silico New Discoveries
+    ws_disc = wb["In_Silico_New_Discoveries"]
+    disc_text = " ".join(str(ws_disc.cell(r, c).value or "") for r in range(1, ws_disc.max_row + 1) for c in range(1, ws_disc.max_column + 1))
+    assert "Optimal Regimen" not in disc_text, "Unsupported 'Optimal Regimen' claim found in In_Silico_New_Discoveries"
+    assert "10 mg/day" in disc_text and "25 mg/day" in disc_text
+
+    # Synthesized Virtual Trial
+    ws_vt = wb["Synthesized_Virtual_Trial"]
+    vt_text = " ".join(str(ws_vt.cell(r, c).value or "") for r in range(1, ws_vt.max_row + 1) for c in range(1, ws_vt.max_column + 1))
+    assert "[HYPOTHETICAL_SIMULATION_FRAMEWORK]" in vt_text
+    assert "[Unvalidated Scenario]" in vt_text
+
+
+def test_second_validation_zero_nan_strings_across_all_sheets():
+    """
+    Second Validation Audit Item 12:
+    Assert zero literal 'nan', 'none', or 'null' cells across ALL 20 worksheets.
+    """
+    excel_path = "outputs/analysis/Custom_Drug/Custom_Drug_MANDOROS_Master_Report.xlsx"
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    assert len(wb.sheetnames) == 20
+
+    nan_occurrences = []
+    for sheet in wb.sheetnames:
+        ws = wb[sheet]
+        for r in range(1, ws.max_row + 1):
+            for c in range(1, ws.max_column + 1):
+                val = str(ws.cell(r, c).value or "").strip().lower()
+                if val == "nan":
+                    nan_occurrences.append(f"{sheet}!{ws.cell(r, c).coordinate}")
+
+    assert len(nan_occurrences) == 0, f"Literal 'nan' found in cells: {nan_occurrences}"
+

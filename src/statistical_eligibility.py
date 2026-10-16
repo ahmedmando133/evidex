@@ -281,6 +281,71 @@ def assess_predictive_projection_eligibility(
     return True, "VALIDATED_PREDICTION", "Target parameters fall within evidence bounds."
 
 
+def assess_domain_pooling_eligibility(
+    effects: List[Any],
+    domain_name: str = ""
+) -> Tuple[bool, str, str]:
+    """
+    Evaluates whether pooling heterogeneous parameters under a shared domain is methodologically sound.
+    Cochrane / PRISMA law:
+    - Domain membership alone does not justify meta-analytic pooling.
+    - Outcomes must represent identical clinical constructs, compatible timepoints, and k_studies >= 2.
+    - Pooling across distinct endpoints (e.g., FPG with CGM, or lipid fractions) or single-trial cohorts is NOT_ESTIMABLE.
+    """
+    if not effects or len(effects) < 2:
+        return False, "NOT_ESTIMABLE_INSUFFICIENT_DATA", "Domain-level pooling requires at least 2 compatible effect estimates."
+
+    params = {getattr(e, "parameter_name", "") for e in effects if getattr(e, "parameter_name", "")}
+    study_ids = [getattr(e, "study_id", "") for e in effects if getattr(e, "study_id", "")]
+    k_studies = count_independent_studies(study_ids)
+
+    # 1. Single study rule
+    if k_studies < 2:
+        return (
+            False,
+            "NOT_ESTIMABLE_SINGLE_TRIAL",
+            f"Domain '{domain_name}' pooling is NOT_ESTIMABLE in a single-trial dataset (k=1). "
+            "Meta-analytic pooling across differing endpoints within the same trial creates severe "
+            "unit-of-analysis dependency and conflates distinct clinical constructs."
+        )
+
+    # 2. Construct heterogeneity check
+    if len(params) > 1:
+        return (
+            False,
+            "NOT_ESTIMABLE_HETEROGENEOUS_CONSTRUCTS",
+            f"Domain '{domain_name}' contains {len(params)} distinct clinical constructs ({', '.join(params)}). "
+            "Omnibus pooling of clinically unrelated endpoints into a single SMD is methodologically invalid."
+        )
+
+    return True, "ELIGIBLE_DOMAIN_POOLING", "Eligible for domain-level meta-analysis."
+
+
+def assess_dose_response_model_eligibility(
+    observed_doses: List[float],
+    k_studies: int
+) -> Tuple[bool, str, str]:
+    """
+    Evaluates eligibility for continuous dose-response meta-regression or in-silico interpolation.
+    Biostatistical requirement:
+    - Minimum of 3 distinct dose levels (k_doses >= 3) or multi-trial longitudinal data (k_studies >= 2)
+      with reproducible parameter estimates and validation.
+    - In single-trial cohorts with only 2 active doses, interpolation of unstudied intermediate doses
+      (e.g. 17.5 mg) or unvalidated curve fitting is unsupported.
+    """
+    unique_doses = sorted(list(set(d for d in observed_doses if d is not None and d > 0)))
+    if len(unique_doses) < 3 and k_studies < 2:
+        return (
+            False,
+            "INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION",
+            f"Observed data contains only {len(unique_doses)} active dose levels ({unique_doses}) from a single trial (k=1). "
+            "Fitting a validated non-linear dose-response model requires at least 3 distinct active dose levels or "
+            "multi-trial longitudinal data. Interpolation for unstudied doses is methodologically unsupported."
+        )
+
+    return True, "ELIGIBLE_DOSE_RESPONSE_MODEL", "Sufficient dose variation and independent evidence for dose-response modeling."
+
+
 def validate_therapeutic_optimum(
     candidate_dose_mg: float,
     observed_doses: List[float],
@@ -378,6 +443,14 @@ class StatisticalEligibilityEngine:
     @staticmethod
     def check_predictive_projection_eligibility(observed_doses: List[float], observed_durations: List[float], target_dose: float, target_duration: float) -> Tuple[bool, str, str]:
         return assess_predictive_projection_eligibility(observed_doses, observed_durations, target_dose, target_duration)
+
+    @staticmethod
+    def check_domain_pooling_eligibility(effects: List[Any], domain_name: str = "") -> Tuple[bool, str, str]:
+        return assess_domain_pooling_eligibility(effects, domain_name)
+
+    @staticmethod
+    def check_dose_response_model_eligibility(observed_doses: List[float], k_studies: int) -> Tuple[bool, str, str]:
+        return assess_dose_response_model_eligibility(observed_doses, k_studies)
 
     @staticmethod
     def validate_therapeutic_optimum(candidate_dose_mg: float, observed_doses: List[float], drug_name: str = "") -> Tuple[bool, str, float]:

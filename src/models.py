@@ -21,11 +21,18 @@ class StudyMetadata(BaseModel):
         default="Randomized Controlled Trial",
         description="e.g. Randomized, Double-blind, Placebo-controlled trial"
     )
-    study_phase: Optional[str] = Field(default=None, description="e.g. Phase III, 2-year double-blind phase, follow-up")
+    study_phase: str = Field(default="Not explicitly reported", description="e.g. Phase III, Phase II, or Not explicitly reported")
     total_sample_size: Optional[int] = Field(default=None, description="Total number of randomized participants")
     duration_value: Optional[float] = Field(default=None, description="Overall duration numeric value")
     duration_unit: Optional[str] = Field(default=None, description="e.g. weeks, months, years")
     condition_studied: Optional[str] = Field(default=None, description="Target clinical condition, e.g. Obesity, Prediabetes")
+
+    @field_validator("study_phase", mode="before")
+    @classmethod
+    def normalize_study_phase(cls, v):
+        if not v or str(v).strip().lower() in ["none", "nan", "", "null"]:
+            return "Not explicitly reported"
+        return str(v).strip()
 
 
 # ---------------------------------------------------------
@@ -513,6 +520,12 @@ class OutcomeMeasurement(BaseModel):
         # 4. Strictly remove fake 'Overall' race fallbacks
         if self.race and str(self.race).strip().lower() in ["overall", "all", "total", "n/a", "none"]:
             self.race = None
+
+        # 5. Sanitize literal 'nan' or 'null' in string fields
+        for attr in ["timepoint_unit", "analysis_population", "source_location", "raw_source_text", "unit", "dispersion_type", "p_value"]:
+            val = getattr(self, attr, None)
+            if val is not None and str(val).strip().lower() in ["nan", "none", "null"]:
+                setattr(self, attr, None)
 
 
 # ---------------------------------------------------------

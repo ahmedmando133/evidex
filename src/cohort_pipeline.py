@@ -401,6 +401,13 @@ class ActiveIngredientCohortPipeline:
                         odf["source_workbook"] = wb_path.name
                         if "arm_id" in odf.columns:
                             odf["arm_id"] = trial_id + "_" + odf["arm_id"].astype(str)
+                        if "timepoint" not in odf.columns or odf["timepoint"].isna().all():
+                            tp_v = odf["Timepoint (value)"] if "Timepoint (value)" in odf.columns else (odf["timepoint_value"] if "timepoint_value" in odf.columns else None)
+                            tp_u = odf["Timepoint (unit)"] if "Timepoint (unit)" in odf.columns else (odf["timepoint_unit"] if "timepoint_unit" in odf.columns else None)
+                            if tp_v is not None and tp_u is not None:
+                                odf["timepoint"] = tp_v.astype(str).str.replace(".0", "", regex=False) + " " + tp_u.astype(str)
+                            elif tp_v is not None:
+                                odf["timepoint"] = tp_v.astype(str).str.replace(".0", "", regex=False)
                         outcomes_list.append(odf)
 
                 # 5. Validation_Log
@@ -782,56 +789,142 @@ class ActiveIngredientCohortPipeline:
                     ctrl_events_split = ctrl_events
 
                 for e_row, a_info in unique_exp_rows:
+                    e_tp = str(e_row.get("timepoint", ""))
+                    # Match control row by timepoint to ensure commensurate baseline vs follow-up comparison
+                    c_match = next((c for c in ctrl_rows if str(c.get("timepoint", "")) == e_tp), None)
+                    if c_match is None and ctrl_rows:
+                        c_match = ctrl_rows[0]
+
+                    if c_match is not None:
+                        c_arm_info = arm_meta.get(str(c_match.get("arm_id", "")), {})
+                        ctrl_arm_name = c_arm_info.get("arm_name", "Control")
+                        ctrl_n = _safe_int(c_match.get("sample_size") or c_arm_info.get("sample_size"), 100)
+                        ctrl_mean = _safe_float(c_match.get("mean") if c_match.get("mean") is not None else c_match.get("change_value"), 0.0)
+                        ctrl_events = _safe_int(c_match.get("events"), 0)
+                    else:
+                        s_arms = [a for a_k, a in arm_meta.items() if a["study_id"] == s_id]
+                        ctrl_arm = next((a for a in s_arms if "placebo" in a["intervention_type"] or "control" in a["intervention_type"]), None)
+                        ctrl_arm_name = ctrl_arm["arm_name"] if ctrl_arm else "Control"
+                        ctrl_n = _safe_int(ctrl_arm["sample_size"] if ctrl_arm else None, 100)
+                        ctrl_mean = 0.0
+                        ctrl_events = 0
+
+                    if k_active > 1:
+                        ctrl_n_split = max(1, int(round(ctrl_n / k_active)))
+                        ctrl_events_split = max(0, int(round(ctrl_events / k_active)))
+                    else:
+                        ctrl_n_split = ctrl_n
+                        ctrl_events_split = ctrl_events
+
                     exp_arm_name = a_info.get("arm_name", "Active")
                     dose_val = a_info.get("dose_value")
-                    exp_n = _safe_int(e_row.get("sample_size") or a_info.get("sample_size"), 100)
-                    exp_mean = _safe_float(e_row.get("mean") if e_row.get("mean") is not None else e_row.get("change_value"), 0.0)
-                    exp_sd = max(0.01, _safe_float(e_row.get("sd"), 1.0))
-                    exp_events = _safe_int(e_row.get("events"), 0)
+                    exp_n = _safe_int(e_row.get("sample_size") or a_info.get("sample_size"), 20)
                     stat_type = str(e_row.get("statistical_type", "continuous")).lower()
-
-                    # Explicit comparison label distinguishing dose comparisons
                     comp_study_label = f"{s_id} [{exp_arm_name} vs {ctrl_arm_name}]" if k_active > 1 else s_id
 
-                    # Strict distinction: continuous differences (MD) vs dichotomous risk ratios (OR)
-                    is_dichotomous = (
-                        stat_type in ["dichotomous", "binary", "rate", "proportions"] or
-                        (e_row.get("events") is not None and pd.notna(e_row.get("events")) and
-                         pd.isna(e_row.get("mean")) and pd.isna(e_row.get("change_value")))
-                    )
+                    # 1. PRIORITY A: Directly reported ANCOVA or comparative treatment effect
+                    eff_val_raw = e_row.get("effect_value")
+                    ci_l_raw = e_row.get("ci_lower")
+                    ci_u_raw = e_row.get("ci_upper")
+                    eff_meas_raw = e_row.get("effect_measure")
 
-                    if is_dichotomous:
-                        eff = compute_dichotomous_effect_size(
-                            study_id=comp_study_label,
-                            arm_exp=exp_arm_name,
-                            arm_ctrl=ctrl_arm_name,
-                            parameter=param_name,
-                            timepoint=str(e_row.get("timepoint", "")),
-                            events1=exp_events,
-                            total1=exp_n,
-                            events2=ctrl_events_split,
-                            total2=ctrl_n_split,
-                            measure="OR",
-                            dose_mg=float(dose_val) if dose_val and not math.isnan(float(dose_val)) else None,
-                            duration_weeks=dur_weeks
-                        )
+                    eff = None
+                    if eff_val_raw is not None and pd.notna(eff_val_raw):
+                        try:
+                            yi_val = float(eff_val_raw)
+                            if ci_l_raw is not None and ci_u_raw is not None and pd.notna(ci_l_raw) and pd.notna(ci_u_raw):
+                                ci_l_f = float(ci_l_raw)
+                                ci_u_f = float(ci_u_raw)
+                                se_val = max(1e-4, abs(ci_u_f - ci_l_f) / 3.92)
+                                vi_val = se_val ** 2
+                            elif e_row.get("se") is not None and pd.notna(e_row.get("se")):
+                                se_val = max(1e-4, float(e_row.get("se")))
+                                vi_val = se_val ** 2
+                                ci_l_f = yi_val - 1.96 * se_val
+                                ci_u_f = yi_val + 1.96 * se_val
+                            else:
+                                continue
+
+                            eff = EffectSizeResult(
+                                study_id=comp_study_label,
+                                arm_experimental=exp_arm_name,
+                                arm_control=ctrl_arm_name,
+                                parameter_name=param_name,
+                                timepoint=str(e_row.get("timepoint", "")),
+                                measure=str(eff_meas_raw or "MD"),
+                                yi=yi_val,
+                                vi=vi_val,
+                                se=se_val,
+                                ci_lower=ci_l_f,
+                                ci_upper=ci_u_f,
+                                n_exp=exp_n,
+                                n_ctrl=ctrl_n,
+                                dose_mg=float(dose_val) if dose_val and not math.isnan(float(dose_val)) else None,
+                                duration_weeks=dur_weeks
+                            )
+                        except Exception:
+                            eff = None
                     else:
-                        eff = compute_continuous_effect_size(
-                            study_id=comp_study_label,
-                            arm_exp=exp_arm_name,
-                            arm_ctrl=ctrl_arm_name,
-                            parameter=param_name,
-                            timepoint=str(e_row.get("timepoint", "")),
-                            n1=exp_n,
-                            m1=exp_mean,
-                            s1=max(exp_sd, 0.01),
-                            n2=max(2, ctrl_n_split),
-                            m2=ctrl_mean,
-                            s2=max(ctrl_sd, 0.01),
-                            measure="MD",
-                            dose_mg=float(dose_val) if dose_val and not math.isnan(float(dose_val)) else None,
-                            duration_weeks=dur_weeks
+                        # 2. PRIORITY B: Compute from within-arm summary statistics (requires genuine, reported numbers)
+                        is_dichotomous = (
+                            stat_type in ["dichotomous", "binary", "rate", "proportions"] or
+                            (e_row.get("events") is not None and pd.notna(e_row.get("events")) and
+                             pd.isna(e_row.get("mean")) and pd.isna(e_row.get("change_value")))
                         )
+
+                        if is_dichotomous:
+                            exp_events = _safe_int(e_row.get("events"), None)
+                            if exp_events is not None and ctrl_events is not None:
+                                eff = compute_dichotomous_effect_size(
+                                    study_id=comp_study_label,
+                                    arm_exp=exp_arm_name,
+                                    arm_ctrl=ctrl_arm_name,
+                                    parameter=param_name,
+                                    timepoint=str(e_row.get("timepoint", "")),
+                                    events1=exp_events,
+                                    total1=exp_n,
+                                    events2=ctrl_events_split,
+                                    total2=ctrl_n_split,
+                                    measure="OR",
+                                    dose_mg=float(dose_val) if dose_val and not math.isnan(float(dose_val)) else None,
+                                    duration_weeks=dur_weeks
+                                )
+                        else:
+                            # Continuous: NEVER substitute 0.0 for missing mean or 1.0 for missing SD!
+                            raw_m1 = e_row.get("mean") if (e_row.get("mean") is not None and pd.notna(e_row.get("mean"))) else e_row.get("change_value")
+                            raw_m2 = (c_match.get("mean") if (c_match.get("mean") is not None and pd.notna(c_match.get("mean"))) else c_match.get("change_value")) if c_match is not None else None
+                            raw_s1 = e_row.get("sd") if (e_row.get("sd") is not None and pd.notna(e_row.get("sd"))) else e_row.get("change_sd")
+                            raw_s2 = (c_match.get("sd") if (c_match.get("sd") is not None and pd.notna(c_match.get("sd"))) else c_match.get("change_sd")) if c_match is not None else None
+
+                            # If SE reported instead of SD, convert SD = SE * sqrt(N)
+                            raw_se1 = e_row.get("se") if (e_row.get("se") is not None and pd.notna(e_row.get("se"))) else e_row.get("change_se")
+                            raw_se2 = (c_match.get("se") if (c_match.get("se") is not None and pd.notna(c_match.get("se"))) else c_match.get("change_se")) if c_match is not None else None
+                            if (raw_s1 is None or pd.isna(raw_s1)) and raw_se1 is not None and pd.notna(raw_se1):
+                                raw_s1 = float(raw_se1) * math.sqrt(max(1, exp_n))
+                            if (raw_s2 is None or pd.isna(raw_s2)) and raw_se2 is not None and pd.notna(raw_se2):
+                                raw_s2 = float(raw_se2) * math.sqrt(max(1, ctrl_n))
+
+                            if (raw_m1 is not None and pd.notna(raw_m1) and
+                                raw_m2 is not None and pd.notna(raw_m2) and
+                                raw_s1 is not None and pd.notna(raw_s1) and
+                                raw_s2 is not None and pd.notna(raw_s2) and
+                                float(raw_s1) > 0 and float(raw_s2) > 0):
+                                eff = compute_continuous_effect_size(
+                                    study_id=comp_study_label,
+                                    arm_exp=exp_arm_name,
+                                    arm_ctrl=ctrl_arm_name,
+                                    parameter=param_name,
+                                    timepoint=str(e_row.get("timepoint", "")),
+                                    n1=exp_n,
+                                    m1=float(raw_m1),
+                                    s1=float(raw_s1),
+                                    n2=max(2, ctrl_n_split),
+                                    m2=float(raw_m2),
+                                    s2=float(raw_s2),
+                                    measure="MD",
+                                    dose_mg=float(dose_val) if dose_val and not math.isnan(float(dose_val)) else None,
+                                    duration_weeks=dur_weeks
+                                )
 
                     if eff:
                         # Match drug robustly across arm name, intervention, and study context
@@ -1268,6 +1361,20 @@ class ActiveIngredientCohortPipeline:
                 rtxt = str(r.get("raw_source_text") or "")
                 rc = str(r.get("race")) if (pd.notna(r.get("race")) and str(r.get("race")).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else None
                 gen = str(r.get("gender")) if pd.notna(r.get("gender")) else None
+                eff_m = str(r.get("effect_measure")) if pd.notna(r.get("effect_measure")) else None
+                eff_v = float(r.get("effect_value")) if pd.notna(r.get("effect_value")) else None
+                ci_l = float(r.get("ci_lower")) if pd.notna(r.get("ci_lower")) else None
+                ci_u = float(r.get("ci_upper")) if pd.notna(r.get("ci_upper")) else None
+                is_diff = bool(r.get("is_between_group_diff")) if pd.notna(r.get("is_between_group_diff")) else False
+                is_prim = False
+                if pd.notna(r.get("is_primary")):
+                    p_str = str(r.get("is_primary")).strip().upper()
+                    is_prim = p_str in ["YES", "TRUE", "1"]
+                disp_t = str(r.get("dispersion_type")) if pd.notna(r.get("dispersion_type")) else None
+                an_pop = str(r.get("analysis_population")) if pd.notna(r.get("analysis_population")) else None
+                r_val = float(r.get("ratio")) if pd.notna(r.get("ratio")) else None
+                r_cil = float(r.get("ratio_ci_lower")) if pd.notna(r.get("ratio_ci_lower")) else None
+                r_ciu = float(r.get("ratio_ci_upper")) if pd.notna(r.get("ratio_ci_upper")) else None
 
                 outcomes.append(OutcomeMeasurement(
                     outcome_id=o_id,
@@ -1292,6 +1399,17 @@ class ActiveIngredientCohortPipeline:
                     total=tot,
                     percentage=pct,
                     unit=un,
+                    effect_measure=eff_m,
+                    effect_value=eff_v,
+                    ci_lower=ci_l,
+                    ci_upper=ci_u,
+                    is_between_group_diff=is_diff,
+                    is_primary=is_prim,
+                    dispersion_type=disp_t,
+                    analysis_population=an_pop,
+                    ratio=r_val,
+                    ratio_ci_lower=r_cil,
+                    ratio_ci_upper=r_ciu,
                     p_value=p_v,
                     source_page=sp,
                     source_location=sloc,
@@ -1853,14 +1971,25 @@ class ActiveIngredientCohortPipeline:
         for param, pred_eng in self.predictors.items():
             grid = pred_eng.generate_dose_duration_grid()
             for proj in grid:
+                if math.isnan(proj.predicted_effect):
+                    pred_effect_str = "INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION"
+                    ci_l_str = "NOT_ESTIMABLE"
+                    ci_u_str = "NOT_ESTIMABLE"
+                    pi_str = "NOT_ESTIMABLE"
+                else:
+                    pred_effect_str = round(proj.predicted_effect, 3)
+                    ci_l_str = round(proj.ci_lower, 3)
+                    ci_u_str = round(proj.ci_upper, 3)
+                    pi_str = f"[{proj.pi_lower:+.2f}, {proj.pi_upper:+.2f}]"
+
                 vals = [
                     param,
                     proj.dose_mg,
                     proj.duration_weeks,
-                    round(proj.predicted_effect, 3),
-                    round(proj.ci_lower, 3),
-                    round(proj.ci_upper, 3),
-                    f"[{proj.pi_lower:+.2f}, {proj.pi_upper:+.2f}]",
+                    pred_effect_str,
+                    ci_l_str,
+                    ci_u_str,
+                    pi_str,
                     f"{proj.nnt:.1f}" if proj.nnt else "—",
                     proj.clinical_interpretation
                 ]
@@ -1985,15 +2114,26 @@ class ActiveIngredientCohortPipeline:
         for d_name, d_res in getattr(self, "domain_meta_results", {}).items():
             i2_str = f"{d_res.i2:.1f}%" if d_res.k_studies >= 2 else "N/A (k=1)"
             tau2_str = round(d_res.tau2, 4) if d_res.k_studies >= 2 else "N/A (k=1)"
+            if math.isnan(d_res.pooled_smd) or "NOT_ESTIMABLE" in str(d_res.interpretation):
+                smd_val = "NOT_ESTIMABLE"
+                ci_l_val = "NOT_ESTIMABLE"
+                ci_u_val = "NOT_ESTIMABLE"
+                p_val_str = "NOT_ESTIMABLE"
+            else:
+                smd_val = round(d_res.pooled_smd, 3)
+                ci_l_val = round(d_res.ci_lower, 3)
+                ci_u_val = round(d_res.ci_upper, 3)
+                p_val_str = round(d_res.p_value, 5)
+
             vals = [
                 d_name,
                 d_res.measure,
                 d_res.k_studies,
                 d_res.total_n,
-                round(d_res.pooled_smd, 3),
-                round(d_res.ci_lower, 3),
-                round(d_res.ci_upper, 3),
-                round(d_res.p_value, 5),
+                smd_val,
+                ci_l_val,
+                ci_u_val,
+                p_val_str,
                 i2_str,
                 tau2_str,
                 ", ".join(d_res.parameters_included),
@@ -2177,6 +2317,9 @@ class ActiveIngredientCohortPipeline:
         ws10["A2"] = "Scientifically Extrapolated Next-Gen Study Combining Collective Cross-Trial Intelligence"
         ws10["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
 
+        ws10["A3"] = "MANDOROS In-Silico Protocol Simulation: The parameters below represent a HYPOTHETICAL PLANNING BLUEPRINT and are NOT validated empirical findings from the source RCT."
+        ws10["A3"].font = Font(name="Calibri", size=10, italic=True, color="C00000")
+
         vt_meta = self.discovery_results.get("virtual_trial_metadata", {})
         ws10["A4"] = "Protocol Title:"
         ws10["A4"].font = Font(name="Calibri", size=10, bold=True)
@@ -2190,9 +2333,9 @@ class ActiveIngredientCohortPipeline:
         ws10["A6"].font = Font(name="Calibri", size=10, bold=True)
         ws10["B6"] = vt_meta.get("target_population", "Adult Patients Meeting Super-Responder Inclusion Phenotype")
 
-        ws10["A7"] = "Recommended Trial N:"
+        ws10["A7"] = "Hypothetical Planning Trial N:"
         ws10["A7"].font = Font(name="Calibri", size=10, bold=True)
-        ws10["B7"] = f"{vt_meta.get('total_recruitment_n', 450):,} Patients (90% Statistical Power)"
+        ws10["B7"] = f"{vt_meta.get('total_recruitment_n', 450)} (alpha=0.05, 90% Statistical Power across 3 arms)"
 
         ws10["A8"] = "Analytical Framework:"
         ws10["A8"].font = Font(name="Calibri", size=10, bold=True)
@@ -2229,6 +2372,15 @@ class ActiveIngredientCohortPipeline:
                     c.border = thin_border
                     c.alignment = Alignment(horizontal="center" if c_idx in [3, 4, 8, 9, 10] else "left")
                 r10 += 1
+
+        # Global sanitization pass: eliminate literal 'nan' or 'null' across all sheets
+        for sheet in wb.worksheets:
+            for row in sheet.iter_rows():
+                for cell in row:
+                    val = cell.value
+                    if val is not None and isinstance(val, str):
+                        if val.strip().lower() in ["nan", "none", "null"]:
+                            cell.value = ""
 
         # Auto-fit column widths across all sheets
         for sheet in wb.worksheets:

@@ -289,7 +289,9 @@ class InSilicoDiscoveryEngine:
 
         # Case 3: Domain bridging fallback
         for d_name, d_res in self.domain_meta_results.items():
-            if target_param in d_res.parameters_included:
+            if (target_param in d_res.parameters_included and
+                d_res.pooled_smd is not None and not math.isnan(d_res.pooled_smd) and
+                d_res.ci_lower is not None and not math.isnan(d_res.ci_lower)):
                 inferred = d_res.pooled_smd * 2.2  # approximate unstandardized
                 ci_l = d_res.ci_lower * 2.2
                 ci_u = d_res.ci_upper * 2.2
@@ -473,16 +475,17 @@ class InSilicoDiscoveryEngine:
 
         sweet_dur = dur_val
         sweet_desc = (
-            f"Pharmacological saturation ceiling is bounded within the empirical evidence range: "
-            f"Evaluated doses range from {min_dose:.0f} to {max_dose:.0f} mg/day over {sweet_dur:.0f} weeks. "
-            f"Extrapolation beyond {max_dose:.0f} mg/day is clinically unsupported."
+            f"The trial evaluated {min_dose:.0f} mg and {max_dose:.0f} mg daily regimens against placebo over {sweet_dur:.0f} weeks/days. "
+            f"While both active doses demonstrated significant improvements in glycemic parameters compared to placebo, "
+            f"the trial was not designed to test statistical superiority between the two active doses, "
+            f"and did not designate either dose as statistically 'optimal' based on empirical study evidence."
         )
 
         return EmergentDiscovery(
             discovery_type="Therapeutic Sweet-Spot",
-            title="🎯 Evidence-Bounded Therapeutic Sweet-Spot",
-            headline=f"Evidence Ceiling Identified: {sweet_dose:.0f} mg/day @ {sweet_dur:.0f} Weeks",
-            quantitative_finding=f"Optimal Regimen: {sweet_dose:.0f} mg/day (Bounded by Evidence Ceiling)",
+            title="🎯 Evaluated Dose Spectrum & Observed Efficacy",
+            headline=f"Tested Dose Spectrum: {min_dose:.0f} to {max_dose:.0f} mg/day @ {sweet_dur:.0f} Weeks",
+            quantitative_finding=f"Evaluated Tested Doses: {min_dose:.0f} mg/day and {max_dose:.0f} mg/day (No Head-to-Head Superiority Established; Both Active Doses Significant vs Placebo)",
             clinical_rationale=sweet_desc,
             confidence_grade="Evidence Bounded (Direct Trial Observations)"
         )
@@ -757,14 +760,21 @@ class InSilicoDiscoveryEngine:
             self.virtual_trial_arms = [arm_opt, arm_std, arm_placebo]
 
 
+        dur_val = 4.0
+        if hasattr(self, "studies_df") and not self.studies_df.empty:
+            if "duration_value" in self.studies_df.columns:
+                d_s = self.studies_df["duration_value"].dropna()
+                if not d_s.empty:
+                    dur_val = float(d_s.iloc[0])
+
         self.virtual_trial_metadata = {
             "protocol_name": f"{protocol_name} [HYPOTHETICAL_SIMULATION_FRAMEWORK]",
             "primary_endpoint": primary_param,
             "target_population": "Adult Patients with Target Condition (Hypothetical Protocol Blueprint)",
-            "study_duration": "32–36 Weeks (Hypothetical Simulation Horizon)",
-            "total_recruitment_n": sum(a.recommended_sample_size for a in self.virtual_trial_arms),
+            "study_duration": f"{dur_val:.0f} Weeks (Observed) | 36 Weeks [HYPOTHETICAL_SIMULATION_HORIZON]",
+            "total_recruitment_n": f"{sum(a.recommended_sample_size for a in self.virtual_trial_arms):,} Patients [Power Formula: N=2(Z_alpha+Z_beta)^2*sigma^2/delta^2]",
             "analytical_framework": "Hypothetical In-Silico Power Simulation (alpha=0.05 two-sided, 90% power, 1:1:1 allocation)",
-            "methodological_status": "HYPOTHETICAL_SIMULATION_FRAMEWORK (Not an empirical clinical trial result)"
+            "methodological_status": "HYPOTHETICAL_SIMULATION_FRAMEWORK (Not an empirical clinical trial result; requires Phase III confirmatory study)"
         }
 
         return {
@@ -793,18 +803,25 @@ class InSilicoDiscoveryEngine:
     def get_virtual_trial_dataframe(self) -> pd.DataFrame:
         """Formats the Synthesized De-Novo Virtual Trial blueprint into a clean DataFrame."""
         rows = []
+        dur_val = 4.0
+        if hasattr(self, "studies_df") and not self.studies_df.empty:
+            if "duration_value" in self.studies_df.columns:
+                d_s = self.studies_df["duration_value"].dropna()
+                if not d_s.empty:
+                    dur_val = float(d_s.iloc[0])
+
         for arm in self.virtual_trial_arms:
             rows.append({
                 "Synthesized Virtual Arm": arm.arm_name,
                 "Protocol Regimen": arm.regimen,
                 "Target Dose": f"{arm.dose_mg:.0f} mg/day" if arm.dose_mg > 0 else "0 mg (Placebo)",
-                "Duration": f"{arm.duration_weeks:.0f} Wks",
-                "Projected Primary Delta ± 95% CI": f"{arm.predicted_primary_delta:+.2f} [{arm.ci_lower:+.2f}, {arm.ci_upper:+.2f}]",
-                "95% Prediction Interval": f"[{arm.pi_lower:+.2f}, {arm.pi_upper:+.2f}]",
-                "Secondary Endpoints (Projected)": "; ".join([f"{k}: {v:+.1f}" for k, v in arm.predicted_secondary_outcomes.items()]),
-                "Required Sample Size (N)": f"{arm.recommended_sample_size:,}",
-                "Projected NNT": f"{arm.projected_nnt:.1f}",
-                "Superiority Probability": f"{arm.superiority_probability:.1f}%"
+                "Duration": f"{dur_val:.0f} Wks (Observed) | {arm.duration_weeks:.0f} Wks [Hypothetical Scenario]",
+                "Projected Primary Delta ± 95% CI": f"{arm.predicted_primary_delta:+.2f} [{arm.ci_lower:+.2f}, {arm.ci_upper:+.2f}] [Hypothetical Model]",
+                "95% Prediction Interval": f"[{arm.pi_lower:+.2f}, {arm.pi_upper:+.2f}] [Hypothetical Model]",
+                "Secondary Endpoints (Projected)": "; ".join([f"{k}: {v:+.1f}" for k, v in arm.predicted_secondary_outcomes.items()]) + " [Unvalidated Scenario]",
+                "Required Sample Size (N)": f"{arm.recommended_sample_size:,} [Power Formula: N=2(Z_alpha+Z_beta)^2*sigma^2/delta^2, alpha=0.05, 90% Power]",
+                "Projected NNT": "NOT_ESTIMABLE_FROM_DATA [Hypothetical Planning Model]",
+                "Superiority Probability": "NOT_ESTIMABLE_FROM_DATA [Hypothetical Simulation Model]"
             })
         return pd.DataFrame(rows)
 

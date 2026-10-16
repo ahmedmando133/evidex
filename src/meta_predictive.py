@@ -955,6 +955,34 @@ class MetaPredictiveEngine:
                 f"within the Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}] (Monthly trajectory: {rate_mo:+.2f} {meas}/month)."
             )
 
+        # Check for unstudied dose or unsupported extrapolation
+        observed_doses = [float(e.dose_mg) for e in self.effects if e.dose_mg is not None and e.dose_mg > 0]
+        unique_doses = set(observed_doses)
+        if unique_doses and dose_mg not in unique_doses:
+            study_ids = [getattr(e, "study_id", "") for e in self.effects]
+            from src.statistical_eligibility import count_independent_studies, assess_dose_response_model_eligibility
+            k_st = count_independent_studies(study_ids)
+            is_elig, status_code, rat = assess_dose_response_model_eligibility(list(unique_doses), k_st)
+            if not is_elig:
+                return PredictiveProjection(
+                    parameter_name=param_name,
+                    dose_mg=dose_mg,
+                    duration_weeks=duration_weeks,
+                    baseline_val=baseline_val,
+                    predicted_effect=float("nan"),
+                    ci_lower=float("nan"),
+                    ci_upper=float("nan"),
+                    pi_lower=float("nan"),
+                    pi_upper=float("nan"),
+                    measure=meas,
+                    standardized_smd=float("nan"),
+                    percent_change=None,
+                    rate_per_month=float("nan"),
+                    nnt=None,
+                    nnt_text="INSUFFICIENT_DATA",
+                    clinical_interpretation=f"INSUFFICIENT_DATA_FOR_VALIDATED_PREDICTION: Unstudied dose {dose_mg:.1f} mg interpolation unsupported in single-trial cohort without verified non-linear dose-response curve."
+                )
+
         if nnt_val:
             interp += f" Projected Number Needed to Treat (NNT): {nnt_val:.0f} patients."
         else:
@@ -986,26 +1014,25 @@ class MetaPredictiveEngine:
     ) -> List[PredictiveProjection]:
         """
         Generates a predictive matrix across dosage and duration spectrum.
-        STRICT LAW: Restrict predictive simulations strictly within [0.5 * min(obs_doses), 1.5 * max(obs_doses)].
-        If single dose, output only the observed dose ('Single-dose cohort: Dose-response slope not estimable')
-        and do not fake multi-dose rows.
+        STRICT LAW: Never interpolate unstudied intermediate doses (e.g. 17.5 mg)
+        unless verified dose-response eligibility is established.
         """
+        observed_doses = [float(e.dose_mg) for e in self.effects if e.dose_mg is not None and e.dose_mg > 0]
+        unique_doses = sorted(list(set(observed_doses)))
+
         if not doses:
-            observed_doses = [float(e.dose_mg) for e in self.effects if e.dose_mg is not None and e.dose_mg > 0]
-            unique_doses = sorted(list(set(observed_doses)))
-            if not unique_doses:
-                doses = [10.0, 25.0]
-            elif len(unique_doses) == 1:
-                # Single-dose cohort: strictly evaluate the observed dose only
-                doses = [unique_doses[0]]
+            study_ids = [getattr(e, "study_id", "") for e in self.effects]
+            from src.statistical_eligibility import count_independent_studies, assess_dose_response_model_eligibility
+            k_st = count_independent_studies(study_ids)
+            is_elig, status_code, _ = assess_dose_response_model_eligibility(unique_doses, k_st)
+
+            if not is_elig or not unique_doses:
+                # Strictly evaluate only observed tested doses (e.g. 10 mg and 25 mg)
+                doses = unique_doses if unique_doses else [10.0, 25.0]
             else:
                 min_d = unique_doses[0]
                 max_d = unique_doses[-1]
-                # Bound strictly within [0.5 * min_d, 1.5 * max_d]
-                candidate_doses = [min_d, (min_d + max_d) / 2.0, max_d]
-                doses = [round(d, 2) for d in candidate_doses if (0.5 * min_d) <= d <= (1.5 * max_d)]
-                if not doses:
-                    doses = [min_d, max_d]
+                doses = [min_d, max_d]
 
         obs_durations = [float(e.duration_weeks) for e in self.effects if e.duration_weeks is not None and e.duration_weeks > 0]
         max_obs_dur = max(obs_durations) if obs_durations else 4.0
@@ -1172,6 +1199,28 @@ def run_domain_meta_analysis(domain_name: str, effects: List[EffectSizeResult]) 
     """
     if not effects or len(effects) < 2:
         return None
+
+    # Domain Pooling Eligibility Gate (Error 6)
+    from src.statistical_eligibility import assess_domain_pooling_eligibility, count_independent_studies
+    is_elig, status_code, rat = assess_domain_pooling_eligibility(effects, domain_name)
+    if not is_elig:
+        return DomainMetaAnalysisResult(
+            domain_name=domain_name,
+            measure="SMD",
+            k_studies=count_independent_studies([e.study_id for e in effects]),
+            total_n=sum(e.n_exp + e.n_ctrl for e in effects if e.n_exp and e.n_ctrl) if effects else 0,
+            pooled_smd=float("nan"),
+            ci_lower=float("nan"),
+            ci_upper=float("nan"),
+            pi_lower=float("nan"),
+            pi_upper=float("nan"),
+            p_value=float("nan"),
+            i2=0.0,
+            tau2=0.0,
+            parameters_included=list(set(e.parameter_name for e in effects)),
+            study_results=effects,
+            interpretation=f"NOT_ESTIMABLE: {rat}"
+        )
 
     # Ensure all effects are represented in SMD
     smd_effects = []
