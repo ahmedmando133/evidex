@@ -102,12 +102,16 @@ class ExcelTrialExporter:
         self._build_variables_matrix_sheet()
         self._build_inventory_and_gates_sheet()
 
+        import os
+        parent_dir = os.path.dirname(output_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+
         try:
             self.wb.save(output_path)
             print(f"Exported clean structured Excel workbook to: {output_path}")
             return output_path
         except PermissionError:
-            import os
             base, ext = os.path.splitext(output_path)
             alt_path = f"{base}_updated{ext}"
             self.wb.save(alt_path)

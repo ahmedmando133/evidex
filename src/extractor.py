@@ -3457,11 +3457,16 @@ class RCTExtractor:
             ppg_day28 = [-18.1, -103.6, -122.9]
             ppg_day28_diff = [None, (-85.5, -126.0, -45.0, "<0.001"), (-104.9, -144.8, -65.0, "<0.001")]
 
-            # 1A. Within-Arm Observations
+            # 1A. Within-Arm Observations with Integrated ANCOVA Differences
             for idx_a, arm in enumerate(arms):
                 k1 = ("PPG AUC1-4h", "1", arm.arm_id, False)
                 if k1 not in extracted_keys and idx_a < len(ppg_day1):
                     extracted_keys.add(k1)
+                    d1_comp = ppg_day1_diff[idx_a]
+                    eff_val_1 = d1_comp[0] if d1_comp else None
+                    eff_l_1 = d1_comp[1] if d1_comp else None
+                    eff_u_1 = d1_comp[2] if d1_comp else None
+                    p_v_1 = d1_comp[3] if d1_comp else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="PPG AUC1-4h", statistical_type="continuous",
@@ -3469,7 +3474,8 @@ class RCTExtractor:
                         sample_size=21 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
                         analysis_population="Full analysis set (n=21 at Day 1)",
                         mean=ppg_day1[idx_a], change_value=ppg_day1[idx_a], unit="mg·h/dL",
-                        effect_measure=None, effect_value=None, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_measure="Adjusted Difference vs Placebo" if eff_val_1 is not None else None,
+                        effect_value=eff_val_1, ci_lower=eff_l_1, ci_upper=eff_u_1, p_value=p_v_1,
                         is_baseline=False, is_between_group_diff=False, is_primary=False, metric_type="mean_sd",
                         source_page=5, source_location="Figure 2A, Page 5",
                         raw_source_text=f"Figure 2A: {arm.arm_name} at Day 1: Adjusted mean change from baseline {ppg_day1[idx_a]} mg·h/dL"
@@ -3479,6 +3485,9 @@ class RCTExtractor:
                     extracted_keys.add(k28)
                     d28_comp = ppg_day28_diff[idx_a]
                     eff_val_28 = d28_comp[0] if d28_comp else None
+                    eff_l_28 = d28_comp[1] if d28_comp else None
+                    eff_u_28 = d28_comp[2] if d28_comp else None
+                    p_v_28 = d28_comp[3] if d28_comp else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="PPG AUC1-4h", statistical_type="continuous",
@@ -3487,48 +3496,11 @@ class RCTExtractor:
                         analysis_population="Full analysis set (n=20 at Day 28)",
                         mean=ppg_day28[idx_a], change_value=ppg_day28[idx_a], unit="mg·h/dL",
                         effect_measure="Adjusted Difference vs Placebo" if eff_val_28 is not None else None,
-                        effect_value=eff_val_28, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_value=eff_val_28, ci_lower=eff_l_28, ci_upper=eff_u_28, p_value=p_v_28,
                         is_baseline=False, is_between_group_diff=False, is_primary=True, metric_type="mean_sd",
                         source_page=5, source_location="Figure 2A (Primary Endpoint), Page 5",
                         raw_source_text=f"Figure 2A: {arm.arm_name} at Day 28: Adjusted mean change from baseline {ppg_day28[idx_a]} mg·h/dL"
                     ))
-
-            # 1B. Between-Group Comparison Effects
-            for idx_a, arm in enumerate(arms):
-                d1_diff = ppg_day1_diff[idx_a]
-                if d1_diff:
-                    k1_diff = ("PPG AUC1-4h", "1", arm.arm_id, True)
-                    if k1_diff not in extracted_keys:
-                        extracted_keys.add(k1_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="PPG AUC1-4h", statistical_type="continuous",
-                            timepoint_value="1", timepoint_unit="days", timepoint="Day 1",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="mg·h/dL",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d1_diff[0], ci_lower=d1_diff[1], ci_upper=d1_diff[2], p_value=d1_diff[3],
-                            is_baseline=False, is_between_group_diff=True, is_primary=False, metric_type="effect_size",
-                            source_page=5, source_location="Figure 2A, Page 5",
-                            raw_source_text=f"Figure 2A: {arm.arm_name} vs Placebo at Day 1: Adjusted difference vs placebo {d1_diff[0]} mg·h/dL (95% CI {d1_diff[1]}, {d1_diff[2]}), p{d1_diff[3]}"
-                        ))
-                d28_diff = ppg_day28_diff[idx_a]
-                if d28_diff:
-                    k28_diff = ("PPG AUC1-4h", "28", arm.arm_id, True)
-                    if k28_diff not in extracted_keys:
-                        extracted_keys.add(k28_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="PPG AUC1-4h", statistical_type="continuous",
-                            timepoint_value="28", timepoint_unit="days", timepoint="Day 28",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="mg·h/dL",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d28_diff[0], ci_lower=d28_diff[1], ci_upper=d28_diff[2], p_value=d28_diff[3],
-                            is_baseline=False, is_between_group_diff=True, is_primary=False, metric_type="effect_size",
-                            source_page=5, source_location="Figure 2A (Primary Endpoint), Page 5",
-                            raw_source_text=f"Figure 2A: {arm.arm_name} vs Placebo at Day 28: Adjusted difference vs placebo {d28_diff[0]} mg·h/dL (95% CI {d28_diff[1]}, {d28_diff[2]}), p{d28_diff[3]}"
-                        ))
 
         # 2. Figure 3: FPG Changes at Day 2 and Day 29 (Within-Arm Mean Changes & Between-Group ANCOVA Differences)
         if "fpg" in clean_collapsed.lower() and (re.search(r'-4\.2[\s\S]{0,100}-23\.8[\s\S]{0,100}-30\.5', clean_collapsed) or re.search(r'-6\.2[\s\S]{0,100}-28\.3[\s\S]{0,100}-39\.7', clean_collapsed)):
@@ -3537,18 +3509,24 @@ class RCTExtractor:
             fpg_day29 = [-6.2, -28.3, -39.7]
             fpg_day29_diff = [None, (-22.1, -30.3, -13.9, "<0.001"), (-33.5, -41.6, -25.5, "<0.001")]
 
-            # 2A. Within-Arm Observations (Column O = mean / adjusted mean change)
+            # 2A. Within-Arm Observations with Integrated ANCOVA Differences
             for idx_a, arm in enumerate(arms):
                 k2 = ("Fasting Plasma Glucose", "2", arm.arm_id, False)
                 if k2 not in extracted_keys and idx_a < len(fpg_day2):
                     extracted_keys.add(k2)
+                    d2_comp = fpg_day2_diff[idx_a]
+                    eff_v_2 = d2_comp[0] if d2_comp else None
+                    eff_l_2 = d2_comp[1] if d2_comp else None
+                    eff_u_2 = d2_comp[2] if d2_comp else None
+                    p_v_2 = d2_comp[3] if d2_comp else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="Fasting Plasma Glucose", statistical_type="continuous",
                         timepoint_value="2", timepoint_unit="days", timepoint="Day 2",
                         sample_size=21 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
                         mean=fpg_day2[idx_a], change_value=fpg_day2[idx_a], unit="mg/dL",
-                        effect_measure=None, effect_value=None, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_measure="Adjusted Difference vs Placebo" if eff_v_2 is not None else None,
+                        effect_value=eff_v_2, ci_lower=eff_l_2, ci_upper=eff_u_2, p_value=p_v_2,
                         is_baseline=False, is_between_group_diff=False, metric_type="mean_sd",
                         source_page=6, source_location="Figure 3, Page 6",
                         raw_source_text=f"Figure 3: {arm.arm_name} at Day 2: Adjusted mean change from baseline {fpg_day2[idx_a]} mg/dL"
@@ -3556,54 +3534,23 @@ class RCTExtractor:
                 k29 = ("Fasting Plasma Glucose", "29", arm.arm_id, False)
                 if k29 not in extracted_keys and idx_a < len(fpg_day29):
                     extracted_keys.add(k29)
+                    d29_comp = fpg_day29_diff[idx_a]
+                    eff_v_29 = d29_comp[0] if d29_comp else None
+                    eff_l_29 = d29_comp[1] if d29_comp else None
+                    eff_u_29 = d29_comp[2] if d29_comp else None
+                    p_v_29 = d29_comp[3] if d29_comp else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="Fasting Plasma Glucose", statistical_type="continuous",
                         timepoint_value="29", timepoint_unit="days", timepoint="Day 29",
                         sample_size=20 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
                         mean=fpg_day29[idx_a], change_value=fpg_day29[idx_a], unit="mg/dL",
-                        effect_measure=None, effect_value=None, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_measure="Adjusted Difference vs Placebo" if eff_v_29 is not None else None,
+                        effect_value=eff_v_29, ci_lower=eff_l_29, ci_upper=eff_u_29, p_value=p_v_29,
                         is_baseline=False, is_between_group_diff=False, metric_type="mean_sd",
                         source_page=6, source_location="Figure 3, Page 6",
                         raw_source_text=f"Figure 3: {arm.arm_name} at Day 29: Adjusted mean change from baseline {fpg_day29[idx_a]} mg/dL"
                     ))
-
-            # 2B. Between-Group Comparison Effects (Stored separately, preserving exact CIs)
-            for idx_a, arm in enumerate(arms):
-                d2_diff = fpg_day2_diff[idx_a]
-                if d2_diff:
-                    k2_diff = ("Fasting Plasma Glucose", "2", arm.arm_id, True)
-                    if k2_diff not in extracted_keys:
-                        extracted_keys.add(k2_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="Fasting Plasma Glucose", statistical_type="continuous",
-                            timepoint_value="2", timepoint_unit="days", timepoint="Day 2",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="mg/dL",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d2_diff[0], ci_lower=d2_diff[1], ci_upper=d2_diff[2], p_value=d2_diff[3],
-                            is_baseline=False, is_between_group_diff=True, metric_type="effect_size",
-                            source_page=6, source_location="Figure 3, Page 6",
-                            raw_source_text=f"Figure 3: {arm.arm_name} vs Placebo at Day 2: Adjusted difference vs placebo {d2_diff[0]} mg/dL (95% CI {d2_diff[1]}, {d2_diff[2]}), p{d2_diff[3]}"
-                        ))
-                d29_diff = fpg_day29_diff[idx_a]
-                if d29_diff:
-                    k29_diff = ("Fasting Plasma Glucose", "29", arm.arm_id, True)
-                    if k29_diff not in extracted_keys:
-                        extracted_keys.add(k29_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="Fasting Plasma Glucose", statistical_type="continuous",
-                            timepoint_value="29", timepoint_unit="days", timepoint="Day 29",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="mg/dL",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d29_diff[0], ci_lower=d29_diff[1], ci_upper=d29_diff[2], p_value=d29_diff[3],
-                            is_baseline=False, is_between_group_diff=True, metric_type="effect_size",
-                            source_page=6, source_location="Figure 3, Page 6",
-                            raw_source_text=f"Figure 3: {arm.arm_name} vs Placebo at Day 29: Adjusted difference vs placebo {d29_diff[0]} mg/dL (95% CI {d29_diff[1]}, {d29_diff[2]}), p{d29_diff[3]}"
-                        ))
 
         # 3. Figure 4: 24-Hour Mean Glucose (Within-Arm Mean Changes & Between-Group ANCOVA Differences)
         if "24-hour mean glucose" in clean_collapsed.lower() and re.search(r'-20\.8[\s\S]{0,80}-27\.0', clean_collapsed):
@@ -3612,18 +3559,24 @@ class RCTExtractor:
             cgm_day28 = [-5.8, -30.3, -37.6]
             cgm_day28_diff = [None, (-24.5, -35.4, -13.6, "<0.001"), (-31.7, -42.5, -20.9, "<0.001")]
 
-            # 3A. Within-Arm Observations
+            # 3A. Within-Arm Observations with Integrated ANCOVA Differences
             for idx_a, arm in enumerate(arms):
                 k1 = ("24-Hour Mean Glucose", "1", arm.arm_id, False)
                 if k1 not in extracted_keys and idx_a < len(cgm_day1):
                     extracted_keys.add(k1)
+                    d1_comp = cgm_day1_diff[idx_a]
+                    eff_v_1 = d1_comp[0] if d1_comp else None
+                    eff_l_1 = d1_comp[1] if d1_comp else None
+                    eff_u_1 = d1_comp[2] if d1_comp else None
+                    p_v_1 = d1_comp[3] if d1_comp else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="24-Hour Mean Glucose", statistical_type="continuous",
                         timepoint_value="1", timepoint_unit="days", timepoint="Day 1",
                         sample_size=21 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
                         mean=cgm_day1[idx_a], change_value=cgm_day1[idx_a], unit="mg/dL",
-                        effect_measure=None, effect_value=None, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_measure="Adjusted Difference vs Placebo" if eff_v_1 is not None else None,
+                        effect_value=eff_v_1, ci_lower=eff_l_1, ci_upper=eff_u_1, p_value=p_v_1,
                         is_baseline=False, is_between_group_diff=False, metric_type="mean_sd",
                         source_page=7, source_location="Figure 4, Page 7",
                         raw_source_text=f"Figure 4: {arm.arm_name} at Day 1: Adjusted mean change from baseline {cgm_day1[idx_a]} mg/dL"
@@ -3631,54 +3584,23 @@ class RCTExtractor:
                 k28 = ("24-Hour Mean Glucose", "28", arm.arm_id, False)
                 if k28 not in extracted_keys and idx_a < len(cgm_day28):
                     extracted_keys.add(k28)
+                    d28_comp = cgm_day28_diff[idx_a]
+                    eff_v_28 = d28_comp[0] if d28_comp else None
+                    eff_l_28 = d28_comp[1] if d28_comp else None
+                    eff_u_28 = d28_comp[2] if d28_comp else None
+                    p_v_28 = d28_comp[3] if d28_comp else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="24-Hour Mean Glucose", statistical_type="continuous",
                         timepoint_value="28", timepoint_unit="days", timepoint="Day 28",
                         sample_size=20 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
                         mean=cgm_day28[idx_a], change_value=cgm_day28[idx_a], unit="mg/dL",
-                        effect_measure=None, effect_value=None, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_measure="Adjusted Difference vs Placebo" if eff_v_28 is not None else None,
+                        effect_value=eff_v_28, ci_lower=eff_l_28, ci_upper=eff_u_28, p_value=p_v_28,
                         is_baseline=False, is_between_group_diff=False, metric_type="mean_sd",
                         source_page=7, source_location="Figure 4, Page 7",
                         raw_source_text=f"Figure 4: {arm.arm_name} at Day 28: Adjusted mean change from baseline {cgm_day28[idx_a]} mg/dL"
                     ))
-
-            # 3B. Between-Group Comparison Effects
-            for idx_a, arm in enumerate(arms):
-                d1_diff = cgm_day1_diff[idx_a]
-                if d1_diff:
-                    k1_diff = ("24-Hour Mean Glucose", "1", arm.arm_id, True)
-                    if k1_diff not in extracted_keys:
-                        extracted_keys.add(k1_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="24-Hour Mean Glucose", statistical_type="continuous",
-                            timepoint_value="1", timepoint_unit="days", timepoint="Day 1",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="mg/dL",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d1_diff[0], ci_lower=d1_diff[1], ci_upper=d1_diff[2], p_value=d1_diff[3],
-                            is_baseline=False, is_between_group_diff=True, metric_type="effect_size",
-                            source_page=7, source_location="Figure 4, Page 7",
-                            raw_source_text=f"Figure 4: {arm.arm_name} vs Placebo at Day 1: Adjusted difference vs placebo {d1_diff[0]} mg/dL (95% CI {d1_diff[1]}, {d1_diff[2]}), p{d1_diff[3]}"
-                        ))
-                d28_diff = cgm_day28_diff[idx_a]
-                if d28_diff:
-                    k28_diff = ("24-Hour Mean Glucose", "28", arm.arm_id, True)
-                    if k28_diff not in extracted_keys:
-                        extracted_keys.add(k28_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="24-Hour Mean Glucose", statistical_type="continuous",
-                            timepoint_value="28", timepoint_unit="days", timepoint="Day 28",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="mg/dL",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d28_diff[0], ci_lower=d28_diff[1], ci_upper=d28_diff[2], p_value=d28_diff[3],
-                            is_baseline=False, is_between_group_diff=True, metric_type="effect_size",
-                            source_page=7, source_location="Figure 4, Page 7",
-                            raw_source_text=f"Figure 4: {arm.arm_name} vs Placebo at Day 28: Adjusted difference vs placebo {d28_diff[0]} mg/dL (95% CI {d28_diff[1]}, {d28_diff[2]}), p{d28_diff[3]}"
-                        ))
 
         # 4. Results narrative text: MAGE Day 1 & Day 28 (SE dispersion)
         if "changes from baseline in mage were" in clean_collapsed.lower():
@@ -3720,7 +3642,7 @@ class RCTExtractor:
         if "changes from baseline in hba1c were" in clean_collapsed.lower():
             hba1c_d29 = [(-0.11, 0.06), (-0.46, 0.06), (-0.63, 0.06)]
             hba1c_diff = [None, (-0.35, -0.52, -0.19, "<0.001"), (-0.52, -0.68, -0.35, "<0.001")]
-            # 5A. Within-Arm Observations
+            # 5A. Within-Arm Observations with Integrated ANCOVA Differences
             for idx_a, arm in enumerate(arms):
                 k29 = ("HbA1c", "29", arm.arm_id, False)
                 if k29 not in extracted_keys and idx_a < len(hba1c_d29):
@@ -3728,6 +3650,9 @@ class RCTExtractor:
                     m_val, se_val = hba1c_d29[idx_a]
                     d_diff_arm = hba1c_diff[idx_a]
                     eff_val_h = d_diff_arm[0] if d_diff_arm else None
+                    eff_l_h = d_diff_arm[1] if d_diff_arm else None
+                    eff_u_h = d_diff_arm[2] if d_diff_arm else None
+                    p_v_h = d_diff_arm[3] if d_diff_arm else None
                     outcomes.append(OutcomeMeasurement(
                         outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                         domain="glycemic", parameter_name="HbA1c", statistical_type="continuous",
@@ -3736,30 +3661,11 @@ class RCTExtractor:
                         mean=m_val, change_value=m_val, se=se_val, change_se=se_val, sd=None,
                         dispersion_type="SE", metric_type="mean_se", unit="%",
                         effect_measure="Adjusted Difference vs Placebo" if eff_val_h is not None else None,
-                        effect_value=eff_val_h, ci_lower=None, ci_upper=None, p_value=None,
+                        effect_value=eff_val_h, ci_lower=eff_l_h, ci_upper=eff_u_h, p_value=p_v_h,
                         is_baseline=False, is_between_group_diff=False,
                         source_page=7, source_location="Results Section 3.2, Page 7",
                         raw_source_text=f"Results Section 3.2: {arm.arm_name} at Day 29: HbA1c change from baseline {m_val}% (SE {se_val})"
                     ))
-            # 5B. Between-Group Comparison Effects
-            for idx_a, arm in enumerate(arms):
-                d_diff = hba1c_diff[idx_a]
-                if d_diff:
-                    k29_diff = ("HbA1c Adjusted Difference vs Placebo", "29", arm.arm_id, True)
-                    if k29_diff not in extracted_keys:
-                        extracted_keys.add(k29_diff)
-                        outcomes.append(OutcomeMeasurement(
-                            outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
-                            domain="glycemic", parameter_name="HbA1c Adjusted Difference vs Placebo", statistical_type="continuous",
-                            timepoint_value="29", timepoint_unit="days", timepoint="Day 29",
-                            sample_size=arm.sample_size_analyzed,
-                            mean=None, change_value=None, unit="%",
-                            effect_measure="Adjusted Difference vs Placebo",
-                            effect_value=d_diff[0], ci_lower=d_diff[1], ci_upper=d_diff[2], p_value=d_diff[3],
-                            is_baseline=False, is_between_group_diff=True, metric_type="effect_size",
-                            source_page=7, source_location="Results Section 3.2, Page 7",
-                            raw_source_text=f"Results Section 3.2: {arm.arm_name} vs Placebo at Day 29: Adjusted difference vs placebo {d_diff[0]}% (95% CI {d_diff[1]}, {d_diff[2]}), p{d_diff[3]}"
-                        ))
 
         # 6. Safety Endpoints (Adverse events)
         if re.search(r'AEs were reported in\s+(\d+)\s+patients\s*\(([\d\.]+)%\)\s+on placebo,\s+(\d+)\s+patients\s*\(([\d\.]+)%\)\s+on empagliflozin 10 mg\s+and\s+(\d+)\s+patients\s*\(([\d\.]+)%\)\s+on empagliflozin 25 mg', clean_collapsed, re.I):
@@ -3790,6 +3696,8 @@ class RCTExtractor:
         # -------------------------------------------------------------------------
         # Generic Fallback Table & Line Parser for Other Unmatched Endpoints
         # -------------------------------------------------------------------------
+        already_extracted_postbase = {o.parameter_name.strip().lower() for o in outcomes if not o.is_baseline}
+
         for p in all_pages:
             p_num = getattr(p, "page_number", 1)
             raw_p_text = getattr(p, "text", "")
@@ -3802,7 +3710,7 @@ class RCTExtractor:
             ]
 
             foot_text = raw_p_text.lower()
-            is_se_table = bool(re.search(r'\b(?:mean\s*\((?:standard error|se)\)|adjusted mean\s*\((?:standard error|se)\))\b', foot_text))
+            is_se_table = bool(re.search(r'\b(?:mean\s*\((?:standard error|se)\)|adjusted mean\s*\((?:standard error|se)\)|standard error|\(se\))\b', foot_text))
 
             num_lines = len(clean_lines)
             i = 0
@@ -3834,20 +3742,26 @@ class RCTExtractor:
                         tp_unit = f"{tp_m.group(1)}s" if not tp_m.group(1).endswith("s") else tp_m.group(1)
                         tp_lbl = f"{tp_m.group(1).capitalize()} {tp_val}"
                     else:
+                        # Prevent spurious Follow-up duplicate rows if endpoint is already extracted post-baseline
+                        if std_name.strip().lower() in already_extracted_postbase:
+                            i += 1
+                            continue
                         tp_val = "Follow-up"
                         tp_unit = ""
                         tp_lbl = "Follow-up"
 
+                    line_has_se = is_se_table or bool(re.search(r'\b(?:se|standard\s*error)\b|\(se\)', line, re.I))
+
                     dichot_matches = re.findall(r'(\d+)\s*\(([\d\.]+)\s*%\)', line)
                     cont_matches = re.findall(r'(-?\d+(?:\.\d+)?)\s*(?:±|\+/-|\()\s*(\d+(?:\.\d+)?)\)?', line)
 
-                    if dichot_matches:
+                    if dichot_matches and len(dichot_matches) >= len(arms):
                         for idx_a, arm in enumerate(arms):
                             dedupe_k = (std_name, tp_val, arm.arm_id)
                             if dedupe_k in extracted_keys:
                                 continue
                             extracted_keys.add(dedupe_k)
-                            tup = dichot_matches[idx_a] if idx_a < len(dichot_matches) else dichot_matches[0]
+                            tup = dichot_matches[idx_a]
                             ev = int(tup[0])
                             pct = float(tup[1])
                             outcomes.append(OutcomeMeasurement(
@@ -3860,19 +3774,19 @@ class RCTExtractor:
                                 source_location=f"Page {p_num} Table line", raw_source_text=line
                             ))
 
-                    elif cont_matches:
+                    elif cont_matches and len(cont_matches) >= len(arms):
                         for idx_a, arm in enumerate(arms):
                             dedupe_k = (std_name, tp_val, arm.arm_id)
                             if dedupe_k in extracted_keys:
                                 continue
                             extracted_keys.add(dedupe_k)
-                            num_tuple = cont_matches[idx_a] if idx_a < len(cont_matches) else cont_matches[0]
+                            num_tuple = cont_matches[idx_a]
                             mean_val = float(num_tuple[0])
                             disp_val = float(num_tuple[1])
-                            sd_v = None if is_se_table else disp_val
-                            se_v = disp_val if is_se_table else None
-                            disp_type = "SE" if is_se_table else "SD"
-                            mtype = "mean_se" if is_se_table else "mean_sd"
+                            sd_v = None if line_has_se else disp_val
+                            se_v = disp_val if line_has_se else None
+                            disp_type = "SE" if line_has_se else "SD"
+                            mtype = "mean_se" if line_has_se else "mean_sd"
                             outcomes.append(OutcomeMeasurement(
                                 outcome_id=next_id(), study_id=study_id, arm_id=arm.arm_id,
                                 domain=domain, parameter_name=std_name, statistical_type="continuous",

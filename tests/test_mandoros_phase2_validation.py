@@ -300,15 +300,15 @@ def test_second_validation_outcomes_fpg_and_cgm_segregation_and_source():
         src = str(ws.cell(r, col_map["source_location"]).value or "")
 
         if "fasting plasma glucose" in param:
-            if eff_meas == "Adjusted Difference vs Placebo":
-                fpg_diffs[(arm, tp)] = (eff_val, src)
-            else:
+            if mean_val is not None or chg_val is not None:
                 fpg_within[(arm, tp)] = (mean_val if mean_val is not None else chg_val, src)
+            if eff_meas == "Adjusted Difference vs Placebo" and eff_val is not None:
+                fpg_diffs[(arm, tp)] = (eff_val, src)
         elif "24-hour mean glucose" in param:
-            if eff_meas == "Adjusted Difference vs Placebo":
-                cgm_diffs[(arm, tp)] = (eff_val, src)
-            else:
+            if mean_val is not None or chg_val is not None:
                 cgm_within[(arm, tp)] = (mean_val if mean_val is not None else chg_val, src)
+            if eff_meas == "Adjusted Difference vs Placebo" and eff_val is not None:
+                cgm_diffs[(arm, tp)] = (eff_val, src)
         elif "mage" in param:
             mage_sources.add(src)
         elif "hba1c" in param:
@@ -433,4 +433,58 @@ def test_second_validation_zero_nan_strings_across_all_sheets():
                     nan_occurrences.append(f"{sheet}!{ws.cell(r, c).coordinate}")
 
     assert len(nan_occurrences) == 0, f"Literal 'nan' found in cells: {nan_occurrences}"
+
+
+def test_zero_duplicate_outcomes_and_se_integrity():
+    """
+    Permanent System-Wide Rule:
+    1. Zero duplicate (parameter_name, arm_id, timepoint_value) records in Stage 1 extraction.
+    2. Zero spurious generic 'Follow-up' records when post-baseline timepoints exist.
+    3. Strict SE vs SD classification integrity with zero SE misclassified as SD.
+    4. Zero continuous single-value broadcast across multiple treatment arms.
+    """
+    pdf_path = "data/raw/empa vs placebo 2doses (RCT4).pdf"
+    assert os.path.exists(pdf_path)
+    ext = RCTExtractor(pdf_path)
+    data = ext.extract_all(study_id_override="RCT4")
+
+    # 1. Zero duplicates check
+    seen_keys = set()
+    duplicates = []
+    for o in data.outcomes:
+        k = (str(o.parameter_name).strip().lower(), str(o.arm_id).strip(), str(o.timepoint_value or "").strip().lower())
+        if k in seen_keys:
+            duplicates.append(k)
+        seen_keys.add(k)
+    assert len(duplicates) == 0, f"Duplicate arm outcome records found: {duplicates}"
+
+    # 2. Zero spurious generic Follow-up rows check
+    fu_rows = [o for o in data.outcomes if str(o.timepoint_value or "").strip().lower() == "follow-up"]
+    assert len(fu_rows) == 0, f"Spurious Follow-up rows present: {fu_rows}"
+
+    # 3. SE vs SD classification check
+    for o in data.outcomes:
+        src = f"{o.raw_source_text or ''} {o.source_location or ''}".lower()
+        if "(se)" in src or "standard error" in src:
+            if not ("(sd)" in src or "standard deviation" in src):
+                assert o.dispersion_type == "SE", f"Misclassified SE as {o.dispersion_type} in {o.parameter_name} ({o.outcome_id})"
+                assert o.sd is None, f"SD not None for SE record {o.outcome_id}"
+                assert o.se is not None, f"SE is None for SE record {o.outcome_id}"
+
+    # 4. Zero single-value continuous broadcast check
+    # Continuous active arms and placebo must not all share identical mean and SD values
+    from collections import defaultdict
+    cont_by_param_tp = defaultdict(list)
+    for o in data.outcomes:
+        if o.mean is not None and (o.sd is not None or o.se is not None):
+            cont_by_param_tp[(o.parameter_name, str(o.timepoint_value))].append(o)
+
+    for (p, tp), o_list in cont_by_param_tp.items():
+        if len(o_list) >= 3:
+            means = [o.mean for o in o_list]
+            disps = [o.sd or o.se for o in o_list]
+            # If all 3 arms have identical mean AND identical dispersion down to decimal, flag broadcast
+            if len(set(means)) == 1 and len(set(disps)) == 1:
+                pytest.fail(f"Illegal identical broadcast across all arms for {p} at {tp}: mean={means[0]}, disp={disps[0]}")
+
 

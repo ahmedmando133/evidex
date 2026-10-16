@@ -331,7 +331,103 @@ def audit_and_repair_extracted_data(
                 ))
 
         sanitized_outcomes.append(o)
-    data.outcomes = sanitized_outcomes
+
+    # ---------------------------------------------------------------------
+    # CHECK 8: SE vs SD Dispersion Integrity Law (REF-13-SE-SD-INTEGRITY)
+    # ---------------------------------------------------------------------
+    for o in sanitized_outcomes:
+        txt = f"{o.raw_source_text or ''} {o.source_location or ''}".lower()
+        has_se = bool(re.search(r'\b(?:se|standard\s*error)\b|\(se\)', txt))
+        has_sd = bool(re.search(r'\b(?:sd|standard\s*deviation)\b|\(sd\)', txt))
+        if has_se and not has_sd:
+            if o.dispersion_type != "SE" or o.sd is not None:
+                if o.se is None and o.sd is not None:
+                    o.se = o.sd
+                    o.sd = None
+                o.dispersion_type = "SE"
+                if o.metric_type == "mean_sd":
+                    o.metric_type = "mean_se"
+                report.violations.append(ScientificRefereeViolation(
+                    check_id="REF-13-SE-SD-INTEGRITY",
+                    severity="REPAIRED",
+                    entity=f"Outcome {o.outcome_id} ({o.parameter_name})",
+                    message="Repaired dispersion from SD to SE based on explicit '(SE)' source notation.",
+                    repaired=True
+                ))
+        elif has_sd and not has_se:
+            if o.dispersion_type != "SD" or o.se is not None:
+                if o.sd is None and o.se is not None:
+                    o.sd = o.se
+                    o.se = None
+                o.dispersion_type = "SD"
+                if o.metric_type == "mean_se":
+                    o.metric_type = "mean_sd"
+                report.violations.append(ScientificRefereeViolation(
+                    check_id="REF-13-SE-SD-INTEGRITY",
+                    severity="REPAIRED",
+                    entity=f"Outcome {o.outcome_id} ({o.parameter_name})",
+                    message="Repaired dispersion from SE to SD based on explicit '(SD)' source notation.",
+                    repaired=True
+                ))
+
+    # ---------------------------------------------------------------------
+    # CHECK 9: Arm-per-Row Deduplication & Follow-up Law (REF-14-NO-DUPLICATE-OUTCOMES)
+    # ---------------------------------------------------------------------
+    # Step A: Purge spurious generic Follow-up rows if specific post-baseline timepoint rows exist for that arm/parameter
+    specific_postbase_keys = {
+        (str(o.parameter_name).strip().lower(), str(o.arm_id).strip())
+        for o in sanitized_outcomes
+        if not o.is_baseline and str(o.timepoint_value or "").strip().lower() not in ["follow-up", "none", ""]
+    }
+    non_fu_outcomes = []
+    for o in sanitized_outcomes:
+        k = (str(o.parameter_name).strip().lower(), str(o.arm_id).strip())
+        is_generic_fu = str(o.timepoint_value or "").strip().lower() in ["follow-up"]
+        if is_generic_fu and k in specific_postbase_keys:
+            report.violations.append(ScientificRefereeViolation(
+                check_id="REF-14-NO-DUPLICATE-OUTCOMES",
+                severity="REPAIRED",
+                entity=f"Outcome {o.outcome_id} ({o.parameter_name})",
+                message=f"Purged spurious generic 'Follow-up' duplicate row for arm {o.arm_id}; specific post-baseline timepoint already extracted.",
+                repaired=True
+            ))
+            continue
+        non_fu_outcomes.append(o)
+
+    # Step B: Deduplicate any remaining multiple rows for (parameter_name, arm_id, timepoint_value)
+    # Merges ANCOVA contrast fields onto within-arm observation
+    grouped_outcomes = {}
+    for o in non_fu_outcomes:
+        k = (str(o.parameter_name).strip().lower(), str(o.arm_id).strip(), str(o.timepoint_value or "").strip().lower())
+        grouped_outcomes.setdefault(k, []).append(o)
+
+    deduped_outcomes = []
+    for k, o_list in grouped_outcomes.items():
+        if len(o_list) == 1:
+            deduped_outcomes.append(o_list[0])
+        else:
+            primary_o = next((o for o in o_list if o.mean is not None or o.change_value is not None or o.ratio is not None or o.events is not None), o_list[0])
+            for other_o in o_list:
+                if other_o is primary_o:
+                    continue
+                if other_o.effect_value is not None and primary_o.effect_value is None:
+                    primary_o.effect_value = other_o.effect_value
+                    primary_o.effect_measure = other_o.effect_measure or "Adjusted Difference vs Placebo"
+                    primary_o.ci_lower = other_o.ci_lower
+                    primary_o.ci_upper = other_o.ci_upper
+                    primary_o.p_value = other_o.p_value
+                if other_o.is_primary:
+                    primary_o.is_primary = True
+                report.violations.append(ScientificRefereeViolation(
+                    check_id="REF-14-NO-DUPLICATE-OUTCOMES",
+                    severity="REPAIRED",
+                    entity=f"Outcome {other_o.outcome_id} ({primary_o.parameter_name})",
+                    message=f"Merged duplicate contrast record into primary arm record for {primary_o.arm_id} at timepoint {primary_o.timepoint_value}.",
+                    repaired=True
+                ))
+            deduped_outcomes.append(primary_o)
+
+    data.outcomes = deduped_outcomes
 
     # Add referee log issues to validation_log
     for v in report.violations:
