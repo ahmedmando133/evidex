@@ -2125,9 +2125,10 @@ class RCTExtractor:
         authors_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+(?:et\s+al\.?|and\s+[A-Z][a-z]+))', title_text)
         authors = authors_match.group(1) if authors_match else "Authors et al."
 
-        # 5. Total Sample Size
-        sample_size_match = re.search(r'(\d+)\s*(?:patients|participants|subjects|individuals|cases|men|women)', title_text, re.IGNORECASE)
-        total_sample_size = int(sample_size_match.group(1)) if sample_size_match else None
+        # 5. Total Sample Size (4-stage fallback: Table 1 -> sum of arms -> abstract regex -> methods)
+        from src.extraction_engine import resolve_study_sample_size, resolve_arm_dose
+        full_text = self.doc.get_full_text() if getattr(self, "doc", None) else ""
+        total_sample_size = resolve_study_sample_size(study_id, title_text=title_text, full_text=full_text)
 
         # 6. Study Design
         study_design = "Randomized Controlled Trial"
@@ -2301,20 +2302,23 @@ class RCTExtractor:
                 TreatmentArm(arm_id="ARM_002", study_id=study_id, arm_name="Control Arm", intervention_type="placebo", drug_name="Placebo / Control", source_page=2)
             ]
 
-        # Allocate sample sizes to arms if any arm sample size is still None
-        if total_sample_size and len(arms) > 0:
-            per_arm = total_sample_size // len(arms)
-            for a in arms:
-                if a.sample_size_allocated is None:
-                    a.sample_size_allocated = per_arm
-                    a.sample_size_analyzed = per_arm
-        elif len(arms) > 0:
-            for a in arms:
-                if a.sample_size_allocated is None:
-                    a.sample_size_allocated = 100
-                    a.sample_size_analyzed = 100
+        from src.extraction_engine import resolve_arm_dose, verify_and_lock_multi_dose_arms
 
-        from src.extraction_engine import verify_and_lock_multi_dose_arms
+        # Allocate sample sizes to arms if any arm sample size is still None
+        per_arm = (total_sample_size // len(arms)) if (total_sample_size and len(arms) > 0) else 100
+        for a in arms:
+            if a.sample_size_allocated is None or a.sample_size_allocated <= 0:
+                a.sample_size_allocated = per_arm if per_arm > 0 else 100
+            if a.sample_size_analyzed is None or a.sample_size_analyzed <= 0:
+                a.sample_size_analyzed = a.sample_size_allocated
+
+            # 3-stage dose fallback for experimental arms
+            if str(a.intervention_type).lower() == "experimental" and a.dose_value is None:
+                d_val, d_unit = resolve_arm_dose(a.arm_name, a.drug_name or "", text_pool)
+                if d_val is not None:
+                    a.dose_value = d_val
+                    a.dose_unit = d_unit or "mg"
+
         return verify_and_lock_multi_dose_arms(study_id, arms, text_pool)
 
     def _extract_generic_eligibility(self, study_id: str, sections: Dict[str, Any]) -> List[EligibilityCriterion]:

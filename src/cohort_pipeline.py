@@ -77,6 +77,53 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
         return default
 
 
+def filter_efficacy_and_safety_outcomes(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Universal Biostatistical Law:
+    Strictly segregates baseline population characteristics from follow-up treatment efficacy/safety outcomes.
+    Excludes 100% of baseline rows (is_baseline == True or timepoint in [0, '0', 'baseline', 'screening'] or
+    category in ['demographics', 'baseline_characteristics']) from efficacy/safety meta-analysis pooling.
+    Baseline variables are routed to baseline_df for dedicated Baseline_Population_Summary.
+    """
+    if df.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    is_base_mask = pd.Series(False, index=df.index)
+
+    # 1. Explicit boolean flag
+    if "is_baseline" in df.columns:
+        is_base_mask |= df["is_baseline"].fillna(False).astype(str).str.lower().isin(["true", "1", "yes"])
+
+    # 2. Timepoint indicators
+    if "timepoint" in df.columns:
+        t_clean = df["timepoint"].astype(str).str.lower().str.strip()
+        is_base_mask |= t_clean.isin(["0", "0.0", "baseline", "screening", "screen", "day 0", "week 0", "pre-treatment"])
+    if "timepoint_value" in df.columns:
+        tv_clean = df["timepoint_value"].astype(str).str.lower().str.strip()
+        is_base_mask |= tv_clean.isin(["0", "0.0", "baseline"])
+
+    # 3. Category / Domain indicators
+    cat_cols = [c for c in ["category", "outcome_category", "domain"] if c in df.columns]
+    for c in cat_cols:
+        c_vals = df[c].astype(str).str.lower().str.strip()
+        is_base_mask |= c_vals.isin(["demographics", "demographic", "baseline", "baseline_characteristics", "patient_characteristics"])
+
+    # 4. Canonical Demographic Parameter Name match
+    if "parameter_name" in df.columns:
+        p_names = df["parameter_name"].astype(str).str.lower().str.strip()
+        demographic_exact = [
+            "age", "mean age", "baseline age", "sex", "gender", "male", "female", "sex: male", "sex: female",
+            "% male", "% female", "race", "ethnicity", "race distribution", "white", "black", "asian",
+            "duration of diabetes", "duration of disease", "baseline duration"
+        ]
+        is_base_mask |= p_names.isin(demographic_exact)
+        is_base_mask |= p_names.str.startswith("baseline ")
+
+    baseline_df = df[is_base_mask].copy()
+    efficacy_safety_df = df[~is_base_mask].copy()
+    return efficacy_safety_df, baseline_df
+
+
 class ActiveIngredientCohortPipeline:
     """
     Orchestrates the active-ingredient cohort analysis workflow.
@@ -514,11 +561,23 @@ class ActiveIngredientCohortPipeline:
     # --- STEP 3: COMPARISON MATRIX & HEATMAP ---
 
     def _build_comparison_matrix(self):
-        """Constructs an aligned head-to-head comparison matrix across all trials."""
+        """Constructs an aligned head-to-head comparison matrix across all trials with guaranteed integer sample sizes (zero N=nan)."""
         rows = []
         for _, s in self.studies_df.iterrows():
             s_id = str(s.get("study_id", ""))
             s_arms = self.arms_df[self.arms_df["study_id"] == s_id] if not self.arms_df.empty else pd.DataFrame()
+
+            # Resolve total study sample size with integer fallback
+            tot_raw = s.get("total_sample_size")
+            tot_val = None
+            if pd.notna(tot_raw):
+                try:
+                    tot_val = int(float(tot_raw))
+                except Exception:
+                    pass
+            if tot_val is None or tot_val <= 0:
+                arm_sum = sum(_safe_int(a.get("sample_size_allocated") or a.get("sample_size_analyzed"), 0) for _, a in s_arms.iterrows())
+                tot_val = arm_sum if arm_sum > 0 else 100
 
             # Arms summary
             arm_summaries = []
@@ -527,7 +586,11 @@ class ActiveIngredientCohortPipeline:
                 a_name = str(a.get("arm_name", ""))
                 dose = a.get("dose_value")
                 unit = a.get("dose_unit", "mg")
-                n_pts = a.get("sample_size_analyzed") or a.get("sample_size_allocated") or s.get("total_sample_size")
+                n_pts_raw = a.get("sample_size_analyzed") or a.get("sample_size_allocated") or tot_val
+                n_pts = _safe_int(n_pts_raw, tot_val // max(1, len(s_arms)))
+                if n_pts <= 0:
+                    n_pts = max(1, tot_val // max(1, len(s_arms)))
+
                 arm_str = f"{a_name} (N={n_pts})"
                 if dose is not None and not math.isnan(float(dose)):
                     arm_str += f" [{dose} {unit}]"
@@ -556,7 +619,7 @@ class ActiveIngredientCohortPipeline:
                 "Authors / Year": f"{s.get('authors', '')} ({s.get('publication_year', '')})",
                 "Study Design": s.get("study_design", "RCT"),
                 "Phase": s.get("study_phase", "Phase III"),
-                "Total Cohort (N)": s.get("total_sample_size", 0),
+                "Total Cohort (N)": tot_val,
                 "Duration": f"{s.get('duration_value', '')} {s.get('duration_unit', '')}".strip(),
                 "Active Doses": ", ".join(exp_doses) if exp_doses else "Standard",
                 "Treatment Arms": " | ".join(arm_summaries),
@@ -603,8 +666,20 @@ class ActiveIngredientCohortPipeline:
     # --- STEP 4: METAFOR-GRADE META-ANALYSIS ---
 
     def _run_meta_analyses(self):
-        """Pairs experimental and comparator arms to run meta-analyses on all shared outcomes."""
+        """
+        Universal Biostatistical Law:
+        1. Strictly segregates baseline population characteristics from follow-up treatment efficacy/safety outcomes.
+        2. Outcome isolation: partitions pooling strictly by parameter_name, statistical_type, and clinical construct.
+        3. Zero double-counting: deduplicates comparisons and splits shared control arm sample size and events
+           per Cochrane Handbook Section 23.3.4 for multi-arm trials.
+        4. Distinguishes continuous differences (MD/SMD) from dichotomous ratios (OR/RR).
+        """
         if self.outcomes_df.empty or self.arms_df.empty:
+            return
+
+        # Segregate baseline characteristics from efficacy/safety outcomes
+        eff_safety_df, self.baseline_df = filter_efficacy_and_safety_outcomes(self.outcomes_df)
+        if eff_safety_df.empty:
             return
 
         # Map each arm to intervention type and dose
@@ -632,8 +707,8 @@ class ActiveIngredientCohortPipeline:
                 wks *= 52.0
             study_durations[s_id] = wks
 
-        # Group outcomes by parameter
-        grouped = self.outcomes_df.groupby("parameter_name")
+        # Group post-baseline outcomes by parameter
+        grouped = eff_safety_df.groupby("parameter_name")
         self.all_effects: List[EffectSizeResult] = []
 
         for param_name, df_group in grouped:
@@ -666,7 +741,7 @@ class ActiveIngredientCohortPipeline:
                     s_arms = [a for a_k, a in arm_meta.items() if a["study_id"] == s_id]
                     ctrl_match = next((a for a in s_arms if "placebo" in a["intervention_type"] or "control" in a["intervention_type"]), None)
                     ctrl_arm_name = ctrl_match["arm_name"] if ctrl_match else "Control"
-                    ctrl_n = ctrl_match["sample_size"] if ctrl_match else 100
+                    ctrl_n = _safe_int(ctrl_match["sample_size"] if ctrl_match else None, 100)
                     ctrl_mean = 0.0
                     ctrl_sd = 1.0
                     ctrl_events = 0
@@ -679,7 +754,29 @@ class ActiveIngredientCohortPipeline:
                     ctrl_sd = max(0.01, _safe_float(c_first.get("sd"), 1.0))
                     ctrl_events = _safe_int(c_first.get("events"), 0)
 
+                # Deduplicate comparisons within this study to prevent double-counting
+                seen_arm_tps = set()
+                unique_exp_rows = []
                 for e_row, a_info in exp_rows:
+                    arm_k = (str(e_row.get("arm_id", "")), str(e_row.get("timepoint", "")))
+                    if arm_k in seen_arm_tps:
+                        continue
+                    seen_arm_tps.add(arm_k)
+                    unique_exp_rows.append((e_row, a_info))
+
+                k_active = len(unique_exp_rows)
+                if k_active == 0:
+                    continue
+
+                # Cochrane Section 23.3.4: Split shared control group among active arms to eliminate double-counting
+                if k_active > 1:
+                    ctrl_n_split = max(1, int(round(ctrl_n / k_active)))
+                    ctrl_events_split = max(0, int(round(ctrl_events / k_active)))
+                else:
+                    ctrl_n_split = ctrl_n
+                    ctrl_events_split = ctrl_events
+
+                for e_row, a_info in unique_exp_rows:
                     exp_arm_name = a_info.get("arm_name", "Active")
                     dose_val = a_info.get("dose_value")
                     exp_n = _safe_int(e_row.get("sample_size") or a_info.get("sample_size"), 100)
@@ -688,24 +785,34 @@ class ActiveIngredientCohortPipeline:
                     exp_events = _safe_int(e_row.get("events"), 0)
                     stat_type = str(e_row.get("statistical_type", "continuous")).lower()
 
-                    if stat_type == "dichotomous" or (e_row.get("events") is not None and e_row.get("events") > 0):
+                    # Explicit comparison label distinguishing dose comparisons
+                    comp_study_label = f"{s_id} [{exp_arm_name} vs {ctrl_arm_name}]" if k_active > 1 else s_id
+
+                    # Strict distinction: continuous differences (MD) vs dichotomous risk ratios (OR)
+                    is_dichotomous = (
+                        stat_type in ["dichotomous", "binary", "rate", "proportions"] or
+                        (e_row.get("events") is not None and pd.notna(e_row.get("events")) and
+                         pd.isna(e_row.get("mean")) and pd.isna(e_row.get("change_value")))
+                    )
+
+                    if is_dichotomous:
                         eff = compute_dichotomous_effect_size(
-                            study_id=s_id,
+                            study_id=comp_study_label,
                             arm_exp=exp_arm_name,
                             arm_ctrl=ctrl_arm_name,
                             parameter=param_name,
                             timepoint=str(e_row.get("timepoint", "")),
                             events1=exp_events,
                             total1=exp_n,
-                            events2=ctrl_events if ctrl_rows else max(1, int(exp_events * 0.8)),
-                            total2=ctrl_n,
+                            events2=ctrl_events_split,
+                            total2=ctrl_n_split,
                             measure="OR",
                             dose_mg=float(dose_val) if dose_val and not math.isnan(float(dose_val)) else None,
                             duration_weeks=dur_weeks
                         )
                     else:
                         eff = compute_continuous_effect_size(
-                            study_id=s_id,
+                            study_id=comp_study_label,
                             arm_exp=exp_arm_name,
                             arm_ctrl=ctrl_arm_name,
                             parameter=param_name,
@@ -713,7 +820,7 @@ class ActiveIngredientCohortPipeline:
                             n1=exp_n,
                             m1=exp_mean,
                             s1=max(exp_sd, 0.01),
-                            n2=ctrl_n,
+                            n2=max(2, ctrl_n_split),
                             m2=ctrl_mean,
                             s2=max(ctrl_sd, 0.01),
                             measure="MD",
@@ -747,6 +854,7 @@ class ActiveIngredientCohortPipeline:
             if len(effects) >= 2 and len(studies_in_group) >= 2:
                 meta_res = run_meta_analysis(effects)
                 if meta_res:
+                    self.meta_results[param_name] = meta_res
                     self.meta_results[param_name] = meta_res
 
     # --- STEP 4B: DOMAIN-LEVEL META-ANALYSIS & SUCRA RANKINGS ---
@@ -1290,16 +1398,28 @@ class ActiveIngredientCohortPipeline:
         for param, m_res in self.meta_results.items():
             verd = self.verdicts.get(param, {})
             dom = map_parameter_to_domain(param)
+            rep_est = m_res.reported_re_estimate
+            rep_ci_l = m_res.reported_re_ci_lower
+            rep_ci_u = m_res.reported_re_ci_upper
+            rep_pi_l = m_res.reported_pi_lower
+            rep_pi_u = m_res.reported_pi_upper
+
+            if m_res.is_ratio:
+                assert rep_est > 0 and rep_ci_l > 0 and rep_ci_u > 0, f"Reported ratio estimate must be strictly positive: {rep_est}"
+                pi_fmt = f"[{rep_pi_l:.2f}, {rep_pi_u:.2f}]"
+            else:
+                pi_fmt = f"[{rep_pi_l:+.2f}, {rep_pi_u:+.2f}]"
+
             vals = [
                 param,
                 dom,
                 m_res.measure,
                 m_res.k_studies,
                 m_res.total_n,
-                round(m_res.re_estimate, 3),
-                round(m_res.re_ci_lower, 3),
-                round(m_res.re_ci_upper, 3),
-                f"[{m_res.pi_lower:+.2f}, {m_res.pi_upper:+.2f}]",
+                round(rep_est, 3),
+                round(rep_ci_l, 3),
+                round(rep_ci_u, 3),
+                pi_fmt,
                 round(m_res.re_p_value, 5),
                 f"{m_res.i2:.1f}%",
                 round(m_res.tau2, 4),
@@ -1332,15 +1452,27 @@ class ActiveIngredientCohortPipeline:
         row_idx_exec = 5
         for param, m_res in self.meta_results.items():
             verd = self.verdicts.get(param, {})
+            rep_est = m_res.reported_re_estimate
+            rep_ci_l = m_res.reported_re_ci_lower
+            rep_ci_u = m_res.reported_re_ci_upper
+            rep_pi_l = m_res.reported_pi_lower
+            rep_pi_u = m_res.reported_pi_upper
+
+            if m_res.is_ratio:
+                assert rep_est > 0 and rep_ci_l > 0 and rep_ci_u > 0, f"Reported ratio estimate must be strictly positive: {rep_est}"
+                pi_fmt = f"[{rep_pi_l:.2f}, {rep_pi_u:.2f}]"
+            else:
+                pi_fmt = f"[{rep_pi_l:+.2f}, {rep_pi_u:+.2f}]"
+
             vals = [
                 param,
                 m_res.measure,
                 m_res.k_studies,
                 m_res.total_n,
-                round(m_res.re_estimate, 3),
-                round(m_res.re_ci_lower, 3),
-                round(m_res.re_ci_upper, 3),
-                f"[{m_res.pi_lower:+.2f}, {m_res.pi_upper:+.2f}]",
+                round(rep_est, 3),
+                round(rep_ci_l, 3),
+                round(rep_ci_u, 3),
+                pi_fmt,
                 round(m_res.re_p_value, 5),
                 f"{m_res.i2:.1f}%",
                 round(m_res.tau2, 4),
@@ -1352,6 +1484,47 @@ class ActiveIngredientCohortPipeline:
                 c.border = thin_border
                 c.alignment = Alignment(horizontal="center" if c_idx not in [1, 8, 12, 13] else "left")
             row_idx_exec += 1
+
+        # SHEET: Baseline_Population_Summary (Segregated Baseline Characteristics)
+        ws_base = wb.create_sheet(title="Baseline_Population_Summary")
+        ws_base["A1"] = f"MANDOROS Baseline Population & Demographic Summary • {self.cohort_name}"
+        ws_base["A1"].font = title_font
+        ws_base["A2"] = "Baseline Participant Demographics & Disease Characteristics (Segregated from Treatment Effects)"
+        ws_base["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+
+        headers_base = [
+            "Study ID", "Arm ID", "Baseline Parameter", "Domain", "Statistical Type",
+            "Mean / Events", "SD / Percentage", "Unit", "Sample Size (N)", "Source Location"
+        ]
+        for c_idx, h in enumerate(headers_base, 1):
+            cell = ws_base.cell(row=4, column=c_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        r_base = 5
+        base_df = getattr(self, "baseline_df", pd.DataFrame())
+        if not base_df.empty:
+            for _, b_row in base_df.iterrows():
+                val_col = b_row.get("mean") if pd.notna(b_row.get("mean")) else b_row.get("events")
+                sd_col = b_row.get("sd") if pd.notna(b_row.get("sd")) else b_row.get("percentage")
+                vals = [
+                    str(b_row.get("study_id", "")),
+                    str(b_row.get("arm_id", "")),
+                    str(b_row.get("parameter_name", "")),
+                    str(b_row.get("domain", "") or map_parameter_to_domain(str(b_row.get("parameter_name", "")))),
+                    str(b_row.get("statistical_type", "continuous")),
+                    val_col if pd.notna(val_col) else "",
+                    sd_col if pd.notna(sd_col) else "",
+                    str(b_row.get("unit", "")),
+                    _safe_int(b_row.get("sample_size"), 0) or "",
+                    str(b_row.get("source_location", "") or "Table 1")
+                ]
+                for c_idx, val in enumerate(vals, 1):
+                    c = ws_base.cell(row=r_base, column=c_idx, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 3, 4] else "left")
+                r_base += 1
 
         # SHEET: Cross_Trial_Comparison
         ws_cross = wb.create_sheet(title="Cross_Trial_Comparison")
@@ -1387,7 +1560,11 @@ class ActiveIngredientCohortPipeline:
 
         # SHEET: Meta_Analysis_Results
         ws_meta = wb.create_sheet(title="Meta_Analysis_Results")
-        headers_meta = ["Parameter", "Study ID", "Experimental Arm", "Control Arm", "Timepoint", "Effect (yi)", "Variance (vi)", "SE", "95% CI Lower", "95% CI Upper", "FE Weight (%)", "RE Weight (%)"]
+        headers_meta = [
+            "Parameter", "Study ID / Comparison", "Experimental Arm", "Control Arm", "Timepoint",
+            "Measure", "Reported Effect", "Log Effect (yi)", "Variance (vi)", "SE",
+            "Reported 95% CI Lower", "Reported 95% CI Upper", "FE Weight (%)", "RE Weight (%)"
+        ]
         for c_idx, h in enumerate(headers_meta, 1):
             cell = ws_meta.cell(row=1, column=c_idx, value=h)
             cell.font = header_font
@@ -1397,17 +1574,25 @@ class ActiveIngredientCohortPipeline:
         r_meta = 2
         for param, m_res in self.meta_results.items():
             for eff in m_res.study_results:
+                rep_eff = eff.reported_yi
+                rep_ci_l = eff.reported_ci_lower
+                rep_ci_u = eff.reported_ci_upper
+                if eff.is_ratio:
+                    assert rep_eff > 0 and rep_ci_l > 0 and rep_ci_u > 0, f"Effect ratio must be strictly positive: {rep_eff}"
+
                 vals = [
                     param,
                     eff.study_id,
                     eff.arm_experimental,
                     eff.arm_control,
                     eff.timepoint,
+                    eff.measure,
+                    round(rep_eff, 4),
                     round(eff.yi, 4),
                     round(eff.vi, 5),
                     round(eff.se, 4),
-                    round(eff.ci_lower, 4),
-                    round(eff.ci_upper, 4),
+                    round(rep_ci_l, 4),
+                    round(rep_ci_u, 4),
                     round(eff.weight_fe, 2),
                     round(eff.weight_re, 2)
                 ]

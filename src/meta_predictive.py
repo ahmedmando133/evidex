@@ -45,6 +45,42 @@ class EffectSizeResult:
     standardized_smd: Optional[float] = None
     rate_per_month: Optional[float] = None
 
+    @property
+    def is_ratio(self) -> bool:
+        """Returns True if the measure is an exponentiated ratio metric (OR, RR, HR)."""
+        return self.measure.upper() in ["OR", "RR", "HR"]
+
+    @property
+    def reported_yi(self) -> float:
+        """
+        Reported natural-scale effect size.
+        For ratio metrics (OR, RR, HR), exponentiates the internal log effect: exp(yi).
+        Enforces strict mathematical scale integrity (assert val > 0).
+        """
+        if self.is_ratio:
+            val = float(math.exp(self.yi))
+            assert val > 0, f"Reported ratio effect must be strictly positive: {val}"
+            return val
+        return float(self.yi)
+
+    @property
+    def reported_ci_lower(self) -> float:
+        """Reported natural-scale 95% CI lower bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.ci_lower))
+            assert val > 0, f"Reported ratio CI lower must be strictly positive: {val}"
+            return val
+        return float(self.ci_lower)
+
+    @property
+    def reported_ci_upper(self) -> float:
+        """Reported natural-scale 95% CI upper bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.ci_upper))
+            assert val > 0, f"Reported ratio CI upper must be strictly positive: {val}"
+            return val
+        return float(self.ci_upper)
+
 
 @dataclass
 class MetaAnalysisResult:
@@ -77,6 +113,83 @@ class MetaAnalysisResult:
     egger_p: Optional[float] = None
     study_results: List[EffectSizeResult] = field(default_factory=list)
     leave_one_out: List[Dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def is_ratio(self) -> bool:
+        """Returns True if the measure is an exponentiated ratio metric (OR, RR, HR)."""
+        return self.measure.upper() in ["OR", "RR", "HR"]
+
+    @property
+    def reported_re_estimate(self) -> float:
+        """Reported natural-scale Random Effects summary estimate (strictly > 0 for ratios)."""
+        if self.is_ratio:
+            val = float(math.exp(self.re_estimate))
+            assert val > 0, f"Reported pooled ratio estimate must be strictly positive: {val}"
+            return val
+        return float(self.re_estimate)
+
+    @property
+    def reported_re_ci_lower(self) -> float:
+        """Reported natural-scale Random Effects 95% CI lower bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.re_ci_lower))
+            assert val > 0, f"Reported pooled ratio CI lower must be strictly positive: {val}"
+            return val
+        return float(self.re_ci_lower)
+
+    @property
+    def reported_re_ci_upper(self) -> float:
+        """Reported natural-scale Random Effects 95% CI upper bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.re_ci_upper))
+            assert val > 0, f"Reported pooled ratio CI upper must be strictly positive: {val}"
+            return val
+        return float(self.re_ci_upper)
+
+    @property
+    def reported_fe_estimate(self) -> float:
+        """Reported natural-scale Fixed Effect summary estimate."""
+        if self.is_ratio:
+            val = float(math.exp(self.fe_estimate))
+            assert val > 0, f"Reported pooled ratio FE estimate must be strictly positive: {val}"
+            return val
+        return float(self.fe_estimate)
+
+    @property
+    def reported_fe_ci_lower(self) -> float:
+        """Reported natural-scale Fixed Effect 95% CI lower bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.fe_ci_lower))
+            assert val > 0
+            return val
+        return float(self.fe_ci_lower)
+
+    @property
+    def reported_fe_ci_upper(self) -> float:
+        """Reported natural-scale Fixed Effect 95% CI upper bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.fe_ci_upper))
+            assert val > 0
+            return val
+        return float(self.fe_ci_upper)
+
+    @property
+    def reported_pi_lower(self) -> float:
+        """Reported natural-scale 95% Prediction Interval lower bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.pi_lower))
+            assert val > 0
+            return val
+        return float(self.pi_lower)
+
+    @property
+    def reported_pi_upper(self) -> float:
+        """Reported natural-scale 95% Prediction Interval upper bound."""
+        if self.is_ratio:
+            val = float(math.exp(self.pi_upper))
+            assert val > 0
+            return val
+        return float(self.pi_upper)
 
 
 @dataclass
@@ -114,11 +227,58 @@ class PredictiveProjection:
     ci_upper: float
     pi_lower: float
     pi_upper: float
+    measure: str = "MD"
     standardized_smd: Optional[float] = None
     percent_change: Optional[float] = None
     rate_per_month: Optional[float] = None
     nnt: Optional[float] = None
+    nnt_text: str = ""
     clinical_interpretation: str = ""
+
+    @property
+    def is_ratio(self) -> bool:
+        return self.measure.upper() in ["OR", "RR", "HR"]
+
+    @property
+    def reported_predicted_effect(self) -> float:
+        if self.is_ratio:
+            val = float(math.exp(self.predicted_effect))
+            assert val > 0, f"Reported predicted ratio must be strictly positive: {val}"
+            return val
+        return float(self.predicted_effect)
+
+    @property
+    def reported_ci_lower(self) -> float:
+        if self.is_ratio:
+            val = float(math.exp(self.ci_lower))
+            assert val > 0, f"Reported predicted CI lower must be strictly positive: {val}"
+            return val
+        return float(self.ci_lower)
+
+    @property
+    def reported_ci_upper(self) -> float:
+        if self.is_ratio:
+            val = float(math.exp(self.ci_upper))
+            assert val > 0, f"Reported predicted CI upper must be strictly positive: {val}"
+            return val
+        return float(self.ci_upper)
+
+    @property
+    def reported_pi_lower(self) -> float:
+        if self.is_ratio:
+            val = float(math.exp(self.pi_lower))
+            assert val > 0
+            return val
+        return float(self.pi_lower)
+
+    @property
+    def reported_pi_upper(self) -> float:
+        if self.is_ratio:
+            val = float(math.exp(self.pi_upper))
+            assert val > 0
+            return val
+        return float(self.pi_upper)
+
 
 
 # --- EFFECT SIZE COMPUTATIONS ---
@@ -523,6 +683,7 @@ class MetaPredictiveEngine:
     """
     Fits dose-duration meta-regression across pooled trials and simulates
     hypothetical / unobserved trial outcomes with 95% Confidence & Prediction Intervals.
+    Enforces pharmacologically bounded dose-response projections and Cochrane-standard NNT calculations.
     """
 
     def __init__(self, effects: List[EffectSizeResult]):
@@ -531,6 +692,8 @@ class MetaPredictiveEngine:
         self.coefs = {}
         self.r_squared = 0.0
         self.residual_variance = 0.0
+        self.dose_slope_estimable = False
+        self.dose_slope_note = "Single-dose cohort: Dose-response slope not estimable"
         self._fit()
 
     def _fit(self):
@@ -546,8 +709,14 @@ class MetaPredictiveEngine:
         doses = np.array([e.dose_mg if e.dose_mg is not None else 0.0 for e in self.effects], dtype=float)
         durations = np.array([e.duration_weeks if e.duration_weeks is not None else 12.0 for e in self.effects], dtype=float)
 
-        has_dose_variation = np.std(doses) > 1e-4
-        has_dur_variation = np.std(durations) > 1e-4
+        has_dose_variation = float(np.std(doses)) > 1e-4
+        has_dur_variation = float(np.std(durations)) > 1e-4
+
+        self.dose_slope_estimable = has_dose_variation
+        if has_dose_variation:
+            self.dose_slope_note = "Multi-dose cohort: Dose-response slope fitted via WLS meta-regression"
+        else:
+            self.dose_slope_note = "Single-dose cohort: Dose-response slope not estimable"
 
         covariates = [np.ones(k)]
         col_names = ["Intercept"]
@@ -610,9 +779,12 @@ class MetaPredictiveEngine:
         """
         Projects outcome for a hypothetical or future trial with 95% Confidence Interval
         AND 95% Prediction Interval.
+        Enforces mathematical scale integrity: for ratio metrics (OR, RR, HR), distinguishes
+        internal log-scale projection from reported exponentiated natural scale (assert > 0).
         """
         param_name = self.effects[0].parameter_name if self.effects else "Outcome"
         meas = self.effects[0].measure if self.effects else "MD"
+        is_ratio_metric = meas.upper() in ["OR", "RR", "HR"]
 
         if not self.fitted_model:
             # Simple meta-analytic projection
@@ -648,18 +820,34 @@ class MetaPredictiveEngine:
             pi_l = pred_y - 1.96 * se_pred
             pi_u = pred_y + 1.96 * se_pred
 
-        # Number Needed to Treat (NNT) estimation for dichotomous risk metrics
+        # Number Needed to Treat (NNT): strictly compute only from genuine absolute event rates
         nnt_val = None
-        if meas == "RD" and abs(pred_y) > 1e-4:
-            nnt_val = float(abs(1.0 / pred_y))
-        elif meas in ["OR", "RR"] and abs(pred_y) > 0.01:
-            # Assumed control baseline risk of 15%
-            p0 = 0.15
-            rr_est = math.exp(pred_y)
-            p1 = p0 * rr_est
-            rd_approx = abs(p1 - p0)
-            if rd_approx > 1e-4:
-                nnt_val = float(abs(1.0 / rd_approx))
+        nnt_text = "N/A (Requires absolute event rates)"
+        valid_rates = []
+        for e in self.effects:
+            if (e.events_exp is not None and e.n_exp and e.n_exp > 0 and
+                    e.events_ctrl is not None and e.n_ctrl and e.n_ctrl > 0):
+                eer = float(e.events_exp) / float(e.n_exp)
+                cer = float(e.events_ctrl) / float(e.n_ctrl)
+                valid_rates.append((eer, cer))
+
+        if valid_rates:
+            mean_eer = float(np.mean([r[0] for r in valid_rates]))
+            mean_cer = float(np.mean([r[1] for r in valid_rates]))
+            arr = abs(mean_cer - mean_eer)
+            if arr > 1e-4:
+                nnt_val = float(math.ceil(1.0 / arr))
+                nnt_text = f"{int(nnt_val)}"
+            else:
+                nnt_val = None
+                nnt_text = "N/A (ARR < 0.01%)"
+        elif meas == "RD" and abs(pred_y) > 1e-4:
+            arr = abs(pred_y)
+            nnt_val = float(math.ceil(1.0 / arr))
+            nnt_text = f"{int(nnt_val)}"
+        else:
+            nnt_val = None
+            nnt_text = "N/A (Requires absolute event rates)"
 
         # Compute standardized SMD, % change, and rate per month
         sd_pool = 1.0
@@ -673,6 +861,9 @@ class MetaPredictiveEngine:
 
         if meas == "SMD":
             std_smd = float(pred_y)
+        elif is_ratio_metric:
+            # Chinn's conversion for log-odds to SMD
+            std_smd = float(pred_y * (math.sqrt(3.0) / math.pi))
         else:
             std_smd = float(pred_y / max(sd_pool, 1e-4))
 
@@ -693,20 +884,40 @@ class MetaPredictiveEngine:
             else:
                 base_ref = 50.0
 
-        pct_change = float((pred_y / base_ref) * 100.0) if base_ref else None
+        pct_change = float((pred_y / base_ref) * 100.0) if (base_ref and not is_ratio_metric) else None
         rate_mo = float(pred_y / max(duration_weeks / 4.333, 0.5))
 
-        # Clinical Verdict Synthesis
-        direction = "reduction" if pred_y < 0 else "increase"
-        signif = "statistically significant" if (ci_l > 0 or ci_u < 0) else "not statistically significant"
-        smd_str = f" ({std_smd:+.2f} Hedges' g SMD, {pct_change:+.1f}% from baseline)" if pct_change is not None else ""
-        interp = (
-            f"Projected mean {meas} of {pred_y:+.2f}{smd_str} ({direction}) with 95% Confidence Interval [{ci_l:+.2f}, {ci_u:+.2f}] "
-            f"({signif}). A new trial under {dose_mg:.0f} mg for {duration_weeks:.0f} weeks is projected with 95% certainty to fall "
-            f"within the Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}] (Monthly trajectory: {rate_mo:+.2f} {meas}/month)."
-        )
+        # Clinical Verdict Synthesis: enforce scale integrity
+        if is_ratio_metric:
+            rep_pred = float(math.exp(pred_y))
+            rep_ci_l = float(math.exp(ci_l))
+            rep_ci_u = float(math.exp(ci_u))
+            rep_pi_l = float(math.exp(pi_l))
+            rep_pi_u = float(math.exp(pi_u))
+            assert rep_pred > 0 and rep_ci_l > 0, f"Predicted ratio must be strictly positive: {rep_pred}"
+
+            direction = "favorable odds/risk reduction" if rep_pred < 1.0 else ("increase" if rep_pred > 1.0 else "neutral")
+            signif = "statistically significant" if (rep_ci_l > 1.0 or rep_ci_u < 1.0) else "not statistically significant (crosses null = 1.0)"
+            interp = (
+                f"Projected {meas} of {rep_pred:.2f} ({direction}) with 95% Confidence Interval [{rep_ci_l:.2f}, {rep_ci_u:.2f}] "
+                f"({signif}). A new trial under {dose_mg:.0f} mg for {duration_weeks:.0f} weeks is projected with 95% certainty to fall "
+                f"within the Prediction Interval of [{rep_pi_l:.2f}, {rep_pi_u:.2f}]."
+            )
+        else:
+            rep_pred = pred_y
+            direction = "reduction" if pred_y < 0 else "increase"
+            signif = "statistically significant" if (ci_l > 0 or ci_u < 0) else "not statistically significant"
+            smd_str = f" ({std_smd:+.2f} Hedges' g SMD, {pct_change:+.1f}% from baseline)" if pct_change is not None else ""
+            interp = (
+                f"Projected mean {meas} of {pred_y:+.2f}{smd_str} ({direction}) with 95% Confidence Interval [{ci_l:+.2f}, {ci_u:+.2f}] "
+                f"({signif}). A new trial under {dose_mg:.0f} mg for {duration_weeks:.0f} weeks is projected with 95% certainty to fall "
+                f"within the Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}] (Monthly trajectory: {rate_mo:+.2f} {meas}/month)."
+            )
+
         if nnt_val:
-            interp += f" Projected Number Needed to Treat (NNT): {nnt_val:.1f} patients."
+            interp += f" Projected Number Needed to Treat (NNT): {nnt_val:.0f} patients."
+        else:
+            interp += f" NNT: {nnt_text}."
 
         return PredictiveProjection(
             parameter_name=param_name,
@@ -718,10 +929,12 @@ class MetaPredictiveEngine:
             ci_upper=ci_u,
             pi_lower=pi_l,
             pi_upper=pi_u,
+            measure=meas,
             standardized_smd=round(std_smd, 3),
             percent_change=round(pct_change, 1) if pct_change is not None else None,
             rate_per_month=round(rate_mo, 3),
             nnt=nnt_val,
+            nnt_text=nnt_text,
             clinical_interpretation=interp
         )
 
@@ -730,18 +943,31 @@ class MetaPredictiveEngine:
         doses: Optional[List[float]] = None,
         durations: Optional[List[float]] = None
     ) -> List[PredictiveProjection]:
-        """Generates a predictive matrix across dosage and duration spectrum."""
+        """
+        Generates a predictive matrix across dosage and duration spectrum.
+        STRICT LAW: Restrict predictive simulations strictly within [0.5 * min(obs_doses), 1.5 * max(obs_doses)].
+        If single dose, output only the observed dose ('Single-dose cohort: Dose-response slope not estimable')
+        and do not fake multi-dose rows.
+        """
         if not doses:
-            observed_doses = [e.dose_mg for e in self.effects if e.dose_mg is not None and e.dose_mg > 0]
-            if observed_doses:
-                min_d = min(observed_doses)
-                max_d = max(observed_doses)
-                doses = sorted(list(set([min_d, (min_d + max_d) / 2.0, max_d, max_d * 1.5])))
+            observed_doses = [float(e.dose_mg) for e in self.effects if e.dose_mg is not None and e.dose_mg > 0]
+            unique_doses = sorted(list(set(observed_doses)))
+            if not unique_doses:
+                doses = [10.0, 25.0]
+            elif len(unique_doses) == 1:
+                # Single-dose cohort: strictly evaluate the observed dose only
+                doses = [unique_doses[0]]
             else:
-                doses = [10.0, 25.0, 50.0, 100.0]
+                min_d = unique_doses[0]
+                max_d = unique_doses[-1]
+                # Bound strictly within [0.5 * min_d, 1.5 * max_d]
+                candidate_doses = [min_d, (min_d + max_d) / 2.0, max_d]
+                doses = [round(d, 2) for d in candidate_doses if (0.5 * min_d) <= d <= (1.5 * max_d)]
+                if not doses:
+                    doses = [min_d, max_d]
 
         if not durations:
-            durations = [12.0, 24.0, 52.0, 104.0]
+            durations = [12.0, 24.0, 52.0]
 
         grid = []
         for d in doses:
@@ -751,16 +977,16 @@ class MetaPredictiveEngine:
 
 
 def generate_executive_verdict(meta_res: MetaAnalysisResult, predictor: Optional[MetaPredictiveEngine] = None) -> Dict[str, Any]:
-    """Generates automated Cochrane/PRISMA executive clinical verdict."""
+    """
+    Generates automated Cochrane/PRISMA executive clinical verdict.
+    Enforces mathematical scale integrity: strictly reports exponentiated ratio metrics
+    (assert > 0) with 1.0 as the null effect threshold.
+    """
     i2 = meta_res.i2
     tau2 = meta_res.tau2
     p_val = meta_res.re_p_value
-    re_est = meta_res.re_estimate
-    ci_l = meta_res.re_ci_lower
-    ci_u = meta_res.re_ci_upper
-    pi_l = meta_res.pi_lower
-    pi_u = meta_res.pi_upper
     meas = meta_res.measure
+    is_ratio_metric = meta_res.is_ratio
 
     if i2 < 30.0:
         hetero_grade = "Low Heterogeneity (High Consistency across trials)"
@@ -776,28 +1002,54 @@ def generate_executive_verdict(meta_res: MetaAnalysisResult, predictor: Optional
     else:
         evidence_strength = "Inconclusive / Neutral (p >= 0.05)"
 
-    # Clinical Direction
-    direction = "favorable reduction" if re_est < 0 else "increase"
+    if is_ratio_metric:
+        re_est = meta_res.reported_re_estimate
+        ci_l = meta_res.reported_re_ci_lower
+        ci_u = meta_res.reported_re_ci_upper
+        pi_l = meta_res.reported_pi_lower
+        pi_u = meta_res.reported_pi_upper
+        assert re_est > 0 and ci_l > 0, f"Reported ratio estimate must be strictly positive: {re_est}"
 
-    verdict_text = (
-        f"Across {meta_res.k_studies} clinical trials encompassing {meta_res.total_n:,} patients, the pooled random-effects "
-        f"summary effect size is {meas} = {re_est:+.2f} (95% CI: [{ci_l:+.2f}, {ci_u:+.2f}], p = {p_val:.4f}), demonstrating a {direction}. "
-        f"Between-study variance was assessed at tau^2 = {tau2:.4f} with I^2 = {i2:.1f}% ({hetero_grade}). "
-        f"Future replications or unobserved trials are predicted to fall within the 95% Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}]."
-    )
+        # Clinical Direction for ratio metric (null = 1.0)
+        direction = "favorable odds/risk reduction" if re_est < 1.0 else ("increase" if re_est > 1.0 else "neutral")
+        pooled_str = f"{meas} {re_est:.2f} (95% CI: [{ci_l:.2f}, {ci_u:.2f}])"
+        pi_str = f"95% PI: [{pi_l:.2f}, {pi_u:.2f}]"
+        verdict_text = (
+            f"Across {meta_res.k_studies} clinical trials encompassing {meta_res.total_n:,} patients, the pooled random-effects "
+            f"summary effect size is {meas} = {re_est:.2f} (95% CI: [{ci_l:.2f}, {ci_u:.2f}], p = {p_val:.4f}), demonstrating a {direction}. "
+            f"Between-study variance was assessed at tau^2 = {tau2:.4f} with I^2 = {i2:.1f}% ({hetero_grade}). "
+            f"Future replications or unobserved trials are predicted to fall within the 95% Prediction Interval of [{pi_l:.2f}, {pi_u:.2f}]."
+        )
+    else:
+        re_est = meta_res.re_estimate
+        ci_l = meta_res.re_ci_lower
+        ci_u = meta_res.re_ci_upper
+        pi_l = meta_res.pi_lower
+        pi_u = meta_res.pi_upper
+        direction = "favorable reduction" if re_est < 0 else "increase"
+        pooled_str = f"{meas} {re_est:+.2f} (95% CI: [{ci_l:+.2f}, {ci_u:+.2f}])"
+        pi_str = f"95% PI: [{pi_l:+.2f}, {pi_u:+.2f}]"
+        verdict_text = (
+            f"Across {meta_res.k_studies} clinical trials encompassing {meta_res.total_n:,} patients, the pooled random-effects "
+            f"summary effect size is {meas} = {re_est:+.2f} (95% CI: [{ci_l:+.2f}, {ci_u:+.2f}], p = {p_val:.4f}), demonstrating a {direction}. "
+            f"Between-study variance was assessed at tau^2 = {tau2:.4f} with I^2 = {i2:.1f}% ({hetero_grade}). "
+            f"Future replications or unobserved trials are predicted to fall within the 95% Prediction Interval of [{pi_l:+.2f}, {pi_u:+.2f}]."
+        )
 
-    dose_trend = "Insufficient dosage spread to model dose-response curve."
-    if predictor and predictor.fitted_model and "Dose_mg" in predictor.coefs:
+    # Dose-response trend
+    if predictor and getattr(predictor, "dose_slope_estimable", False) and predictor.fitted_model and "Dose_mg" in predictor.coefs:
         d_coef = predictor.coefs["Dose_mg"]["estimate"]
         d_pval = predictor.coefs["Dose_mg"]["p_value"]
         dose_trend = f"Each additional 100 mg is associated with a {d_coef * 100:+.3f} shift in {meas} (p = {d_pval:.4f})."
+    else:
+        dose_trend = "Single-dose cohort: Dose-response slope not estimable"
 
     return {
         "verdict_title": f"Executive Meta-Analytic Verdict • {meta_res.parameter_name}",
         "evidence_strength": evidence_strength,
         "heterogeneity_grade": hetero_grade,
-        "pooled_effect": f"{meas} {re_est:+.2f} (95% CI: [{ci_l:+.2f}, {ci_u:+.2f}])",
-        "prediction_interval": f"95% PI: [{pi_l:+.2f}, {pi_u:+.2f}]",
+        "pooled_effect": pooled_str,
+        "prediction_interval": pi_str,
         "i2_percent": f"{i2:.1f}%",
         "tau2": f"{tau2:.4f}",
         "dose_trend": dose_trend,

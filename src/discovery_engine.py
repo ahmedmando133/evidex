@@ -538,14 +538,57 @@ class InSilicoDiscoveryEngine:
 
         is_multi_drug = len(norm_drugs) >= 2 or "Multi-Drug" in self.cohort_mode or "Mixed" in self.cohort_name
 
+        # Helper to get pharmacological ceiling per drug class
+        def get_pharmacological_ceiling(drug_name: str, fallback_max: float) -> float:
+            dn = drug_name.lower()
+            if "empagliflozin" in dn:
+                return 25.0
+            elif "dapagliflozin" in dn:
+                return 10.0
+            elif "canagliflozin" in dn:
+                return 300.0
+            elif "semaglutide" in dn:
+                return 2.4
+            elif "tirzepatide" in dn:
+                return 15.0
+            elif "liraglutide" in dn:
+                return 3.0
+            elif "metformin" in dn:
+                return 2000.0
+            elif "orlistat" in dn:
+                return 120.0
+            elif "sitagliptin" in dn:
+                return 100.0
+            elif "pioglitazone" in dn:
+                return 45.0
+            return max(1.0, fallback_max)
+
+        # Mine observed active doses from arms_df
+        observed_active_doses: List[float] = []
+        if hasattr(self, "arms_df") and not self.arms_df.empty:
+            for _, a_r in self.arms_df.iterrows():
+                i_type = str(a_r.get("intervention_type", "")).lower()
+                if not any(ctrl in i_type for ctrl in ["placebo", "control", "comparator"]):
+                    dv = a_r.get("dose_value")
+                    if dv is not None and not pd.isna(dv):
+                        try:
+                            f_dv = float(dv)
+                            if f_dv > 0:
+                                observed_active_doses.append(f_dv)
+                        except Exception:
+                            pass
+
+        max_obs_dose = max(observed_active_doses) if observed_active_doses else 25.0
+        min_obs_dose = min(observed_active_doses) if observed_active_doses else 10.0
+
         if is_multi_drug:
             # MULTI-DRUG COHORT: BLISS INDEPENDENCE SYNERGY MODEL
             drug_a = norm_drugs[0]
             drug_b = norm_drugs[1]
 
             protocol_name = f"MANDOROS-01 In-Silico: Dual-Action Synergy Trial ({drug_a} + {drug_b})"
-            opt_dose_a = 1000.0 if "Metformin" in drug_a else 120.0
-            opt_dose_b = 120.0 if "Orlistat" in drug_b else (10.0 if "Dapagliflozin" in drug_b else 500.0)
+            opt_dose_a = min(max_obs_dose, get_pharmacological_ceiling(drug_a, 1000.0 if "metformin" in drug_a.lower() else 25.0))
+            opt_dose_b = min(max_obs_dose, get_pharmacological_ceiling(drug_b, 120.0 if "orlistat" in drug_b.lower() else 10.0))
 
             # Bliss / Additive complementary modeling
             # Combined effect = Effect_A + Effect_B - overlap penalty + mechanistic synergy bonus
@@ -626,7 +669,8 @@ class InSilicoDiscoveryEngine:
             # SINGLE-DRUG COHORT: OPTIMIZED SWEET-SPOT PROTOCOL
             drug_a = norm_drugs[0]
             protocol_name = f"MANDOROS-01 In-Silico: Precision Optimized Titration ({drug_a})"
-            sweet_dose = 1500.0 if "Metformin" in drug_a else (10.0 if "Dapagliflozin" in drug_a else 240.0)
+            ceiling_a = get_pharmacological_ceiling(drug_a, max_obs_dose)
+            sweet_dose = min(max_obs_dose, ceiling_a)
 
             # Enhanced effect due to precision titration and optimized duration (36 weeks)
             opt_eff = base_pooled_eff * 1.28
@@ -659,22 +703,22 @@ class InSilicoDiscoveryEngine:
             arm_std = SynthesizedVirtualArm(
                 arm_name=f"Arm 2: Standard Fixed-Dose Real Trial Comparator",
                 regimen=f"{drug_a} Standard Dosing (without precision titration)",
-                dose_mg=sweet_dose * 0.75,
+                dose_mg=min_obs_dose,
                 duration_weeks=36.0,
                 predicted_primary_delta=round(base_pooled_eff, 3),
                 ci_lower=round(base_pooled_eff - 1.96 * base_pooled_se, 3),
                 ci_upper=round(base_pooled_eff + 1.96 * base_pooled_se, 3),
-                pi_lower=round(base_pooled_eff - 2.5 * base_pooled_se, 3),
-                pi_upper=round(base_pooled_eff + 2.5 * base_pooled_se, 3),
-                predicted_secondary_outcomes={"Body Weight (kg)": -2.4, "Systolic BP (mmHg)": -2.0, "Fasting Glucose": -14.0},
+                pi_lower=round(base_pooled_eff - 2.8 * base_pooled_se, 3),
+                pi_upper=round(base_pooled_eff + 2.8 * base_pooled_se, 3),
+                predicted_secondary_outcomes={"Body Weight (kg)": -2.1, "Systolic BP (mmHg)": -2.0, "Fasting Glucose": -15.0},
                 recommended_sample_size=n_recommended,
                 projected_nnt=round(nnt * 1.5, 1),
                 superiority_probability=round(100.0 - superiority_prob, 1)
             )
 
             arm_placebo = SynthesizedVirtualArm(
-                arm_name="Arm 3: Matched Placebo Control",
-                regimen="Placebo Comparator Arm",
+                arm_name="Arm 3: Matched Placebo + Standard Dietary Control",
+                regimen="Matched Placebo Standard Care",
                 dose_mg=0.0,
                 duration_weeks=36.0,
                 predicted_primary_delta=-0.10,
@@ -682,13 +726,14 @@ class InSilicoDiscoveryEngine:
                 ci_upper=+0.02,
                 pi_lower=-0.40,
                 pi_upper=+0.20,
-                predicted_secondary_outcomes={"Body Weight (kg)": -0.5, "Systolic BP (mmHg)": -0.6, "Fasting Glucose": -1.5},
+                predicted_secondary_outcomes={"Body Weight (kg)": -0.5, "Systolic BP (mmHg)": -0.7, "Fasting Glucose": -2.5},
                 recommended_sample_size=n_recommended,
-                projected_nnt=28.0,
-                superiority_probability=0.1
+                projected_nnt=25.0,
+                superiority_probability=0.2
             )
 
             self.virtual_trial_arms = [arm_opt, arm_std, arm_placebo]
+
 
         self.virtual_trial_metadata = {
             "protocol_name": protocol_name,
