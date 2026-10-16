@@ -42,8 +42,9 @@ def get_criterion_bounds(e_obj) -> Tuple[str, Any, str, Any, str]:
 
 class ExcelTrialExporter:
     def __init__(self, data: ExtractedTrialData, studies: Optional[List[StudyMetadata]] = None):
-        self.data = data
-        self.studies = studies if studies else ([data.study] if data.study else [])
+        from src.scientific_referee import scientific_referee_audit_and_repair
+        self.data = scientific_referee_audit_and_repair(data)
+        self.studies = studies if studies else ([self.data.study] if self.data.study else [])
         self.study_map = {s.study_id: s for s in self.studies}
         self.wb = openpyxl.Workbook()
         # Remove default empty sheet

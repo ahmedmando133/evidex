@@ -238,6 +238,10 @@ class ActiveIngredientCohortPipeline:
             progress_callback(0.88, "🧬 Mining emergent cross-trial discoveries & synthesizing virtual trial...")
         self._run_discovery_engine()
 
+        # Step 5C: Pre-Export Scientific Referee Gatekeeper Audit
+        from src.scientific_referee import scientific_referee_audit_and_repair
+        scientific_referee_audit_and_repair(self)
+
         # Step 6: Generate Master Comparison Excel & Interactive Dashboard
         if progress_callback:
             progress_callback(0.92, "📑 Exporting Master Comparison Workbook & Executive Dashboard...")
@@ -248,7 +252,7 @@ class ActiveIngredientCohortPipeline:
         if progress_callback:
             progress_callback(1.00, f"✅ Cohort analysis complete for {self.cohort_name}!")
 
-        return {
+        res = {
             "cohort_name": self.cohort_name,
             "cohort_mode": self.cohort_mode,
             "cohort_badge_color": self.cohort_badge_color,
@@ -277,6 +281,7 @@ class ActiveIngredientCohortPipeline:
             "emergent_discoveries": self.discovery_results.get("emergent_discoveries", []),
             "discovery_plot_html": self.discovery_results.get("discovery_plot_html", "")
         }
+        return scientific_referee_audit_and_repair(res)
 
     # --- STEP 1: AUTO-EXTRACTION ---
 
@@ -1324,6 +1329,8 @@ class ActiveIngredientCohortPipeline:
             provenance=provenance,
             validation_log=validation
         )
+        from src.scientific_referee import scientific_referee_audit_and_repair
+        pooled_data = scientific_referee_audit_and_repair(pooled_data)
         return pooled_data, studies
 
     def _export_master_excel(self) -> Path:

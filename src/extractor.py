@@ -96,7 +96,8 @@ class RCTExtractor:
             try:
                 ai_data = self._extract_with_llm(study_id, sections)
                 if ai_data and len(ai_data.outcomes) > 0:
-                    return ai_data
+                    from src.scientific_referee import scientific_referee_audit_and_repair
+                    return scientific_referee_audit_and_repair(ai_data, full_text=full_text)
             except Exception as e:
                 err_msg = str(e)
                 print(f"[!] Multi-Stage AI Extraction notice: {err_msg}; falling back to Smart Local Engine.")
@@ -141,12 +142,14 @@ class RCTExtractor:
             provenance=provenance,
             validation_log=validation_log
         )
-        return execute_full_extraction_qa(
+        qa_data = execute_full_extraction_qa(
             trial_data,
             full_text=full_text,
             sections=sections,
             doc_pages=self.doc.pages
         )
+        from src.scientific_referee import scientific_referee_audit_and_repair
+        return scientific_referee_audit_and_repair(qa_data, full_text=full_text)
 
     def _audit_and_sanitize_biomarkers(self, outcomes: List[OutcomeMeasurement]) -> List[OutcomeMeasurement]:
         """
