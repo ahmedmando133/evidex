@@ -55,6 +55,23 @@ from src.meta_predictive import (
 )
 
 
+def _embed_cohort_logo(ws, cell="A1", width=50, height=50):
+    """Embeds the official MR logo into a cohort worksheet."""
+    try:
+        from openpyxl.drawing.image import Image as OpenpyxlImage
+        from pathlib import Path
+        logo_path = Path(__file__).resolve().parent.parent / "assets" / "mr_logo_favicon.png"
+        if not logo_path.exists():
+            logo_path = Path("assets/mr_logo_favicon.png")
+        if logo_path.exists():
+            img = OpenpyxlImage(str(logo_path))
+            img.width = width
+            img.height = height
+            ws.add_image(img, cell)
+    except Exception:
+        pass
+
+
 def _safe_int(val: Any, default: int = 0) -> int:
     if val is None:
         return default
@@ -772,7 +789,8 @@ class ActiveIngredientCohortPipeline:
                 seen_arm_tps = set()
                 unique_exp_rows = []
                 for e_row, a_info in exp_rows:
-                    arm_k = (str(e_row.get("arm_id", "")), str(e_row.get("timepoint", "")))
+                    is_safe = (e_row.get("domain") == "safety_adverse_events" or "adverse" in param_name.lower())
+                    arm_k = (str(e_row.get("arm_id", "")), "overall_safety_period" if is_safe else str(e_row.get("timepoint", "")))
                     if arm_k in seen_arm_tps:
                         continue
                     seen_arm_tps.add(arm_k)
@@ -2474,6 +2492,12 @@ class ActiveIngredientCohortPipeline:
                 col_letter = get_column_letter(col[0].column)
                 sheet.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 65)
 
+        # Universal official MR logo branding pass across all sheets
+        for sheet in wb.worksheets:
+            if not getattr(sheet, "_images", None):
+                logo_col = max(sheet.max_column + 2, 8)
+                _embed_cohort_logo(sheet, f"{get_column_letter(logo_col)}1", width=50, height=50)
+
         wb.save(out_excel)
         try:
             wb.save(legacy_excel)
@@ -2487,6 +2511,18 @@ class ActiveIngredientCohortPipeline:
         """Builds a self-contained, interactive Plotly Executive Dashboard."""
         out_html = self.output_dir / f"{self.cohort_name}_MANDOROS_Executive_Dashboard.html"
         legacy_html = self.output_dir / f"{self.cohort_name}_Executive_Dashboard.html"
+
+        import base64
+        logo_b64 = ""
+        try:
+            logo_p = Path(__file__).resolve().parent.parent / "assets" / "mr_logo_favicon.png"
+            if not logo_p.exists():
+                logo_p = Path("assets/mr_logo_favicon.png")
+            if logo_p.exists():
+                with open(logo_p, "rb") as f_img:
+                    logo_b64 = base64.b64encode(f_img.read()).decode("ascii")
+        except Exception:
+            pass
 
         try:
             import plotly.graph_objects as go
@@ -2952,6 +2988,7 @@ class ActiveIngredientCohortPipeline:
 <head>
   <meta charset="UTF-8">
   <title>MANDOROS Executive Dashboard • {self.cohort_name}</title>
+  {f'<link rel="icon" type="image/png" href="data:image/png;base64,{logo_b64}">' if logo_b64 else ''}
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -3011,6 +3048,11 @@ class ActiveIngredientCohortPipeline:
 </head>
 <body>
   <div class="header-box">
+    {f'''
+    <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+      <img src="data:image/png;base64,{logo_b64}" alt="Official MR Logo" style="height: 64px; width: auto; filter: drop-shadow(0 0 16px rgba(6,182,212,0.6));" />
+    </div>
+    ''' if logo_b64 else ''}
     <div style="display: inline-flex; align-items: center; gap: 8px; background: {self.cohort_badge_color}25; border: 1px solid {self.cohort_badge_color}; color: #F8FAFC; padding: 6px 18px; border-radius: 9999px; font-size: 13px; font-weight: 700; margin-bottom: 12px; box-shadow: 0 0 15px {self.cohort_badge_color}44;">
       <span>{self.cohort_badge_icon}</span>
       <span>{self.cohort_mode}</span>
@@ -3367,6 +3409,12 @@ class ActiveIngredientCohortPipeline:
                 max_len = max(len(str(cell.value or '')) for cell in col)
                 col_letter = get_column_letter(col[0].column)
                 sheet.column_dimensions[col_letter].width = min(max(max_len + 3, 14), 55)
+
+        # Universal official MR logo branding pass across all sheets
+        for sheet in wb.worksheets:
+            if not getattr(sheet, "_images", None):
+                logo_col = max(sheet.max_column + 2, 7)
+                _embed_cohort_logo(sheet, f"{get_column_letter(logo_col)}1", width=50, height=50)
 
         wb.save(out_excel)
         try:

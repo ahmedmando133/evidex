@@ -630,4 +630,104 @@ def test_mandoros_phase2_perfection_lock_and_3column_schema():
     assert len(qa_warnings) == 0, f"Found unexpected QA warnings: {qa_warnings}"
 
 
+def test_mandoros_system_wide_extraction_perfection():
+    """
+    Validates Master System-Wide Extraction Improvements:
+    1. FPG vs PPG Discrimination (no -19.6 or -26.3 in PPG AUC).
+    2. Triglycerides Geometric Ratio & NOT_APPLICABLE in Change from Baseline.
+    3. Adverse Events Canonicalization & single canonical record per arm.
+    4. Enriched clinical schema (variable_role, estimate_type, timepoint metadata).
+    """
+    from src.extractor import RCTExtractor
+    from src.exporter import ExcelTrialExporter
+
+    pdf_path = "data/raw/empa vs placebo 2doses (RCT4).pdf"
+    if not os.path.exists(pdf_path):
+        pdf_path = "empa vs placebo 2doses (RCT4)(4).pdf"
+    assert os.path.exists(pdf_path), f"Test PDF not found at {pdf_path}"
+
+    ext = RCTExtractor(pdf_path)
+    data = ext.extract_all(study_id_override="RCT4")
+
+    # 1. FPG vs PPG Discrimination
+    ppg_outs = [o for o in data.outcomes if "ppg" in o.parameter_name.lower()]
+    for o in ppg_outs:
+        assert o.change_value not in [-19.6, -26.3], f"Found FPG Day 2 contrast in PPG AUC: {o.change_value}"
+        assert o.effect_value not in [-19.6, -26.3], f"Found FPG Day 2 contrast in PPG AUC: {o.effect_value}"
+
+    ppg_d28 = {o.arm_id: o for o in ppg_outs if str(o.timepoint_value) == "28"}
+    assert ppg_d28["ARM_001"].change_value == -18.1
+    assert ppg_d28["ARM_002"].change_value == -103.6
+    assert ppg_d28["ARM_002"].effect_value == -85.5
+    assert ppg_d28["ARM_003"].change_value == -122.9
+    assert ppg_d28["ARM_003"].effect_value == -104.9
+
+    fpg_d2 = {o.arm_id: o for o in data.outcomes if o.parameter_name == "Fasting Plasma Glucose" and str(o.timepoint_value) == "2"}
+    assert fpg_d2["ARM_001"].change_value == -4.2
+    assert fpg_d2["ARM_002"].change_value == -23.8
+    assert fpg_d2["ARM_002"].effect_value == -19.6
+    assert fpg_d2["ARM_003"].change_value == -30.5
+    assert fpg_d2["ARM_003"].effect_value == -26.3
+
+    # 2. Triglycerides Geometric Ratio & NOT_APPLICABLE
+    tg_d29 = {o.arm_id: o for o in data.outcomes if o.parameter_name == "Triglycerides" and str(o.timepoint_value) == "29"}
+    assert tg_d29["ARM_001"].ratio == 1.0
+    assert tg_d29["ARM_002"].ratio == 0.8
+    assert tg_d29["ARM_002"].effect_value == 0.8
+    assert tg_d29["ARM_003"].ratio == 0.7
+    assert tg_d29["ARM_003"].effect_value == 0.7
+
+    # Export to Excel and verify sheet cells
+    out_test_file = "outputs/test_mandoros_perfection_export.xlsx"
+    exporter = ExcelTrialExporter(data)
+    exporter.export(out_test_file)
+
+    wb = openpyxl.load_workbook(out_test_file, data_only=True)
+    ws_master = wb["Master_Extraction_Sheet"]
+
+    # Verify Triglycerides Change from Baseline is NOT_APPLICABLE (not empty)
+    # Find Triglycerides column in row 2
+    tg_col = None
+    for c in range(1, ws_master.max_column + 1):
+        if ws_master.cell(2, c).value and "triglycerides" in str(ws_master.cell(2, c).value).lower():
+            tg_col = c
+            break
+    assert tg_col is not None, "Triglycerides column not found in Master_Extraction_Sheet"
+    chg_col = tg_col + 4  # Change from Baseline is offset 4 from start of block
+    # Check that rows with Day 29 timepoint have NOT_APPLICABLE
+    for r in range(4, ws_master.max_row + 1):
+        tp_v = ws_master.cell(r, 20).value # pop_start_col + 6
+        if str(tp_v) == "29":
+            val = ws_master.cell(r, chg_col).value
+            assert val == "NOT_APPLICABLE", f"Row {r} Triglycerides Change from Baseline was '{val}', expected 'NOT_APPLICABLE'"
+
+    # 3. Adverse Events Canonicalization & Display Deduplication
+    safe_cols = [c for c in range(1, ws_master.max_column + 1) if ws_master.cell(2, c).value and "adverse" in str(ws_master.cell(2, c).value).lower()]
+    # There should NOT be both "Adverse Events" and "Any Adverse Event"
+    r2_ae_titles = [str(ws_master.cell(2, c).value) for c in safe_cols]
+    assert "adverse events" not in [t.lower().strip() for t in r2_ae_titles if t.lower().strip() == "adverse events"], "Duplicate 'Adverse Events' column block found!"
+    assert any("any adverse event" in t.lower() for t in r2_ae_titles), "Missing canonical 'Any Adverse Event' column block!"
+
+    # In Outcomes sheet: exactly ONE canonical Any Adverse Event per arm
+    ws_out = wb["Outcomes"]
+    out_headers = [ws_out.cell(1, c).value for c in range(1, ws_out.max_column + 1)]
+    assert "variable_role" in out_headers
+    assert "estimate_type" in out_headers
+    assert "original_timepoint_label" in out_headers
+
+    any_ae_outcomes = [r for r in ws_out.iter_rows(min_row=2, values_only=True) if r[7] == "Any Adverse Event"]
+    assert len(any_ae_outcomes) == 3, f"Expected 3 canonical AE records (1 per arm), found {len(any_ae_outcomes)}"
+    ae_by_arm = {r[2]: (r[26], r[27], r[28]) for r in any_ae_outcomes}
+    assert ae_by_arm["ARM_001"] == (2, 21, 9.5)
+    assert ae_by_arm["ARM_002"] == (3, 20, 15.0)
+    assert ae_by_arm["ARM_003"] == (3, 19, 15.8)
+
+    # In Eligibility sheet: variable_role, applicable_population, assessment_stage populated
+    ws_elig = wb["Eligibility"]
+    elig_headers = [ws_elig.cell(1, c).value for c in range(1, ws_elig.max_column + 1)]
+    assert "variable_role" in elig_headers
+    assert "applicable_population" in elig_headers
+    assert "assessment_stage" in elig_headers
+
+
 

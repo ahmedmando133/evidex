@@ -64,6 +64,22 @@ class ExcelTrialExporter:
         self.align_center = Alignment(horizontal="center", vertical="center")
         self.align_left = Alignment(horizontal="left", vertical="center")
 
+    def _embed_mr_logo(self, ws, cell="A1", width=50, height=50):
+        """Embeds the official MR logo into the worksheet header area."""
+        try:
+            from openpyxl.drawing.image import Image as OpenpyxlImage
+            from pathlib import Path
+            logo_path = Path(__file__).resolve().parent.parent / "assets" / "mr_logo_favicon.png"
+            if not logo_path.exists():
+                logo_path = Path("assets/mr_logo_favicon.png")
+            if logo_path.exists():
+                img = OpenpyxlImage(str(logo_path))
+                img.width = width
+                img.height = height
+                ws.add_image(img, cell)
+        except Exception:
+            pass
+
     def _apply_sheet_formatting(self, ws):
         # Universal formula-injection protection: ensure plain text strings starting with '=' are never treated as Excel formulas
         for row in ws.iter_rows():
@@ -90,6 +106,11 @@ class ExcelTrialExporter:
             ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 45)
 
         ws.row_dimensions[1].height = 24
+
+        # Embed official MR logo at sheet top-right
+        logo_col = max(ws.max_column + 2, 8)
+        logo_cell = f"{get_column_letter(logo_col)}1"
+        self._embed_mr_logo(ws, logo_cell, width=50, height=50)
 
     def export(self, output_path: str) -> str:
         self._build_master_extraction_sheet()
@@ -192,9 +213,10 @@ class ExcelTrialExporter:
         for o in self.data.outcomes:
             p_name = o.parameter_name.strip()
             if o.domain == "safety_adverse_events":
-                if p_name not in seen_safe:
-                    seen_safe.add(p_name)
-                    safety_params.append(p_name)
+                canon_name = "Any Adverse Event" if p_name.lower().strip() in ["adverse events", "any adverse events", "any adverse event"] else p_name
+                if canon_name not in seen_safe:
+                    seen_safe.add(canon_name)
+                    safety_params.append(canon_name)
             elif o.is_baseline or str(o.timepoint_value or "").strip() in ["0", "0.0"]:
                 if p_name not in seen_base:
                     seen_base.add(p_name)
@@ -563,17 +585,33 @@ class ExcelTrialExporter:
                         ws.cell(row=current_row, column=start_c + 1, value=matched_long.sd)
                         ws.cell(row=current_row, column=start_c + 2, value=matched_long.events)
                         ws.cell(row=current_row, column=start_c + 3, value=matched_long.percentage)
-                        ws.cell(row=current_row, column=start_c + 4, value=matched_long.change_value)
+                        # Geometric / Ratio outcomes: if arithmetic change_value is None but ratio is present, mark NOT_APPLICABLE to eliminate red blanks
+                        if matched_long.change_value is not None:
+                            ws.cell(row=current_row, column=start_c + 4, value=matched_long.change_value)
+                        elif matched_long.ratio is not None or matched_long.metric_type == "geometric_mean_ratio":
+                            ws.cell(row=current_row, column=start_c + 4, value="NOT_APPLICABLE")
+                        else:
+                            ws.cell(row=current_row, column=start_c + 4, value=None)
                         ws.cell(row=current_row, column=start_c + 5, value=matched_long.unit)
 
                 # Block 4C: Safety & Adverse Events
+                # Safety data is evaluated across the cumulative study treatment period.
+                # Display safety counts on the primary follow-up row for this arm (e.g. Day 28 or study duration), and display reference markers '—' on interim intra-day rows.
+                target_safe_tp = str(s.duration_value) if any(t[0] == str(s.duration_value) for t in sorted_timepoints) else (sorted_timepoints[-1][0] if sorted_timepoints else "28")
+                is_safety_display_row = (tp_v == target_safe_tp)
                 for p_name, start_c in safe_col_map.items():
-                    matched_safe = next((o for o in arm_outcomes if o.parameter_name.strip() == p_name and o.domain == "safety_adverse_events"), None)
+                    matched_safe = next((o for o in arm_outcomes if (o.parameter_name.strip() == p_name or (p_name == "Any Adverse Event" and o.parameter_name.lower().strip() in ["adverse events", "any adverse events", "any adverse event"])) and o.domain == "safety_adverse_events"), None)
                     if matched_safe:
-                        ws.cell(row=current_row, column=start_c, value=matched_safe.events)
-                        ws.cell(row=current_row, column=start_c + 1, value=matched_safe.total or arm_n)
-                        ws.cell(row=current_row, column=start_c + 2, value=matched_safe.percentage)
-                        ws.cell(row=current_row, column=start_c + 3, value=matched_safe.unit or "%")
+                        if is_safety_display_row:
+                            ws.cell(row=current_row, column=start_c, value=matched_safe.events)
+                            ws.cell(row=current_row, column=start_c + 1, value=matched_safe.total or arm_n)
+                            ws.cell(row=current_row, column=start_c + 2, value=matched_safe.percentage)
+                            ws.cell(row=current_row, column=start_c + 3, value=matched_safe.unit or "%")
+                        else:
+                            ws.cell(row=current_row, column=start_c, value="—")
+                            ws.cell(row=current_row, column=start_c + 1, value="—")
+                            ws.cell(row=current_row, column=start_c + 2, value="—")
+                            ws.cell(row=current_row, column=start_c + 3, value="—")
 
                 ws.row_dimensions[current_row].height = 20
                 for c in range(1, total_cols + 1):
@@ -599,6 +637,11 @@ class ExcelTrialExporter:
                 if len(val_str) > max_len:
                     max_len = len(val_str)
             ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 38)
+
+        # Embed official MR logo at sheet top-right
+        logo_col = max(total_cols + 2, 10)
+        logo_cell = f"{get_column_letter(logo_col)}1"
+        self._embed_mr_logo(ws, logo_cell, width=55, height=55)
 
     def _build_studies_sheet(self):
         ws = self.wb.create_sheet(title="Studies")
@@ -642,7 +685,8 @@ class ExcelTrialExporter:
             "criterion_id", "study_id", "criterion_type", "domain", "criterion_name",
             "min_operator (>=)", "min_value", "max_operator (<=)", "max_value", "unit",
             "less_than (<)", "equal (=)", "greater_than (>)", "between",
-            "value", "raw_source_text", "source_page"
+            "value", "raw_source_text", "source_page",
+            "variable_role", "applicable_population", "assessment_stage"
         ]
         ws.append(headers)
 
@@ -655,7 +699,10 @@ class ExcelTrialExporter:
                 e.criterion_id, e.study_id, e.criterion_type, e.domain, e.criterion_name,
                 min_op, min_v, max_op, max_v, unit_v,
                 e.less_than, e.equal, e.greater_than, e.between,
-                e.value, e.raw_source_text, e.source_page
+                e.value, e.raw_source_text, e.source_page,
+                getattr(e, "variable_role", None) or ("EXCLUSION_CRITERION" if e.criterion_type == "exclusion" else "INCLUSION_CRITERION"),
+                getattr(e, "applicable_population", None) or "overall",
+                getattr(e, "assessment_stage", None) or "eligibility_assessment"
             ])
         self._apply_sheet_formatting(ws)
 
@@ -665,7 +712,8 @@ class ExcelTrialExporter:
             "outcome_id", "study_id", "arm_id", "race", "gender", "is_baseline", "domain", "parameter_name", "statistical_type", "metric_type",
             "Timepoint (value)", "Timepoint (unit)", "sample_size", "analysis_population", "mean", "sd", "se", "dispersion_type", "median", "iqr_lower", "iqr_upper",
             "change_value", "change_sd", "ratio", "ratio_ci_lower", "ratio_ci_upper", "events", "total", "percentage", "unit", "effect_measure", "effect_value",
-            "ci_lower", "ci_upper", "p_value", "is_primary", "source_page", "source_location", "raw_source_text"
+            "ci_lower", "ci_upper", "p_value", "is_primary", "source_page", "source_location", "raw_source_text",
+            "variable_role", "estimate_type", "original_timepoint_label", "assessment_stage", "timepoint_type", "source_evidence"
         ]
         ws.append(headers)
 
@@ -675,7 +723,13 @@ class ExcelTrialExporter:
                 o.outcome_id, o.study_id, o.arm_id, race_str, o.gender or "", o.is_baseline, o.domain, o.parameter_name, o.statistical_type, o.metric_type,
                 o.timepoint_value, o.timepoint_unit, o.sample_size, o.analysis_population or "", o.mean, o.sd, o.se, o.dispersion_type or ("SD" if o.sd is not None else ("SE" if o.se is not None else "")), o.median, o.iqr_lower, o.iqr_upper,
                 o.change_value, o.change_sd, o.ratio, o.ratio_ci_lower, o.ratio_ci_upper, o.events, o.total, o.percentage, o.unit, o.effect_measure, o.effect_value,
-                o.ci_lower, o.ci_upper, o.p_value, "YES" if o.is_primary else "NO", o.source_page, o.source_location, o.raw_source_text
+                o.ci_lower, o.ci_upper, o.p_value, "YES" if o.is_primary else "NO", o.source_page, o.source_location, o.raw_source_text,
+                getattr(o, "variable_role", None) or ("SAFETY_OUTCOME" if o.domain == "safety_adverse_events" else ("BASELINE_CHARACTERISTIC" if o.is_baseline else "EFFICACY_OUTCOME")),
+                getattr(o, "estimate_type", None) or "FOLLOWUP_MEAN",
+                getattr(o, "original_timepoint_label", None) or (f"Day {o.timepoint_value}" if o.timepoint_value else "TIMEPOINT_NOT_EXPLICITLY_REPORTED"),
+                getattr(o, "assessment_stage", None) or ("overall_safety_period" if o.domain == "safety_adverse_events" else ("baseline" if o.is_baseline else "follow_up")),
+                getattr(o, "timepoint_type", None) or ("cumulative_period" if o.domain == "safety_adverse_events" else "point_in_time"),
+                getattr(o, "source_evidence", None) or o.raw_source_text or o.source_location or "Reported clinical trial finding"
             ])
         self._apply_sheet_formatting(ws)
 
@@ -729,7 +783,9 @@ class ExcelTrialExporter:
             "dose_value", "dose_unit", "frequency_value", "frequency_unit",
             "sample_size", "Timepoint (value)", "Timepoint (unit)", "is_baseline",
             "parameter_name", "statistical_type", "mean", "sd", "se", "events", "percentage",
-            "change_value", "unit", "effect_measure", "effect_value", "ci_lower", "ci_upper", "p_value",
+            "change_value", "ratio", "ratio_ci_lower", "ratio_ci_upper",
+            "unit", "effect_measure", "effect_value", "ci_lower", "ci_upper", "p_value",
+            "variable_role", "estimate_type", "original_timepoint_label", "assessment_stage", "timepoint_type",
             "source_page", "source_location"
         ]
         ws.append(headers)
@@ -751,7 +807,13 @@ class ExcelTrialExporter:
                 o.sample_size, o.timepoint_value, o.timepoint_unit, o.is_baseline,
                 o.parameter_name, o.statistical_type,
                 o.mean, o.sd, o.se, o.events, o.percentage, o.change_value,
+                o.ratio, o.ratio_ci_lower, o.ratio_ci_upper,
                 o.unit, o.effect_measure, o.effect_value, o.ci_lower, o.ci_upper, o.p_value,
+                getattr(o, "variable_role", None) or ("SAFETY_OUTCOME" if o.domain == "safety_adverse_events" else ("BASELINE_CHARACTERISTIC" if o.is_baseline else "EFFICACY_OUTCOME")),
+                getattr(o, "estimate_type", None) or "FOLLOWUP_MEAN",
+                getattr(o, "original_timepoint_label", None) or (f"Day {o.timepoint_value}" if o.timepoint_value else "TIMEPOINT_NOT_EXPLICITLY_REPORTED"),
+                getattr(o, "assessment_stage", None) or ("overall_safety_period" if o.domain == "safety_adverse_events" else ("baseline" if o.is_baseline else "follow_up")),
+                getattr(o, "timepoint_type", None) or ("cumulative_period" if o.domain == "safety_adverse_events" else "point_in_time"),
                 o.source_page, o.source_location
             ])
 
@@ -785,7 +847,7 @@ class ExcelTrialExporter:
             for o in self.data.outcomes:
                 if o.arm_id == a_id and (o.is_baseline or str(o.timepoint_value or "").strip() in ["0", "0.0"]):
                     col_name = f"{o.parameter_name} ({o.unit})" if o.unit else o.parameter_name
-                    val = o.mean if o.mean is not None else (o.percentage if o.percentage is not None else (o.change_value if o.change_value is not None else o.events))
+                    val = o.mean if o.mean is not None else (o.ratio if o.ratio is not None else (o.percentage if o.percentage is not None else (o.change_value if o.change_value is not None else o.events)))
                     arm_baseline_vals[a_id][col_name] = val
 
         # 2. Group outcomes by (arm_id, race, timepoint_value, timepoint_unit)
@@ -803,7 +865,7 @@ class ExcelTrialExporter:
                     "values": dict(arm_baseline_vals.get(o.arm_id, {})) # Start with arm baseline for continuity
                 }
             col_name = f"{o.parameter_name} ({o.unit})" if o.unit else o.parameter_name
-            val = o.mean if o.mean is not None else (o.percentage if o.percentage is not None else (o.change_value if o.change_value is not None else o.events))
+            val = o.mean if o.mean is not None else (o.ratio if o.ratio is not None else (o.percentage if o.percentage is not None else (o.change_value if o.change_value is not None else o.events)))
             rows_map[key]["values"][col_name] = val
 
         for row_info in rows_map.values():

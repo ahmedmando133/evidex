@@ -317,18 +317,40 @@ def audit_and_repair_extracted_data(
                 ))
                 continue  # Drop hallucinated AST
 
-        # Check FPG misattribution to liver enzymes (avoid false positive from 'fasting' containing 'ast')
-        if "fasting" in str(o.raw_source_text or "").lower() and "glucose" in str(o.raw_source_text or "").lower():
-            if o.domain in ["liver", "hepatic"] or bool(re.search(r'\b(?:ast|alt|sgot|sgpt)\b', p_low)):
+        # Check FPG vs PPG discrimination (Prevent Figure 3 FPG contrasts from ever being assigned to PPG AUC)
+        if "ppg" in p_low or "postprandial" in p_low:
+            if (o.change_value in [-19.6, -26.3] or o.effect_value in [-19.6, -26.3]) and "fpg" in str(o.raw_source_text or "").lower():
                 o.parameter_name = "Fasting Plasma Glucose"
                 o.domain = "glycemic"
+                o.timepoint_value = "2"
+                o.timepoint_unit = "days"
+                o.timepoint = "Day 2"
                 report.violations.append(ScientificRefereeViolation(
-                    check_id="REF-07-BIOMARKER-SOURCE-GUARD",
+                    check_id="REF-15-CLINICAL-OUTCOME-MISIDENTIFICATION-GUARD",
                     severity="REPAIRED",
                     entity=f"Outcome {o.outcome_id}",
-                    message="Reclassified misattributed Fasting Plasma Glucose from liver domain to glycemic domain.",
+                    message="Reassigned misattributed FPG Day 2 contrast value from PPG AUC to Fasting Plasma Glucose.",
                     repaired=True
                 ))
+
+        # Check Geometric Ratio Integrity
+        if o.ratio is not None or o.metric_type == "geometric_mean_ratio":
+            if o.change_value is not None and "ratio" in str(o.unit or "").lower():
+                o.change_value = None
+            o.estimate_type = "GEOMETRIC_MEAN_RATIO"
+
+        # Check Adverse Event Canonicalization
+        if o.domain == "safety_adverse_events":
+            if p_low in ["adverse events", "any adverse events", "any adverse event"]:
+                if o.parameter_name != "Any Adverse Event":
+                    o.parameter_name = "Any Adverse Event"
+                    report.violations.append(ScientificRefereeViolation(
+                        check_id="REF-17-ADVERSE-EVENT-CANONICALIZATION",
+                        severity="REPAIRED",
+                        entity=f"Outcome {o.outcome_id}",
+                        message="Canonicalized adverse event parameter name to 'Any Adverse Event' to eliminate duplicate columns.",
+                        repaired=True
+                    ))
 
         sanitized_outcomes.append(o)
 

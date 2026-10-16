@@ -623,21 +623,26 @@ def get_default_single_study_preview():
 
     preview_banner = """
     <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.96) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(56,189,248,0.4); border-radius: 20px; padding: 24px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(56, 189, 248, 0.15); margin-bottom: 24px; backdrop-filter: blur(20px);">
-      <div style="border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px;">
-        <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-          <span style="background: rgba(56,189,248,0.18); border: 1px solid #38BDF8; color: #38BDF8; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
-            ⚡ MANDOROS STAGE-1 ENGINE READY
-          </span>
-          <span style="background: rgba(16,185,129,0.18); border: 1px solid #10B981; color: #34D399; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
-            CONSORT / PRISMA / ICH-E9 Compliant Architecture
-          </span>
+      <div style="border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 280px;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+            <span style="background: rgba(56,189,248,0.18); border: 1px solid #38BDF8; color: #38BDF8; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
+              ⚡ MANDOROS STAGE-1 ENGINE READY
+            </span>
+            <span style="background: rgba(16,185,129,0.18); border: 1px solid #10B981; color: #34D399; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+              CONSORT / PRISMA / ICH-E9 Compliant Architecture
+            </span>
+          </div>
+          <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">
+            Atomic Clinical Trial Deconstruction &amp; Verbatim Provenance Engine
+          </h2>
+          <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.6;">
+            MANDOROS ingests unstructured clinical trial publications (PDFs), scanning tables, text, flowcharts, and appendices to deterministically normalize findings into 7 relational sheets with complete verbatim provenance. Drop an RCT paper on the left to extract.
+          </p>
         </div>
-        <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">
-          Atomic Clinical Trial Deconstruction &amp; Verbatim Provenance Engine
-        </h2>
-        <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.6;">
-          MANDOROS ingests unstructured clinical trial publications (PDFs), scanning tables, text, flowcharts, and appendices to deterministically normalize findings into 7 relational sheets with complete verbatim provenance. Drop an RCT paper on the left to extract.
-        </p>
+        <div style="flex-shrink: 0; display: flex; align-items: center;">
+          <img src="/file=assets/mr_logo.svg" alt="MR Logo" style="height: 52px; width: auto; filter: drop-shadow(0 0 12px rgba(6,182,212,0.6));" onerror="this.src='/file=assets/mr_logo_favicon.png'" />
+        </div>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
         <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(56,189,248,0.25); border-radius: 14px; padding: 14px; border-left: 4px solid #38BDF8;">
@@ -674,7 +679,7 @@ def get_default_student_express_lab() -> tuple:
     student_abstract_html = """
     <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.92) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(16,185,129,0.4); border-radius: 20px; padding: 26px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(16,185,129,0.15); margin-bottom: 24px; backdrop-filter: blur(20px);">
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 16px; margin-bottom: 20px; gap: 14px;">
-        <div>
+        <div style="flex: 1; min-width: 280px;">
           <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
             <span style="background: linear-gradient(90deg, #10B981, #059669); color: white; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;">
               🎓 STUDENT &amp; JUNIOR RESEARCHER EXPRESS LAB
@@ -692,6 +697,9 @@ def get_default_student_express_lab() -> tuple:
           <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.5;">
             An ultra-streamlined evidence synthesis tailored for medical students, clinical fellows, and junior investigators presenting at journal clubs, preparing clinical seminars, or writing thesis chapters.
           </p>
+        </div>
+        <div style="flex-shrink: 0; display: flex; align-items: center;">
+          <img src="/file=assets/mr_logo.svg" alt="MR Logo" style="height: 52px; width: auto; filter: drop-shadow(0 0 12px rgba(6,182,212,0.6));" onerror="this.src='/file=assets/mr_logo_favicon.png'" />
         </div>
       </div>
 
@@ -1018,21 +1026,26 @@ def get_default_cohort_preview():
     """Generates drug-agnostic Phase-2 Methodological Readiness Hub and Blueprint Matrix on startup."""
     cohort_verdict_html = """
     <div style="background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.96) 50%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(99,102,241,0.5); border-radius: 20px; padding: 26px; box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.2); margin-bottom: 24px; backdrop-filter: blur(20px);">
-      <div style="border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 16px; margin-bottom: 18px;">
-        <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-          <span style="background: rgba(99,102,241,0.2); border: 1px solid #6366F1; color: #818CF8; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
-            🚀 MANDOROS PHASE-2 SYNTHESIS ENGINE READY
-          </span>
-          <span style="background: rgba(45,212,191,0.2); border: 1px solid #2DD4BF; color: #2DD4BF; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
-            metafor-REML · NMA · SUCRA · In-Silico AI
-          </span>
+      <div style="border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 280px;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+            <span style="background: rgba(99,102,241,0.2); border: 1px solid #6366F1; color: #818CF8; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
+              🚀 MANDOROS PHASE-2 SYNTHESIS ENGINE READY
+            </span>
+            <span style="background: rgba(45,212,191,0.2); border: 1px solid #2DD4BF; color: #2DD4BF; padding: 4px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700;">
+              metafor-REML · NMA · SUCRA · In-Silico AI
+            </span>
+          </div>
+          <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">
+            Multi-Trial Evidence Synthesis, Network Meta-Analysis &amp; Predictive Extrapolation Lab
+          </h2>
+          <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.6;">
+            Select an existing cohort folder or drop multiple RCT files on the left to pool heterogeneous trials, compute DerSimonian-Laird and REML random-effects, execute network meta-analysis and SUCRA rankings, reconstruct missing trial cells via cross-study surrogate regression, and simulate virtual trials.
+          </p>
         </div>
-        <h2 style="color: #F8FAFC; margin: 0 0 6px 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">
-          Multi-Trial Evidence Synthesis, Network Meta-Analysis &amp; Predictive Extrapolation Lab
-        </h2>
-        <p style="color: #94A3B8; margin: 0; font-size: 13.5px; line-height: 1.6;">
-          Select an existing cohort folder or drop multiple RCT files on the left to pool heterogeneous trials, compute DerSimonian-Laird and REML random-effects, execute network meta-analysis and SUCRA rankings, reconstruct missing trial cells via cross-study surrogate regression, and simulate virtual trials.
-        </p>
+        <div style="flex-shrink: 0; display: flex; align-items: center;">
+          <img src="/file=assets/mr_logo.svg" alt="MR Logo" style="height: 54px; width: auto; filter: drop-shadow(0 0 14px rgba(6,182,212,0.6));" onerror="this.src='/file=assets/mr_logo_favicon.png'" />
+        </div>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
         <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(99,102,241,0.3); border-radius: 14px; padding: 14px; border-left: 4px solid #6366F1;">
@@ -1666,9 +1679,12 @@ def build_student_express_lab_ui(cohort_name: str, res: dict, pipeline: Any) -> 
             {html.escape(summary_narrative)}
           </p>
         </div>
-        <div style="background: rgba(16,185,129,0.15); border: 1.5px solid #10B981; border-radius: 14px; padding: 10px 18px; text-align: center;">
-          <div style="font-size: 15px; font-weight: 800; color: #F8FAFC;">{html.escape(pooled_eff_str)}</div>
-          <div style="font-size: 11px; color: #6EE7B7; margin-top: 3px;">p = {html.escape(p_val_str)} &bull; I² = {html.escape(i2_str)}</div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="background: rgba(16,185,129,0.15); border: 1.5px solid #10B981; border-radius: 14px; padding: 10px 18px; text-align: center;">
+            <div style="font-size: 15px; font-weight: 800; color: #F8FAFC;">{html.escape(pooled_eff_str)}</div>
+            <div style="font-size: 11px; color: #6EE7B7; margin-top: 3px;">p = {html.escape(p_val_str)} &bull; I² = {html.escape(i2_str)}</div>
+          </div>
+          <img src="/file=assets/mr_logo.svg" alt="MR Logo" style="height: 48px; width: auto; filter: drop-shadow(0 0 10px rgba(6,182,212,0.5));" onerror="this.src='/file=assets/mr_logo_favicon.png'" />
         </div>
       </div>
 
@@ -2118,11 +2134,12 @@ def process_cohort(
                 {summary_text}
               </p>
             </div>
-            <div>
+            <div style="display: flex; align-items: center; gap: 14px;">
               <div style="background: rgba(99,102,241,0.15); border: 1.5px solid #6366F1; color: #C4B5FD; padding: 10px 18px; border-radius: 14px; font-weight: 800; font-size: 13px; text-align: center; box-shadow: 0 0 20px rgba(99,102,241,0.25);">
                 <div style="font-size: 15px; color: #F8FAFC;">{pooled_effect_str}</div>
                 <div style="font-size: 11px; color: #FBBF24; margin-top: 4px;">{pi_str}</div>
               </div>
+              <img src="/file=assets/mr_logo.svg" alt="MR Logo" style="height: 52px; width: auto; filter: drop-shadow(0 0 12px rgba(6,182,212,0.6));" onerror="this.src='/file=assets/mr_logo_favicon.png'" />
             </div>
           </div>
 

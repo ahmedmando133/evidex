@@ -1,2 +1,0 @@
-criterion_id,study_id,criterion_type,domain,criterion_name,operator,value,min_value,max_value,unit,raw_source_text,source_page,criterion_name_reported
-ELIG_0005,RCT_ORLISTAT,inclusion,demographic,age,between,,18.0,65.0,years,aged 18–65 years; male  18–65 years; male,2,age

@@ -211,6 +211,9 @@ class EligibilityCriterion(BaseModel):
     unit: Optional[str] = Field(default=None, description="Standardized unit, e.g. years, kg/m2, mg/dL, umol/L")
     raw_source_text: Optional[str] = Field(default=None, description="Original verbatim text snippet from paper")
     source_page: Optional[int] = Field(default=None, description="PDF page number")
+    variable_role: Optional[str] = Field(default="INCLUSION_CRITERION", description="INCLUSION_CRITERION or EXCLUSION_CRITERION")
+    applicable_population: Optional[str] = Field(default=None, description="e.g. drug_naive, previously_treated, run_in, overall")
+    assessment_stage: Optional[str] = Field(default=None, description="e.g. screening, washout, run_in, consent")
 
     @field_validator("criterion_type", mode="before")
     @classmethod
@@ -242,7 +245,30 @@ class EligibilityCriterion(BaseModel):
 
     def model_post_init(self, __context: Any) -> None:
         """Ensures atomic boundaries (min_operator, min_value, max_operator, max_value) are deterministically populated."""
+        if not self.variable_role:
+            self.variable_role = "EXCLUSION_CRITERION" if self.criterion_type == "exclusion" else "INCLUSION_CRITERION"
         c_name_low = str(self.criterion_name or "").lower()
+        if not self.applicable_population:
+            if "naive" in c_name_low:
+                self.applicable_population = "drug_naive"
+            elif "treated" in c_name_low:
+                self.applicable_population = "previously_treated"
+            elif "run_in" in c_name_low or "run in" in c_name_low:
+                self.applicable_population = "run_in"
+            else:
+                self.applicable_population = "overall"
+        if not self.assessment_stage:
+            raw_low = str(self.raw_source_text or "").lower()
+            if "screening" in raw_low or "screening" in c_name_low:
+                self.assessment_stage = "screening"
+            elif "consent" in raw_low or "consent" in c_name_low:
+                self.assessment_stage = "consent"
+            elif "run_in" in c_name_low or "run in" in c_name_low:
+                self.assessment_stage = "run_in"
+            elif "washout" in raw_low:
+                self.assessment_stage = "washout"
+            else:
+                self.assessment_stage = "eligibility_assessment"
         cat_keywords = [
             "pregnan", "breastfeed", "nursing", "cancer", "malignan",
             "consent", "informed_consent", "diagnosis", "participation",
@@ -489,6 +515,14 @@ class OutcomeMeasurement(BaseModel):
     source_page: Optional[int] = Field(default=None, description="PDF page where this data is located")
     source_location: Optional[str] = Field(default=None, description="e.g. Table 1, Table 2, Results text")
     raw_source_text: Optional[str] = Field(default=None, description="Exact text or cell excerpt supporting this fact")
+    
+    # Source-grounded timepoints and classification roles
+    original_timepoint_label: Optional[str] = Field(default=None, description="Verbatim reported timepoint text, e.g. Day 28")
+    assessment_stage: Optional[str] = Field(default=None, description="screening, baseline, treatment, follow_up, overall_safety_period")
+    timepoint_type: Optional[str] = Field(default=None, description="point_in_time, cumulative_period, interval")
+    source_evidence: Optional[str] = Field(default=None, description="Documented verbatim source statement")
+    variable_role: Optional[str] = Field(default=None, description="BASELINE_CHARACTERISTIC, EFFICACY_OUTCOME, SAFETY_OUTCOME, EXPLORATORY_OUTCOME")
+    estimate_type: Optional[str] = Field(default=None, description="BASELINE_MEAN, FOLLOWUP_MEAN, RAW_CHANGE_FROM_BASELINE, ADJUSTED_CHANGE_FROM_BASELINE, RAW_MEAN_DIFFERENCE, ADJUSTED_MEAN_DIFFERENCE, GEOMETRIC_MEAN, GEOMETRIC_MEAN_RATIO, RELATIVE_CHANGE, PERCENT_CHANGE, BINARY_RATE")
 
     def model_post_init(self, __context: Any) -> None:
         """Autodetects baseline status, metric type, and demographic stratum."""
@@ -538,6 +572,79 @@ class OutcomeMeasurement(BaseModel):
             val = getattr(self, attr, None)
             if val is not None and str(val).strip().lower() in ["nan", "none", "null"]:
                 setattr(self, attr, None)
+
+        # 6. Autodetect variable_role
+        if not self.variable_role:
+            if self.domain == "safety_adverse_events":
+                self.variable_role = "SAFETY_OUTCOME"
+            elif self.is_baseline:
+                self.variable_role = "BASELINE_CHARACTERISTIC"
+            elif self.is_primary:
+                self.variable_role = "EFFICACY_OUTCOME"
+            else:
+                self.variable_role = "EFFICACY_OUTCOME"
+
+        # 7. Autodetect estimate_type
+        if not self.estimate_type:
+            if self.is_between_group_diff or (self.effect_measure and self.effect_value is not None):
+                if self.ratio is not None or (self.effect_measure and "ratio" in self.effect_measure.lower()):
+                    self.estimate_type = "GEOMETRIC_MEAN_RATIO"
+                elif self.effect_measure and "adjusted" in self.effect_measure.lower():
+                    self.estimate_type = "ADJUSTED_MEAN_DIFFERENCE"
+                else:
+                    self.estimate_type = "RAW_MEAN_DIFFERENCE"
+            elif self.ratio is not None or self.metric_type == "geometric_mean_ratio":
+                self.estimate_type = "GEOMETRIC_MEAN_RATIO"
+            elif self.change_value is not None:
+                if "adjusted" in str(self.raw_source_text or "").lower() or self.se is not None:
+                    self.estimate_type = "ADJUSTED_CHANGE_FROM_BASELINE"
+                else:
+                    self.estimate_type = "RAW_CHANGE_FROM_BASELINE"
+            elif self.is_baseline:
+                if self.metric_type == "geometric_mean_gcv" or self.dispersion_type in ["gCV", "gcv"]:
+                    self.estimate_type = "GEOMETRIC_MEAN"
+                elif self.events is not None or self.statistical_type == "dichotomous":
+                    self.estimate_type = "BINARY_RATE"
+                else:
+                    self.estimate_type = "BASELINE_MEAN"
+            elif self.events is not None or self.statistical_type == "dichotomous":
+                self.estimate_type = "BINARY_RATE"
+            else:
+                self.estimate_type = "FOLLOWUP_MEAN"
+
+        # 8. Autodetect assessment_stage and timepoint_type
+        if not self.assessment_stage:
+            if self.domain == "safety_adverse_events":
+                self.assessment_stage = "overall_safety_period"
+                self.timepoint_type = self.timepoint_type or "cumulative_period"
+            elif self.is_baseline:
+                self.assessment_stage = "baseline"
+                self.timepoint_type = self.timepoint_type or "point_in_time"
+            else:
+                self.assessment_stage = "follow_up"
+                self.timepoint_type = self.timepoint_type or "point_in_time"
+
+        # 9. Autodetect original_timepoint_label and source_evidence
+        if not self.original_timepoint_label:
+            if self.domain == "safety_adverse_events":
+                self.original_timepoint_label = "Safety observation period"
+            elif self.timepoint:
+                self.original_timepoint_label = str(self.timepoint)
+            elif self.timepoint_value:
+                self.original_timepoint_label = f"Day {self.timepoint_value}" if str(self.timepoint_unit or "").lower() in ["days", "day"] else f"{self.timepoint_value} {self.timepoint_unit or ''}".strip()
+            elif self.is_baseline:
+                self.original_timepoint_label = "Baseline"
+            else:
+                self.original_timepoint_label = "TIMEPOINT_NOT_EXPLICITLY_REPORTED"
+
+        if not self.source_evidence:
+            self.source_evidence = self.raw_source_text or self.source_location or "Clinical publication source data"
+
+        # 10. Canonicalize Safety Adverse Event Names to eliminate duplicate side-by-side columns
+        if self.domain == "safety_adverse_events":
+            p_low = str(self.parameter_name or "").strip().lower()
+            if p_low in ["adverse events", "any adverse events", "any adverse event"]:
+                self.parameter_name = "Any Adverse Event"
 
 
 # ---------------------------------------------------------

@@ -12,7 +12,7 @@ outputs/*.json
 outputs/*.csv
 outputs/pdf_text/
 outputs/*.zip
-outputs/analysis/
+# outputs/analysis/
 !outputs/orlistat_structured_extracted.xlsx
 !outputs/metformin_structured_extracted.xlsx
 !outputs/semaglutide_structured_extracted.xlsx
@@ -23,6 +23,8 @@ outputs/analysis/
 !MANDOROS_Phase2_Validation_and_Error_Report.xlsx
 !outputs/Custom_Drug_MANDOROS_Master_Report_CORRECTED.xlsx
 !outputs/MANDOROS_Phase2_Validation_and_Error_Report.xlsx
+!outputs/*_Student_Express_Report.xlsx
+!outputs/*_Individual_Stage1_Trial_Excels.zip
 .DS_Store
 Thumbs.db
 *.log
