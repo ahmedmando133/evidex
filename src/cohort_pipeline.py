@@ -623,7 +623,7 @@ class ActiveIngredientCohortPipeline:
                 "Title": s.get("title", ""),
                 "Authors / Year": f"{s.get('authors', '')} ({s.get('publication_year', '')})",
                 "Study Design": s.get("study_design", "RCT"),
-                "Phase": s.get("study_phase", "Phase III"),
+                "Phase": s.get("study_phase") or "Not explicitly reported",
                 "Total Cohort (N)": tot_val,
                 "Duration": f"{s.get('duration_value', '')} {s.get('duration_unit', '')}".strip(),
                 "Active Doses": ", ".join(exp_doses) if exp_doses else "Standard",

@@ -177,11 +177,18 @@ class SourceInventoryBuilder:
             is_present_in_text = any(kw in full_lower for kw in kws) if full_lower else True
             # Find matching extracted outcomes
             matched_count = 0
-            for o in extracted_outcomes:
-                p_low = str(o.parameter_name).lower()
-                d_low = str(o.domain).lower()
-                if any(kw in p_low or kw in d_low for kw in kws):
-                    matched_count += 1
+            if itype == "primary_endpoint":
+                for o in extracted_outcomes:
+                    p_low = str(o.parameter_name).lower()
+                    d_low = str(o.domain).lower()
+                    if getattr(o, "is_primary", False) or "primary" in str(o.source_location or "").lower() or any(kw in p_low or kw in d_low for kw in kws):
+                        matched_count += 1
+            else:
+                for o in extracted_outcomes:
+                    p_low = str(o.parameter_name).lower()
+                    d_low = str(o.domain).lower()
+                    if any(kw in p_low or kw in d_low for kw in kws):
+                        matched_count += 1
 
             if matched_count > 0:
                 status = "extracted_and_validated"

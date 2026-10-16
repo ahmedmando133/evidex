@@ -648,9 +648,9 @@ class ExcelTrialExporter:
         ws = self.wb.create_sheet(title="Outcomes")
         headers = [
             "outcome_id", "study_id", "arm_id", "race", "gender", "is_baseline", "domain", "parameter_name", "statistical_type", "metric_type",
-            "Timepoint (value)", "Timepoint (unit)", "sample_size", "mean", "sd", "median", "iqr_lower", "iqr_upper",
-            "change_value", "change_sd", "events", "total", "percentage", "unit", "effect_measure", "effect_value",
-            "p_value", "source_page", "source_location", "raw_source_text"
+            "Timepoint (value)", "Timepoint (unit)", "sample_size", "analysis_population", "mean", "sd", "se", "dispersion_type", "median", "iqr_lower", "iqr_upper",
+            "change_value", "change_sd", "ratio", "ratio_ci_lower", "ratio_ci_upper", "events", "total", "percentage", "unit", "effect_measure", "effect_value",
+            "ci_lower", "ci_upper", "p_value", "is_primary", "source_page", "source_location", "raw_source_text"
         ]
         ws.append(headers)
 
@@ -658,9 +658,9 @@ class ExcelTrialExporter:
             race_str = o.race if (o.race and str(o.race).strip().lower() not in ["overall", "all", "total", "n/a", "none"]) else ""
             ws.append([
                 o.outcome_id, o.study_id, o.arm_id, race_str, o.gender or "", o.is_baseline, o.domain, o.parameter_name, o.statistical_type, o.metric_type,
-                o.timepoint_value, o.timepoint_unit, o.sample_size, o.mean, o.sd, o.median, o.iqr_lower, o.iqr_upper,
-                o.change_value, o.change_sd, o.events, o.total, o.percentage, o.unit, o.effect_measure, o.effect_value,
-                o.p_value, o.source_page, o.source_location, o.raw_source_text
+                o.timepoint_value, o.timepoint_unit, o.sample_size, o.analysis_population or "", o.mean, o.sd, o.se, o.dispersion_type or ("SD" if o.sd is not None else ("SE" if o.se is not None else "")), o.median, o.iqr_lower, o.iqr_upper,
+                o.change_value, o.change_sd, o.ratio, o.ratio_ci_lower, o.ratio_ci_upper, o.events, o.total, o.percentage, o.unit, o.effect_measure, o.effect_value,
+                o.ci_lower, o.ci_upper, o.p_value, "YES" if o.is_primary else "NO", o.source_page, o.source_location, o.raw_source_text
             ])
         self._apply_sheet_formatting(ws)
 

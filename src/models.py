@@ -457,6 +457,12 @@ class OutcomeMeasurement(BaseModel):
     ci_lower: Optional[float] = Field(default=None, description="95% CI lower limit")
     ci_upper: Optional[float] = Field(default=None, description="95% CI upper limit")
     p_value: Optional[str] = Field(default=None, description="Reported p-value string, e.g. '<0.001', '0.023', 'NS'")
+    dispersion_type: Optional[str] = Field(default=None, description="Dispersion type: SD, SE, gCV, IQR, 95% CI")
+    is_primary: Optional[bool] = Field(default=False, description="True if primary clinical trial endpoint")
+    analysis_population: Optional[str] = Field(default=None, description="e.g. FAS (n=20 at Day 28), Full Analysis Set, Treated")
+    ratio: Optional[float] = Field(default=None, description="Multiplicative effect or geometric mean ratio")
+    ratio_ci_lower: Optional[float] = Field(default=None, description="Ratio 95% CI lower")
+    ratio_ci_upper: Optional[float] = Field(default=None, description="Ratio 95% CI upper")
     
     # Derivation & Traceability
     derivation_type: Optional[str] = Field(default="directly_reported", description="directly_reported, mathematically_derived, converted, graph_annotated, digitized")
@@ -482,7 +488,13 @@ class OutcomeMeasurement(BaseModel):
 
         # 2. Metric type typing
         if self.metric_type is None:
-            if self.events is not None or self.statistical_type == "dichotomous":
+            if self.ratio is not None:
+                self.metric_type = "geometric_mean_ratio"
+            elif self.dispersion_type in ["gCV", "gcv"] or "geometric" in str(self.dispersion_type or "").lower():
+                self.metric_type = "geometric_mean_gcv"
+            elif self.se is not None and self.sd is None:
+                self.metric_type = "mean_se"
+            elif self.events is not None or self.statistical_type == "dichotomous":
                 self.metric_type = "events_percentage"
             elif self.median is not None or self.iqr_lower is not None:
                 self.metric_type = "median_iqr"

@@ -143,7 +143,7 @@ def verify_and_lock_multi_dose_arms(
                 new_arm = TreatmentArm(
                     arm_id=next_arm_id,
                     study_id=study_id,
-                    arm_name=f"{drug_name.capitalize()} {d_val}{d_unit}",
+                    arm_name=f"{drug_name.capitalize()} {int(d_val) if d_val == int(d_val) else d_val} {d_unit}".strip(),
                     intervention_type="experimental",
                     drug_name=drug_name.capitalize(),
                     dose_value=d_val,

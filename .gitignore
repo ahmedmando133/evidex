@@ -17,6 +17,8 @@ outputs/analysis/
 !outputs/metformin_structured_extracted.xlsx
 !outputs/semaglutide_structured_extracted.xlsx
 !outputs/dapagliflozin_structured_extracted.xlsx
+!outputs/RCT4_Empagliflozin_Fully_Corrected_Validated.xlsx
+!outputs/RCT4_Extraction_Error_Report.xlsx
 .DS_Store
 Thumbs.db
 *.log
