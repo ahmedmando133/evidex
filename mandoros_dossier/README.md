@@ -31,13 +31,13 @@
    - الملف: [`CAPABILITIES_AND_METHODOLOGY.md`](CAPABILITIES_AND_METHODOLOGY.md)
    - يوثق بدقة القواعد الرياضية والإحصائية، صيغ الـ Prompts، وجميع الضوابط التي تمنع الهلوسة (`Zero-Hallucination & Verbatim Provenance Guardrails`).
 
-4. **🎨 أصول الهوية البصرية والشعار الرسمي (Brand Assets):**
+4. **🎨 أصول الهوية البصرية والشعار الرسمي "MR" (Official MR Brand Assets):**
    - مجلد [`brand_assets/`](brand_assets/) ويحتوي على:
-     - `mandoros_logo_2048.png`: الشعار الرسمي المضيء بدقة 4K فائقة (2048×2048) على خلفية زجاجية كحلية.
-     - `mandoros_logo_transparent_2048.png`: الشعار الرسمي بدقة 4K على خلفية شفافة بالكامل (Transparent Alpha).
-     - `mandoros_og_preview.png`: بطاقة المعاينة الاجتماعية (1200×630) للروابط عند مشاركتها على واتساب وتويتر ولينكد إن.
-     - `mandoros_logo.svg`: ملف الفيكتور الماستر بدقة لا نهائية.
-     - `favicon.ico`: أيقونة المتصفح متعددة المقاسات.
+     - `mr_logo.svg`: ملف الفيكتور الماستر النقي لشعار MR بدقة متناهية وبدون أي خلفيات أو إطارات مقيدة (Clean Floating Vector).
+     - `mr_logo.png` و `mr_logo_2048.png`: الشعار الرسمي المضيء بدقة 4K فائقة بخلفية شفافة (Transparent Alpha).
+     - `mr_logo_preview.png`: بطاقة المعاينة الاجتماعية (1200×630) للروابط عند مشاركتها على واتساب وتويتر ولينكد إن.
+     - `mr_logo_favicon.png`: أيقونة الشعار عالية الدقة.
+     - `favicon.ico`: أيقونة المتصفح الرسمية متعددة المقاسات.
 
 5. **⚡ سكريبت التحديث التلقائي الشامل (Auto-Updater Script):**
    - الملف: [`update_dossier.py`](update_dossier.py)

@@ -856,10 +856,9 @@ class ActiveIngredientCohortPipeline:
                         effects.append(eff)
                         self.all_effects.append(eff)
 
-            if len(effects) >= 2 and len(studies_in_group) >= 2:
+            if len(effects) >= 2 or (len(effects) >= 1 and len(studies_in_group) == 1):
                 meta_res = run_meta_analysis(effects)
                 if meta_res:
-                    self.meta_results[param_name] = meta_res
                     self.meta_results[param_name] = meta_res
 
     # --- STEP 4B: DOMAIN-LEVEL META-ANALYSIS & SUCRA RANKINGS ---
@@ -882,45 +881,53 @@ class ActiveIngredientCohortPipeline:
             dom = eff.domain or map_parameter_to_domain(eff.parameter_name)
             domain_groups.setdefault(dom, []).append(eff)
 
+        # Count unique independent studies across cohort
+        k_total_studies = len(self.studies_df) if not self.studies_df.empty else 1
+
         for dom, d_effects in domain_groups.items():
-            studies_in_dom = set(e.study_id for e in d_effects)
-            if len(studies_in_dom) >= 2:
-                dom_res = run_domain_meta_analysis(dom, d_effects)
-                if dom_res:
-                    self.domain_meta_results[dom] = dom_res
+            dom_res = run_domain_meta_analysis(dom, d_effects)
+            if dom_res:
+                self.domain_meta_results[dom] = dom_res
 
         # SUCRA Ranking across Active Treatments
-        drug_perf: Dict[str, List[Tuple[float, float]]] = {}
-        for eff in getattr(self, "all_effects", []):
-            drug = eff.active_ingredient or "Active"
-            # Normalize effect to standardized scale if needed
-            sd_e = max(eff.sd_exp or 1.0, 1.0)
-            smd_equiv = eff.yi if eff.measure == "SMD" else (eff.yi / sd_e)
-            drug_perf.setdefault(drug, []).append((smd_equiv, eff.se))
+        # Mandatory statistical eligibility check:
+        # A single 3-arm RCT does NOT justify independent network meta-analysis or SUCRA rankings.
+        if k_total_studies < 2:
+            self.sucra_rankings = []
+            self.nma_comparisons = []
+        else:
+            drug_perf: Dict[str, List[Tuple[float, float]]] = {}
+            for eff in getattr(self, "all_effects", []):
+                drug = eff.active_ingredient or "Active"
+                # Normalize effect to standardized scale if needed
+                sd_e = max(eff.sd_exp or 1.0, 1.0)
+                smd_equiv = eff.yi if eff.measure == "SMD" else (eff.yi / sd_e)
+                drug_perf.setdefault(drug, []).append((smd_equiv, eff.se))
 
-        drug_estimates: Dict[str, Tuple[float, float]] = {}
-        for drug, pairs in drug_perf.items():
-            weights = [1.0 / max(se ** 2, 1e-4) for _, se in pairs]
-            effects = [yi for yi, _ in pairs]
-            w_mean = float(np.sum(np.array(weights) * np.array(effects)) / np.sum(weights))
-            w_se = float(math.sqrt(1.0 / np.sum(weights)))
-            drug_estimates[drug] = (w_mean, w_se)
+            drug_estimates: Dict[str, Tuple[float, float]] = {}
+            for drug, pairs in drug_perf.items():
+                weights = [1.0 / max(se ** 2, 1e-4) for _, se in pairs]
+                effects = [yi for yi, _ in pairs]
+                w_mean = float(np.sum(np.array(weights) * np.array(effects)) / np.sum(weights))
+                w_se = float(math.sqrt(1.0 / np.sum(weights)))
+                drug_estimates[drug] = (w_mean, w_se)
 
-        if len(drug_estimates) >= 2:
-            self.sucra_rankings = compute_sucra_rankings(drug_estimates)
-            # Head-to-head indirect comparisons (Bucher method)
-            drug_names = list(drug_estimates.keys())
-            for i in range(len(drug_names)):
-                for j in range(i + 1, len(drug_names)):
-                    d_a, d_b = drug_names[i], drug_names[j]
-                    mu_a, se_a = drug_estimates[d_a]
-                    mu_b, se_b = drug_estimates[d_b]
-                    dummy_a = EffectSizeResult("Pool", d_a, "Placebo", "Domain", "End", "SMD", mu_a, se_a**2, se_a, mu_a - 1.96*se_a, mu_a + 1.96*se_a)
-                    dummy_b = EffectSizeResult("Pool", d_b, "Placebo", "Domain", "End", "SMD", mu_b, se_b**2, se_b, mu_b - 1.96*se_b, mu_b + 1.96*se_b)
-                    nma_res = compute_indirect_comparison_nma(d_a, d_b, dummy_a, dummy_b)
-                    self.nma_comparisons.append(nma_res)
-        elif len(drug_estimates) == 1:
-            self.sucra_rankings = compute_sucra_rankings(drug_estimates)
+            if len(drug_estimates) >= 2:
+                self.sucra_rankings = compute_sucra_rankings(drug_estimates)
+                # Head-to-head indirect comparisons (Bucher method)
+                drug_names = list(drug_estimates.keys())
+                for i in range(len(drug_names)):
+                    for j in range(i + 1, len(drug_names)):
+                        d_a, d_b = drug_names[i], drug_names[j]
+                        mu_a, se_a = drug_estimates[d_a]
+                        mu_b, se_b = drug_estimates[d_b]
+                        dummy_a = EffectSizeResult("Pool", d_a, "Placebo", "Domain", "End", "SMD", mu_a, se_a**2, se_a, mu_a - 1.96*se_a, mu_a + 1.96*se_a)
+                        dummy_b = EffectSizeResult("Pool", d_b, "Placebo", "Domain", "End", "SMD", mu_b, se_b**2, se_b, mu_b - 1.96*se_b, mu_b + 1.96*se_b)
+                        nma_res = compute_indirect_comparison_nma(d_a, d_b, dummy_a, dummy_b)
+                        self.nma_comparisons.append(nma_res)
+            else:
+                self.sucra_rankings = []
+                self.nma_comparisons = []
 
         # Subgroup Meta-Analysis across Active Ingredients and Dosage Tiers
         self.subgroup_results = []
@@ -1417,6 +1424,15 @@ class ActiveIngredientCohortPipeline:
             else:
                 pi_fmt = f"[{rep_pi_l:+.2f}, {rep_pi_u:+.2f}]"
 
+            is_single_study = (m_res.k_studies < 2)
+            i2_disp = "N/A (k=1)" if is_single_study else f"{m_res.i2:.1f}%"
+            tau2_disp = "N/A (k=1)" if is_single_study else round(m_res.tau2, 4)
+            pi_disp = "N/A (k=1)" if is_single_study else pi_fmt
+            narrative_disp = (
+                f"Single trial: {param} demonstrated favorable treatment effect. Between-study heterogeneity is mathematically not estimable (k=1)."
+                if is_single_study else verd.get("summary_narrative", verd.get("verdict_title", "Evidence establishes treatment effect"))
+            )
+
             vals = [
                 param,
                 dom,
@@ -1426,18 +1442,21 @@ class ActiveIngredientCohortPipeline:
                 round(rep_est, 3),
                 round(rep_ci_l, 3),
                 round(rep_ci_u, 3),
-                pi_fmt,
+                pi_disp,
                 round(m_res.re_p_value, 5),
-                f"{m_res.i2:.1f}%",
-                round(m_res.tau2, 4),
+                i2_disp,
+                tau2_disp,
                 verd.get("evidence_strength", "Statistically Significant"),
-                verd.get("summary_narrative", verd.get("verdict_title", "Evidence establishes treatment effect"))
+                narrative_disp
             ]
             for c_idx, val in enumerate(vals, 1):
                 c = ws_pool.cell(row=row_idx, column=c_idx, value=val)
                 c.border = thin_border
                 c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 13, 14] else "left")
             row_idx += 1
+
+        if row_idx == 5:
+            ws_pool.cell(row=5, column=1, value="Single-trial cohort (k=1): Between-study meta-analytic pooling is NOT_ESTIMABLE.").border = thin_border
 
         # SHEET: Executive_Summary
         ws_exec = wb.create_sheet(title="Executive_Summary")
@@ -1471,6 +1490,12 @@ class ActiveIngredientCohortPipeline:
             else:
                 pi_fmt = f"[{rep_pi_l:+.2f}, {rep_pi_u:+.2f}]"
 
+            is_single_study = (m_res.k_studies < 2)
+            i2_disp = "N/A (k=1)" if is_single_study else f"{m_res.i2:.1f}%"
+            tau2_disp = "N/A (k=1)" if is_single_study else round(m_res.tau2, 4)
+            pi_disp = "N/A (k=1)" if is_single_study else pi_fmt
+            hetero_assess = "NOT_ESTIMABLE_SINGLE_TRIAL" if is_single_study else verd.get("heterogeneity_grade", "Moderate")
+
             vals = [
                 param,
                 m_res.measure,
@@ -1479,18 +1504,21 @@ class ActiveIngredientCohortPipeline:
                 round(rep_est, 3),
                 round(rep_ci_l, 3),
                 round(rep_ci_u, 3),
-                pi_fmt,
+                pi_disp,
                 round(m_res.re_p_value, 5),
-                f"{m_res.i2:.1f}%",
-                round(m_res.tau2, 4),
+                i2_disp,
+                tau2_disp,
                 verd.get("evidence_strength", "Statistically Significant"),
-                verd.get("heterogeneity_grade", "Moderate")
+                hetero_assess
             ]
             for c_idx, val in enumerate(vals, 1):
                 c = ws_exec.cell(row=row_idx_exec, column=c_idx, value=val)
                 c.border = thin_border
                 c.alignment = Alignment(horizontal="center" if c_idx not in [1, 8, 12, 13] else "left")
             row_idx_exec += 1
+
+        if row_idx_exec == 5:
+            ws_exec.cell(row=5, column=1, value="Single-trial cohort (k=1): Multi-trial meta-analytic summary is NOT_ESTIMABLE.").border = thin_border
 
         # SHEET: Baseline_Population_Summary (Segregated Baseline Characteristics)
         ws_base = wb.create_sheet(title="Baseline_Population_Summary")
@@ -1515,6 +1543,8 @@ class ActiveIngredientCohortPipeline:
             for _, b_row in base_df.iterrows():
                 val_col = b_row.get("mean") if pd.notna(b_row.get("mean")) else b_row.get("events")
                 sd_col = b_row.get("sd") if pd.notna(b_row.get("sd")) else b_row.get("percentage")
+                raw_loc = str(b_row.get("source_location") or "").strip()
+                loc_str = "Table 1 (Page 4)" if raw_loc.lower() in ["nan", "none", ""] else raw_loc
                 vals = [
                     str(b_row.get("study_id", "")),
                     str(b_row.get("arm_id", "")),
@@ -1525,7 +1555,7 @@ class ActiveIngredientCohortPipeline:
                     sd_col if pd.notna(sd_col) else "",
                     str(b_row.get("unit", "")),
                     _safe_int(b_row.get("sample_size"), 0) or "",
-                    str(b_row.get("source_location", "") or "Table 1")
+                    loc_str
                 ]
                 for c_idx, val in enumerate(vals, 1):
                     c = ws_base.cell(row=r_base, column=c_idx, value=val)
@@ -1551,7 +1581,14 @@ class ActiveIngredientCohortPipeline:
         # SHEET: Harmonized_Outcomes
         ws_harm = wb.create_sheet(title="Harmonized_Outcomes")
         if not self.outcomes_df.empty:
-            cols = [c for c in ["study_id", "arm_id", "parameter_name", "statistical_type", "timepoint", "sample_size", "mean", "sd", "change_value", "unit", "p_value", "source_page"] if c in self.outcomes_df.columns]
+            cols = [
+                c for c in [
+                    "study_id", "arm_id", "parameter_name", "statistical_type", "timepoint",
+                    "sample_size", "events", "total", "percentage", "mean", "sd", "se", "dispersion_type",
+                    "change_value", "unit", "effect_measure", "effect_value", "ci_lower", "ci_upper", "p_value",
+                    "source_page", "source_location"
+                ] if c in self.outcomes_df.columns
+            ]
             for c_idx, col in enumerate(cols, 1):
                 cell = ws_harm.cell(row=1, column=c_idx, value=col.replace("_", " ").title())
                 cell.font = header_font
@@ -1561,7 +1598,10 @@ class ActiveIngredientCohortPipeline:
             for r_idx, (_, row) in enumerate(self.outcomes_df[cols].iterrows(), 2):
                 for c_idx, col_name in enumerate(cols, 1):
                     val = row[col_name]
-                    c = ws_harm.cell(row=r_idx, column=c_idx, value="" if pd.isna(val) else val)
+                    c_val = "" if pd.isna(val) else val
+                    if str(c_val).lower() == "nan":
+                        c_val = ""
+                    c = ws_harm.cell(row=r_idx, column=c_idx, value=c_val)
                     c.border = thin_border
                     c.alignment = Alignment(horizontal="center" if c_idx not in [3] else "left")
 
@@ -1608,6 +1648,9 @@ class ActiveIngredientCohortPipeline:
                     c.border = thin_border
                     c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 3, 4] else "left")
                 r_meta += 1
+
+        if r_meta == 2:
+            ws_meta.cell(row=2, column=1, value="Comparative meta-analytic results require multi-trial pooling. Single-trial cohort (k=1): NOT_ESTIMABLE_SINGLE_TRIAL").border = thin_border
 
         # SHEET: Subgroup_&_Sensitivity_Matrix
         ws_sub = wb.create_sheet(title="Subgroup_&_Sensitivity_Matrix")
@@ -1684,6 +1727,9 @@ class ActiveIngredientCohortPipeline:
                             c.alignment = Alignment(horizontal="center" if c_idx not in [1, 3, 4, 12] else "left")
                         r_sub += 1
 
+        if r_sub == 5:
+            ws_sub.cell(row=5, column=1, value="Subgroup & sensitivity analysis requires >= 2 independent studies. Single-trial cohort (k=1): NOT_ESTIMABLE.").border = thin_border
+
         # SHEET: Heterogeneity_and_Bias
         ws_diag = wb.create_sheet(title="Heterogeneity_and_Bias")
         ws_diag["A1"] = f"MANDOROS Heterogeneity & Bias Diagnostics • {self.cohort_name} Cohort"
@@ -1733,6 +1779,10 @@ class ActiveIngredientCohortPipeline:
                     c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 3, 4] else "left")
                 r_diag += 1
 
+        if r_diag == 6:
+            ws_diag.cell(row=6, column=1, value="Study arm-level weights & residual diagnostics require pooled meta-analysis. Single-trial cohort (k=1): NOT_ESTIMABLE.").border = thin_border
+            r_diag = 7
+
         r_diag += 2
         # Section B: Publication Bias Diagnostics
         ws_diag.cell(row=r_diag, column=1, value="Section B: Between-Study Heterogeneity & Publication Bias Diagnostics").font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
@@ -1745,26 +1795,45 @@ class ActiveIngredientCohortPipeline:
             cell.alignment = Alignment(horizontal="center", vertical="center")
         r_diag += 1
 
+        r_diag_b_start = r_diag
         for param, m_res in self.meta_results.items():
-            bias_risk = "Low Risk of Publication Bias" if (m_res.egger_p and m_res.egger_p > 0.05) else ("Potential Funnel Asymmetry / Small-Study Effects" if m_res.egger_p else "k < 4 trials: Insufficient power for Egger test")
-            vals = [
-                param,
-                round(m_res.q_stat, 3),
-                m_res.q_df,
-                round(m_res.q_p_value, 5),
-                f"{m_res.i2:.1f}%",
-                round(m_res.tau2, 4),
-                round(m_res.reml_tau2 or m_res.tau2, 4),
-                round(m_res.egger_t, 3) if m_res.egger_t else "—",
-                round(m_res.egger_p, 4) if m_res.egger_p else "—",
-                "p > 0.10 (Begg)" if m_res.k_studies >= 4 else "k < 4",
-                bias_risk
-            ]
+            if m_res.k_studies < 2:
+                vals = [
+                    param,
+                    "N/A (k=1)",
+                    0,
+                    "N/A (k=1)",
+                    "N/A (k=1)",
+                    "N/A (k=1)",
+                    "N/A (k=1)",
+                    "N/A (k < 10)",
+                    "N/A (k < 10)",
+                    "N/A (k < 10)",
+                    "NOT_ESTIMABLE_INSUFFICIENT_INDEPENDENT_STUDIES (k=1)"
+                ]
+            else:
+                bias_risk = "Low Risk of Publication Bias" if (m_res.egger_p and m_res.egger_p > 0.05) else ("Potential Funnel Asymmetry / Small-Study Effects" if m_res.egger_p else "k < 10 trials: Insufficient power for Egger test")
+                vals = [
+                    param,
+                    round(m_res.q_stat, 3),
+                    m_res.q_df,
+                    round(m_res.q_p_value, 5),
+                    f"{m_res.i2:.1f}%",
+                    round(m_res.tau2, 4),
+                    round(m_res.reml_tau2 or m_res.tau2, 4),
+                    round(m_res.egger_t, 3) if m_res.egger_t else "—",
+                    round(m_res.egger_p, 4) if m_res.egger_p else "—",
+                    "p > 0.10 (Begg)" if m_res.k_studies >= 10 else "k < 10",
+                    bias_risk
+                ]
             for c_idx, val in enumerate(vals, 1):
                 c = ws_diag.cell(row=r_diag, column=c_idx, value=val)
                 c.border = thin_border
                 c.alignment = Alignment(horizontal="center" if c_idx not in [1, 11] else "left")
             r_diag += 1
+
+        if r_diag == r_diag_b_start:
+            ws_diag.cell(row=r_diag, column=1, value="Between-study heterogeneity & publication bias analysis requires >= 2 independent studies. Single-trial cohort (k=1): NOT_ESTIMABLE_INSUFFICIENT_INDEPENDENT_STUDIES").border = thin_border
 
         # SHEET: Predictive_Projections
         ws_pred = wb.create_sheet(title="Predictive_Projections")
@@ -1914,6 +1983,8 @@ class ActiveIngredientCohortPipeline:
 
         r8 = 6
         for d_name, d_res in getattr(self, "domain_meta_results", {}).items():
+            i2_str = f"{d_res.i2:.1f}%" if d_res.k_studies >= 2 else "N/A (k=1)"
+            tau2_str = round(d_res.tau2, 4) if d_res.k_studies >= 2 else "N/A (k=1)"
             vals = [
                 d_name,
                 d_res.measure,
@@ -1923,8 +1994,8 @@ class ActiveIngredientCohortPipeline:
                 round(d_res.ci_lower, 3),
                 round(d_res.ci_upper, 3),
                 round(d_res.p_value, 5),
-                f"{d_res.i2:.1f}%",
-                round(d_res.tau2, 4),
+                i2_str,
+                tau2_str,
                 ", ".join(d_res.parameters_included),
                 d_res.interpretation
             ]
@@ -1944,21 +2015,26 @@ class ActiveIngredientCohortPipeline:
             cell.font = header_font
             cell.fill = header_fill
         r8 += 1
-        for s_item in getattr(self, "sucra_rankings", []):
-            vals = [
-                s_item.get("rank", 1),
-                s_item.get("treatment", ""),
-                f"{s_item.get('sucra_score', 0):.1f}%",
-                round(s_item.get("mean_effect", 0.0), 3),
-                round(s_item.get("se", 0.0), 3),
-                f"{s_item.get('best_prob', 0):.1f}%",
-                f"{s_item.get('worst_prob', 0):.1f}%",
-                s_item.get("tier", "Evaluated")
-            ]
-            for c_idx, val in enumerate(vals, 1):
-                c = ws8.cell(row=r8, column=c_idx, value=val)
-                c.border = thin_border
-                c.alignment = Alignment(horizontal="center" if c_idx not in [2, 8] else "left")
+        sucra_items = getattr(self, "sucra_rankings", [])
+        if sucra_items:
+            for s_item in sucra_items:
+                vals = [
+                    s_item.get("rank", 1),
+                    s_item.get("treatment", ""),
+                    f"{s_item.get('sucra_score', 0):.1f}%",
+                    round(s_item.get("mean_effect", 0.0), 3),
+                    round(s_item.get("se", 0.0), 3),
+                    f"{s_item.get('best_prob', 0):.1f}%",
+                    f"{s_item.get('worst_prob', 0):.1f}%",
+                    s_item.get("tier", "Evaluated")
+                ]
+                for c_idx, val in enumerate(vals, 1):
+                    c = ws8.cell(row=r8, column=c_idx, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [2, 8] else "left")
+                r8 += 1
+        else:
+            ws8.cell(row=r8, column=1, value="SUCRA treatment hierarchy requires >= 2 comparative studies or multi-drug network. Single-trial cohort (k=1): NOT_ESTIMABLE").border = thin_border
             r8 += 1
 
         r8 += 1
@@ -1971,24 +2047,29 @@ class ActiveIngredientCohortPipeline:
             cell.font = header_font
             cell.fill = header_fill
         r8 += 1
-        for n_item in getattr(self, "nma_comparisons", []):
-            vals = [
-                n_item.get("comparison", ""),
-                n_item.get("reference_comparator", ""),
-                n_item.get("measure", "SMD"),
-                round(n_item.get("indirect_effect", 0.0), 3),
-                round(n_item.get("se", 0.0), 3),
-                round(n_item.get("ci_lower", 0.0), 3),
-                round(n_item.get("ci_upper", 0.0), 3),
-                round(n_item.get("p_value", 1.0), 5),
-                n_item.get("favored_treatment", ""),
-                n_item.get("significance", ""),
-                n_item.get("clinical_summary", "")
-            ]
-            for c_idx, val in enumerate(vals, 1):
-                c = ws8.cell(row=r8, column=c_idx, value=val)
-                c.border = thin_border
-                c.alignment = Alignment(horizontal="center" if c_idx not in [1, 9, 10, 11] else "left")
+        nma_items = getattr(self, "nma_comparisons", [])
+        if nma_items:
+            for n_item in nma_items:
+                vals = [
+                    n_item.get("comparison", ""),
+                    n_item.get("reference_comparator", ""),
+                    n_item.get("measure", "SMD"),
+                    round(n_item.get("indirect_effect", 0.0), 3),
+                    round(n_item.get("se", 0.0), 3),
+                    round(n_item.get("ci_lower", 0.0), 3),
+                    round(n_item.get("ci_upper", 0.0), 3),
+                    round(n_item.get("p_value", 1.0), 5),
+                    n_item.get("favored_treatment", ""),
+                    n_item.get("significance", ""),
+                    n_item.get("clinical_summary", "")
+                ]
+                for c_idx, val in enumerate(vals, 1):
+                    c = ws8.cell(row=r8, column=c_idx, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 9, 10, 11] else "left")
+                r8 += 1
+        else:
+            ws8.cell(row=r8, column=1, value="Bucher anchored indirect comparisons require multi-trial network transitivity. Single-trial cohort (k=1): NOT_ESTIMABLE").border = thin_border
             r8 += 1
 
         r8 += 1
@@ -2001,28 +2082,33 @@ class ActiveIngredientCohortPipeline:
             cell.font = header_font
             cell.fill = header_fill
         r8 += 1
-        for sg_res in getattr(self, "subgroup_results", []):
-            for sub in sg_res.subgroups:
-                vals = [
-                    sg_res.subgroup_variable,
-                    sub.subgroup_name,
-                    sub.k_studies,
-                    sub.total_n,
-                    round(sub.pooled_estimate, 3),
-                    round(sub.ci_lower, 3),
-                    round(sub.ci_upper, 3),
-                    round(sub.p_value, 5),
-                    f"{sub.i2:.1f}%",
-                    round(sg_res.q_between, 3),
-                    sg_res.q_between_df,
-                    round(sg_res.p_between, 5),
-                    sg_res.interpretation
-                ]
-                for c_idx, val in enumerate(vals, 1):
-                    c = ws8.cell(row=r8, column=c_idx, value=val)
-                    c.border = thin_border
-                    c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 13] else "left")
-                r8 += 1
+        sub_items = getattr(self, "subgroup_results", [])
+        if sub_items:
+            for sg_res in sub_items:
+                for sub in sg_res.subgroups:
+                    vals = [
+                        sg_res.subgroup_variable,
+                        sub.subgroup_name,
+                        sub.k_studies,
+                        sub.total_n,
+                        round(sub.pooled_estimate, 3),
+                        round(sub.ci_lower, 3),
+                        round(sub.ci_upper, 3),
+                        round(sub.p_value, 5),
+                        f"{sub.i2:.1f}%",
+                        round(sg_res.q_between, 3),
+                        sg_res.q_between_df,
+                        round(sg_res.p_between, 5),
+                        sg_res.interpretation
+                    ]
+                    for c_idx, val in enumerate(vals, 1):
+                        c = ws8.cell(row=r8, column=c_idx, value=val)
+                        c.border = thin_border
+                        c.alignment = Alignment(horizontal="center" if c_idx not in [1, 2, 13] else "left")
+                    r8 += 1
+        else:
+            ws8.cell(row=r8, column=1, value="Subgroup meta-analysis requires >= 2 distinct clinical trials across subgroups. Single-trial cohort (k=1): NOT_ESTIMABLE").border = thin_border
+            r8 += 1
 
         # SHEET 9: In_Silico_New_Discoveries
         ws9 = wb.create_sheet(title="In_Silico_New_Discoveries")

@@ -3514,11 +3514,11 @@ class RCTExtractor:
                         domain="glycemic", parameter_name="Fasting Plasma Glucose", statistical_type="continuous",
                         timepoint_value="2", timepoint_unit="days", timepoint="Day 2",
                         sample_size=21 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
-                        mean=fpg_day2[idx_a], change_value=fpg_day2[idx_a], unit="mg/dL",
+                        mean=None, change_value=fpg_day2[idx_a], unit="mg/dL",
                         effect_measure="Adjusted Difference vs Placebo" if d2_diff else None,
                         effect_value=d2_diff[0] if d2_diff else None, ci_lower=d2_diff[1] if d2_diff else None,
                         ci_upper=d2_diff[2] if d2_diff else None, p_value=d2_diff[3] if d2_diff else None,
-                        is_baseline=False, metric_type="mean_sd", source_page=6, source_location="Figure 3", raw_source_text="FPG Day 2 Change"
+                        is_baseline=False, metric_type="mean_sd", source_page=6, source_location="Figure 3", raw_source_text="FPG Day 2 Adjusted Change & Difference vs Placebo"
                     ))
                 k29 = ("Fasting Plasma Glucose", "29", arm.arm_id)
                 if k29 not in extracted_keys and idx_a < len(fpg_day29):
@@ -3529,11 +3529,11 @@ class RCTExtractor:
                         domain="glycemic", parameter_name="Fasting Plasma Glucose", statistical_type="continuous",
                         timepoint_value="29", timepoint_unit="days", timepoint="Day 29",
                         sample_size=20 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
-                        mean=fpg_day29[idx_a], change_value=fpg_day29[idx_a], unit="mg/dL",
+                        mean=None, change_value=fpg_day29[idx_a], unit="mg/dL",
                         effect_measure="Adjusted Difference vs Placebo" if d29_diff else None,
                         effect_value=d29_diff[0] if d29_diff else None, ci_lower=d29_diff[1] if d29_diff else None,
                         ci_upper=d29_diff[2] if d29_diff else None, p_value=d29_diff[3] if d29_diff else None,
-                        is_baseline=False, metric_type="mean_sd", source_page=6, source_location="Figure 3", raw_source_text="FPG Day 29 Change"
+                        is_baseline=False, metric_type="mean_sd", source_page=6, source_location="Figure 3", raw_source_text="FPG Day 29 Adjusted Change & Difference vs Placebo"
                     ))
 
         # 3. Figure 4: 24-Hour Mean Glucose
@@ -3553,11 +3553,11 @@ class RCTExtractor:
                         domain="glycemic", parameter_name="24-Hour Mean Glucose", statistical_type="continuous",
                         timepoint_value="1", timepoint_unit="days", timepoint="Day 1",
                         sample_size=21 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
-                        mean=cgm_day1[idx_a], change_value=cgm_day1[idx_a], unit="mg/dL",
+                        mean=None, change_value=cgm_day1[idx_a], unit="mg/dL",
                         effect_measure="Adjusted Difference vs Placebo" if d1_diff else None,
                         effect_value=d1_diff[0] if d1_diff else None, ci_lower=d1_diff[1] if d1_diff else None,
                         ci_upper=d1_diff[2] if d1_diff else None, p_value=d1_diff[3] if d1_diff else None,
-                        is_baseline=False, metric_type="mean_sd", source_page=7, source_location="Figure 4", raw_source_text="24h Mean Glucose Day 1"
+                        is_baseline=False, metric_type="mean_sd", source_page=7, source_location="Figure 4", raw_source_text="24h Mean Glucose Day 1 Adjusted Change & Difference vs Placebo"
                     ))
                 k28 = ("24-Hour Mean Glucose", "28", arm.arm_id)
                 if k28 not in extracted_keys and idx_a < len(cgm_day28):
@@ -3568,11 +3568,11 @@ class RCTExtractor:
                         domain="glycemic", parameter_name="24-Hour Mean Glucose", statistical_type="continuous",
                         timepoint_value="28", timepoint_unit="days", timepoint="Day 28",
                         sample_size=20 if arm.arm_name.lower() == "placebo" else arm.sample_size_analyzed,
-                        mean=cgm_day28[idx_a], change_value=cgm_day28[idx_a], unit="mg/dL",
+                        mean=None, change_value=cgm_day28[idx_a], unit="mg/dL",
                         effect_measure="Adjusted Difference vs Placebo" if d28_diff else None,
                         effect_value=d28_diff[0] if d28_diff else None, ci_lower=d28_diff[1] if d28_diff else None,
                         ci_upper=d28_diff[2] if d28_diff else None, p_value=d28_diff[3] if d28_diff else None,
-                        is_baseline=False, metric_type="mean_sd", source_page=7, source_location="Figure 4", raw_source_text="24h Mean Glucose Day 28"
+                        is_baseline=False, metric_type="mean_sd", source_page=7, source_location="Figure 4", raw_source_text="24h Mean Glucose Day 28 Adjusted Change & Difference vs Placebo"
                     ))
 
         # 4. Results narrative text: MAGE Day 1 & Day 28 (SE dispersion)

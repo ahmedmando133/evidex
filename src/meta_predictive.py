@@ -14,6 +14,17 @@ from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 
 
+def _safe_exp(val: float) -> float:
+    """Safely exponentiates with clamp to [-50.0, 50.0] to prevent math range overflow."""
+    try:
+        if val is None or math.isnan(val):
+            return 1.0
+        clamped = max(-50.0, min(50.0, float(val)))
+        return float(math.exp(clamped))
+    except Exception:
+        return 1e-6 if (val and val < 0) else 1e9
+
+
 @dataclass
 class EffectSizeResult:
     study_id: str
@@ -58,7 +69,7 @@ class EffectSizeResult:
         Enforces strict mathematical scale integrity (assert val > 0).
         """
         if self.is_ratio:
-            val = float(math.exp(self.yi))
+            val = _safe_exp(self.yi)
             assert val > 0, f"Reported ratio effect must be strictly positive: {val}"
             return val
         return float(self.yi)
@@ -67,7 +78,7 @@ class EffectSizeResult:
     def reported_ci_lower(self) -> float:
         """Reported natural-scale 95% CI lower bound."""
         if self.is_ratio:
-            val = float(math.exp(self.ci_lower))
+            val = _safe_exp(self.ci_lower)
             assert val > 0, f"Reported ratio CI lower must be strictly positive: {val}"
             return val
         return float(self.ci_lower)
@@ -76,7 +87,7 @@ class EffectSizeResult:
     def reported_ci_upper(self) -> float:
         """Reported natural-scale 95% CI upper bound."""
         if self.is_ratio:
-            val = float(math.exp(self.ci_upper))
+            val = _safe_exp(self.ci_upper)
             assert val > 0, f"Reported ratio CI upper must be strictly positive: {val}"
             return val
         return float(self.ci_upper)
@@ -123,7 +134,7 @@ class MetaAnalysisResult:
     def reported_re_estimate(self) -> float:
         """Reported natural-scale Random Effects summary estimate (strictly > 0 for ratios)."""
         if self.is_ratio:
-            val = float(math.exp(self.re_estimate))
+            val = _safe_exp(self.re_estimate)
             assert val > 0, f"Reported pooled ratio estimate must be strictly positive: {val}"
             return val
         return float(self.re_estimate)
@@ -132,7 +143,7 @@ class MetaAnalysisResult:
     def reported_re_ci_lower(self) -> float:
         """Reported natural-scale Random Effects 95% CI lower bound."""
         if self.is_ratio:
-            val = float(math.exp(self.re_ci_lower))
+            val = _safe_exp(self.re_ci_lower)
             assert val > 0, f"Reported pooled ratio CI lower must be strictly positive: {val}"
             return val
         return float(self.re_ci_lower)
@@ -141,7 +152,7 @@ class MetaAnalysisResult:
     def reported_re_ci_upper(self) -> float:
         """Reported natural-scale Random Effects 95% CI upper bound."""
         if self.is_ratio:
-            val = float(math.exp(self.re_ci_upper))
+            val = _safe_exp(self.re_ci_upper)
             assert val > 0, f"Reported pooled ratio CI upper must be strictly positive: {val}"
             return val
         return float(self.re_ci_upper)
@@ -150,7 +161,7 @@ class MetaAnalysisResult:
     def reported_fe_estimate(self) -> float:
         """Reported natural-scale Fixed Effect summary estimate."""
         if self.is_ratio:
-            val = float(math.exp(self.fe_estimate))
+            val = _safe_exp(self.fe_estimate)
             assert val > 0, f"Reported pooled ratio FE estimate must be strictly positive: {val}"
             return val
         return float(self.fe_estimate)
@@ -159,7 +170,7 @@ class MetaAnalysisResult:
     def reported_fe_ci_lower(self) -> float:
         """Reported natural-scale Fixed Effect 95% CI lower bound."""
         if self.is_ratio:
-            val = float(math.exp(self.fe_ci_lower))
+            val = _safe_exp(self.fe_ci_lower)
             assert val > 0
             return val
         return float(self.fe_ci_lower)
@@ -168,7 +179,7 @@ class MetaAnalysisResult:
     def reported_fe_ci_upper(self) -> float:
         """Reported natural-scale Fixed Effect 95% CI upper bound."""
         if self.is_ratio:
-            val = float(math.exp(self.fe_ci_upper))
+            val = _safe_exp(self.fe_ci_upper)
             assert val > 0
             return val
         return float(self.fe_ci_upper)
@@ -177,7 +188,7 @@ class MetaAnalysisResult:
     def reported_pi_lower(self) -> float:
         """Reported natural-scale 95% Prediction Interval lower bound."""
         if self.is_ratio:
-            val = float(math.exp(self.pi_lower))
+            val = _safe_exp(self.pi_lower)
             assert val > 0
             return val
         return float(self.pi_lower)
@@ -186,7 +197,7 @@ class MetaAnalysisResult:
     def reported_pi_upper(self) -> float:
         """Reported natural-scale 95% Prediction Interval upper bound."""
         if self.is_ratio:
-            val = float(math.exp(self.pi_upper))
+            val = _safe_exp(self.pi_upper)
             assert val > 0
             return val
         return float(self.pi_upper)
@@ -242,7 +253,7 @@ class PredictiveProjection:
     @property
     def reported_predicted_effect(self) -> float:
         if self.is_ratio:
-            val = float(math.exp(self.predicted_effect))
+            val = _safe_exp(self.predicted_effect)
             assert val > 0, f"Reported predicted ratio must be strictly positive: {val}"
             return val
         return float(self.predicted_effect)
@@ -250,7 +261,7 @@ class PredictiveProjection:
     @property
     def reported_ci_lower(self) -> float:
         if self.is_ratio:
-            val = float(math.exp(self.ci_lower))
+            val = _safe_exp(self.ci_lower)
             assert val > 0, f"Reported predicted CI lower must be strictly positive: {val}"
             return val
         return float(self.ci_lower)
@@ -258,7 +269,7 @@ class PredictiveProjection:
     @property
     def reported_ci_upper(self) -> float:
         if self.is_ratio:
-            val = float(math.exp(self.ci_upper))
+            val = _safe_exp(self.ci_upper)
             assert val > 0, f"Reported predicted CI upper must be strictly positive: {val}"
             return val
         return float(self.ci_upper)
@@ -266,7 +277,7 @@ class PredictiveProjection:
     @property
     def reported_pi_lower(self) -> float:
         if self.is_ratio:
-            val = float(math.exp(self.pi_lower))
+            val = _safe_exp(self.pi_lower)
             assert val > 0
             return val
         return float(self.pi_lower)
@@ -274,7 +285,7 @@ class PredictiveProjection:
     @property
     def reported_pi_upper(self) -> float:
         if self.is_ratio:
-            val = float(math.exp(self.pi_upper))
+            val = _safe_exp(self.pi_upper)
             assert val > 0
             return val
         return float(self.pi_upper)
@@ -534,9 +545,15 @@ def run_meta_analysis(effects: List[EffectSizeResult]) -> Optional[MetaAnalysisR
     and 95% Prediction Intervals (PI).
     """
     valid = [e for e in effects if e is not None and not math.isnan(e.yi) and e.vi > 0]
-    k = len(valid)
-    if k == 0:
+    k_comparisons = len(valid)
+    k = k_comparisons
+    if k_comparisons == 0:
         return None
+
+    # UNIVERSAL BIOSTATISTICAL LAW:
+    # Distinguish true independent studies from multiple within-study arm comparisons.
+    unique_studies = {e.study_id.split(" [")[0].strip() for e in valid if e.study_id}
+    k_studies = len(unique_studies)
 
     yi = np.array([e.yi for e in valid], dtype=float)
     vi = np.array([e.vi for e in valid], dtype=float)
@@ -554,34 +571,52 @@ def run_meta_analysis(effects: List[EffectSizeResult]) -> Optional[MetaAnalysisR
     fe_p = _calc_p_value_from_z(fe_z)
 
     # 2. Heterogeneity Statistics (Cochran's Q & DerSimonian-Laird tau^2)
-    q_stat = float(np.sum(w_fe * ((yi - fe_est) ** 2)))
-    q_df = k - 1
-    q_p = _calc_q_p_value(q_stat, q_df)
+    # UNIVERSAL LAW: For a single clinical trial (k_studies < 2), between-study heterogeneity is not estimable.
+    if k_studies < 2:
+        q_stat = 0.0
+        q_df = 0
+        q_p = 1.0
+        dl_tau2 = 0.0
+        reml_tau2 = 0.0
+        primary_tau2 = 0.0
+        i2 = 0.0
+        re_est = fe_est
+        re_se = fe_se
+        re_ci_lower = fe_ci_lower
+        re_ci_upper = fe_ci_upper
+        re_z = fe_z
+        re_p = fe_p
+        pi_lower = fe_ci_lower
+        pi_upper = fe_ci_upper
+        w_re = w_fe.copy()
+    else:
+        q_stat = float(np.sum(w_fe * ((yi - fe_est) ** 2)))
+        q_df = k_comparisons - 1
+        q_p = _calc_q_p_value(q_stat, q_df)
 
-    c_stat = sum_w_fe - (np.sum(w_fe ** 2) / sum_w_fe)
-    dl_tau2 = max(0.0, (q_stat - q_df) / max(c_stat, 1e-9)) if k > 1 else 0.0
-    i2 = float(max(0.0, min(100.0, ((q_stat - q_df) / max(q_stat, 1e-9)) * 100.0))) if q_stat > q_df else 0.0
+        c_stat = sum_w_fe - (np.sum(w_fe ** 2) / sum_w_fe)
+        dl_tau2 = max(0.0, (q_stat - q_df) / max(c_stat, 1e-9)) if k_comparisons > 1 else 0.0
+        i2 = float(max(0.0, min(100.0, ((q_stat - q_df) / max(q_stat, 1e-9)) * 100.0))) if q_stat > q_df else 0.0
 
-    # 3. REML tau^2
-    reml_tau2 = estimate_tau2_reml(yi, vi) if k >= 3 else dl_tau2
-    primary_tau2 = reml_tau2 if k >= 3 else dl_tau2
+        # 3. REML tau^2
+        reml_tau2 = estimate_tau2_reml(yi, vi) if k_studies >= 3 else dl_tau2
+        primary_tau2 = reml_tau2 if k_studies >= 3 else dl_tau2
 
-    # 4. Random-Effects Model (DerSimonian-Laird / REML)
-    w_re = 1.0 / (vi + primary_tau2)
-    sum_w_re = np.sum(w_re)
-    re_est = float(np.sum(w_re * yi) / sum_w_re)
-    re_se = float(math.sqrt(1.0 / sum_w_re))
-    re_ci_lower = re_est - 1.96 * re_se
-    re_ci_upper = re_est + 1.96 * re_se
-    re_z = re_est / max(re_se, 1e-9)
-    re_p = _calc_p_value_from_z(re_z)
+        # 4. Random-Effects Model (DerSimonian-Laird / REML)
+        w_re = 1.0 / (vi + primary_tau2)
+        sum_w_re = np.sum(w_re)
+        re_est = float(np.sum(w_re * yi) / sum_w_re)
+        re_se = float(math.sqrt(1.0 / sum_w_re))
+        re_ci_lower = re_est - 1.96 * re_se
+        re_ci_upper = re_est + 1.96 * re_se
+        re_z = re_est / max(re_se, 1e-9)
+        re_p = _calc_p_value_from_z(re_z)
 
-    # 5. 95% Prediction Interval (PI) for a future trial
-    # PI = theta_hat +- t_(k-2) * sqrt(SE^2 + tau^2)
-    pi_se = math.sqrt(max(0.0, re_se ** 2 + primary_tau2))
-    t_crit = _calc_t_quantile(k - 2, 0.975) if k > 2 else 1.96
-    pi_lower = re_est - t_crit * pi_se
-    pi_upper = re_est + t_crit * pi_se
+        # 5. 95% Prediction Interval (PI) for a future trial
+        pi_se = math.sqrt(max(0.0, re_se ** 2 + primary_tau2))
+        t_crit = _calc_t_quantile(k_studies - 2, 0.975) if k_studies > 2 else 1.96
+        pi_lower = re_est - t_crit * pi_se
+        pi_upper = re_est + t_crit * pi_se
 
     # 6. Assign weights back to study results
     total_w_fe = np.sum(w_fe)
@@ -592,7 +627,7 @@ def run_meta_analysis(effects: List[EffectSizeResult]) -> Optional[MetaAnalysisR
 
     # 7. Leave-One-Out Sensitivity Analysis
     loo_list = []
-    if k >= 3:
+    if k_studies >= 3:
         for idx in range(k):
             omit_study = valid[idx].study_id
             sub_y = np.delete(yi, idx)
@@ -642,12 +677,18 @@ def run_meta_analysis(effects: List[EffectSizeResult]) -> Optional[MetaAnalysisR
         except Exception:
             pass
 
-    total_pts = sum(int((e.n_exp or 0) + (e.n_ctrl or 0)) for e in valid)
+    # Robust patient count per unique study to prevent double-counting across multi-arm comparisons
+    study_n_map = {}
+    for e in valid:
+        s_base = e.study_id.split(" [")[0].strip()
+        curr_n = int((e.n_exp or 0) + (e.n_ctrl or 0))
+        study_n_map[s_base] = max(study_n_map.get(s_base, 0), curr_n)
+    total_pts = sum(study_n_map.values()) if study_n_map else 0
 
     return MetaAnalysisResult(
         parameter_name=param_name,
         measure=meas,
-        k_studies=k,
+        k_studies=k_studies,
         total_n=total_pts,
         fe_estimate=fe_est,
         fe_se=fe_se,
@@ -889,11 +930,11 @@ class MetaPredictiveEngine:
 
         # Clinical Verdict Synthesis: enforce scale integrity
         if is_ratio_metric:
-            rep_pred = float(math.exp(pred_y))
-            rep_ci_l = float(math.exp(ci_l))
-            rep_ci_u = float(math.exp(ci_u))
-            rep_pi_l = float(math.exp(pi_l))
-            rep_pi_u = float(math.exp(pi_u))
+            rep_pred = _safe_exp(pred_y)
+            rep_ci_l = _safe_exp(ci_l)
+            rep_ci_u = _safe_exp(ci_u)
+            rep_pi_l = _safe_exp(pi_l)
+            rep_pi_u = _safe_exp(pi_u)
             assert rep_pred > 0 and rep_ci_l > 0, f"Predicted ratio must be strictly positive: {rep_pred}"
 
             direction = "favorable odds/risk reduction" if rep_pred < 1.0 else ("increase" if rep_pred > 1.0 else "neutral")
@@ -966,8 +1007,15 @@ class MetaPredictiveEngine:
                 if not doses:
                     doses = [min_d, max_d]
 
+        obs_durations = [float(e.duration_weeks) for e in self.effects if e.duration_weeks is not None and e.duration_weeks > 0]
+        max_obs_dur = max(obs_durations) if obs_durations else 4.0
+
         if not durations:
-            durations = [12.0, 24.0, 52.0]
+            if max_obs_dur <= 4.5:
+                # Bounded by evidence window: strictly evaluate observed study horizon (e.g. 4 weeks)
+                durations = [round(max_obs_dur, 1)]
+            else:
+                durations = [12.0, 24.0, 52.0]
 
         grid = []
         for d in doses:
@@ -1170,12 +1218,22 @@ def run_domain_meta_analysis(domain_name: str, effects: List[EffectSizeResult]) 
     direction = "favorable clinical benefit" if res.re_estimate < 0 else "increase / neutral shift"
     sig_text = "statistically significant" if (res.re_ci_lower > 0 or res.re_ci_upper < 0) else "overlapping null"
 
-    interp = (
-        f"Across {res.k_studies} trials measuring {domain_name} ({', '.join(sorted(included_params)[:3])}), "
-        f"the pooled standardized effect size is Hedges' g = {res.re_estimate:+.2f} "
-        f"(95% CI: [{res.re_ci_lower:+.2f}, {res.re_ci_upper:+.2f}], {sig_text}), demonstrating {direction}. "
-        f"Cross-trial heterogeneity across scales was assessed at I² = {res.i2:.1f}%."
-    )
+    if res.k_studies < 2:
+        res.i2 = 0.0
+        res.tau2 = 0.0
+        interp = (
+            f"Single clinical trial evaluated for {domain_name} ({', '.join(sorted(included_params)[:3])}). "
+            f"The standardized effect size is Hedges' g = {res.re_estimate:+.2f} "
+            f"(95% CI: [{res.re_ci_lower:+.2f}, {res.re_ci_upper:+.2f}], {sig_text}), demonstrating {direction}. "
+            "Between-study heterogeneity (I², tau²) and multi-study random-effects pooling are mathematically not estimable (k=1)."
+        )
+    else:
+        interp = (
+            f"Across {res.k_studies} independent trials measuring {domain_name} ({', '.join(sorted(included_params)[:3])}), "
+            f"the pooled standardized effect size is Hedges' g = {res.re_estimate:+.2f} "
+            f"(95% CI: [{res.re_ci_lower:+.2f}, {res.re_ci_upper:+.2f}], {sig_text}), demonstrating {direction}. "
+            f"Cross-trial heterogeneity across scales was assessed at I² = {res.i2:.1f}%."
+        )
 
     return DomainMetaAnalysisResult(
         domain_name=domain_name,

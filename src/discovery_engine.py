@@ -417,123 +417,119 @@ class InSilicoDiscoveryEngine:
     def _detect_therapeutic_sweet_spot(self) -> Optional[EmergentDiscovery]:
         """Finds the mathematical point of diminishing returns across pooled doses."""
         doses = []
-        effects = []
-
-        if not self.arms_df.empty and "normalized_dose_mg" in self.arms_df:
+        if hasattr(self, "arms_df") and not self.arms_df.empty:
             for _, r in self.arms_df.iterrows():
-                d = r.get("normalized_dose_mg")
-                if d is not None and not (isinstance(d, float) and math.isnan(d)) and float(d) > 0:
-                    doses.append(float(d))
+                d = r.get("dose_value")
+                if d is not None and not pd.isna(d):
+                    try:
+                        f_d = float(d)
+                        if f_d > 0:
+                            doses.append(f_d)
+                    except Exception:
+                        pass
 
         if not doses:
-            doses = [500.0, 1000.0, 1500.0, 2000.0]
-
-        median_dose = float(np.median(doses))
-        max_dose = float(np.max(doses))
-        min_dose = float(np.min(doses))
-
-        # Mathematically model the 85% Emax threshold
-        if max_dose > 100.0:  # e.g., Metformin (500-2500 mg) or Orlistat (120-360 mg)
-            sweet_dose = round(median_dose * 1.15, -1)
-            sweet_dur = 24.0
-            sweet_desc = (
-                f"Peak therapeutic benefit inflection occurs at {sweet_dose:.0f} mg/day sustained over {sweet_dur:.0f} weeks. "
-                f"Mathematical dose-response curve indicates that escalating dose beyond {sweet_dose:.0f} mg/day yields "
-                f"only +0.07% incremental efficacy per 500 mg while biomarker-related adverse event risks accelerate by 1.8x."
+            return EmergentDiscovery(
+                discovery_type="Therapeutic Sweet-Spot",
+                title="🎯 Therapeutic Sweet-Spot Evaluation",
+                headline="Dose-Optimization Not Estimable (Zero Explicit Doses)",
+                quantitative_finding="Status: INVALID_UNSUPPORTED_PREDICTION",
+                clinical_rationale="No quantitative drug doses extracted to model an evidence-grounded dose-response curve.",
+                confidence_grade="Not Estimable (Missing Data)"
             )
-        else:  # e.g., Dapagliflozin (5-10 mg)
-            sweet_dose = 10.0
-            sweet_dur = 24.0
-            sweet_desc = (
-                f"Optimal pharmacological saturation reached at {sweet_dose:.0f} mg/day over {sweet_dur:.0f} weeks. "
-                f"Cross-trial SGLT2 receptor binding models confirm 92% glycosuric plateau with negligible gains above 10 mg."
-            )
+
+        unique_doses = sorted(list(set(doses)))
+        min_dose = unique_doses[0]
+        max_dose = unique_doses[-1]
+
+        # Pharmacological class ceilings
+        CLASS_CEILINGS = {
+            "empagliflozin": 25.0,
+            "dapagliflozin": 10.0,
+            "canagliflozin": 300.0,
+            "semaglutide": 2.4,
+            "tirzepatide": 15.0,
+            "liraglutide": 3.0,
+            "metformin": 2550.0,
+            "orlistat": 360.0,
+            "sitagliptin": 100.0,
+            "pioglitazone": 45.0
+        }
+        cohort_name_low = str(getattr(self, "cohort_name", "")).lower()
+        class_max = 5000.0
+        for k_drug, v_ceil in CLASS_CEILINGS.items():
+            if k_drug in cohort_name_low:
+                class_max = v_ceil
+                break
+
+        # Evidence ceiling: strictly cannot exceed min(class_max, 1.5 * max_dose)
+        sweet_dose = min(class_max, max_dose)
+        dur_val = 4.0
+        if hasattr(self, "studies_df") and not self.studies_df.empty:
+            if "duration_value" in self.studies_df.columns:
+                d_s = self.studies_df["duration_value"].dropna()
+                if not d_s.empty:
+                    dur_val = float(d_s.iloc[0])
+
+        sweet_dur = dur_val
+        sweet_desc = (
+            f"Pharmacological saturation ceiling is bounded within the empirical evidence range: "
+            f"Evaluated doses range from {min_dose:.0f} to {max_dose:.0f} mg/day over {sweet_dur:.0f} weeks. "
+            f"Extrapolation beyond {max_dose:.0f} mg/day is clinically unsupported."
+        )
 
         return EmergentDiscovery(
             discovery_type="Therapeutic Sweet-Spot",
-            title="🎯 Optimal Dose-Duration Therapeutic Sweet-Spot",
-            headline=f"Optimal Ceiling Identified: {sweet_dose:.0f} mg/day @ {sweet_dur:.0f} Weeks",
-            quantitative_finding=f"Optimal Regimen: {sweet_dose:.0f} mg/day (Inflection at 88.4% Emax Plateau)",
+            title="🎯 Evidence-Bounded Therapeutic Sweet-Spot",
+            headline=f"Evidence Ceiling Identified: {sweet_dose:.0f} mg/day @ {sweet_dur:.0f} Weeks",
+            quantitative_finding=f"Optimal Regimen: {sweet_dose:.0f} mg/day (Bounded by Evidence Ceiling)",
             clinical_rationale=sweet_desc,
-            confidence_grade="High Confidence (p < 0.005, WLS Curve)"
+            confidence_grade="Evidence Bounded (Direct Trial Observations)"
         )
 
     def _detect_super_responder_phenotype(self) -> Optional[EmergentDiscovery]:
-        """Identifies which baseline patient subpopulation achieves maximum effect."""
+        """Identifies exploratory responder patterns with strict transparency on aggregate trial limitations."""
         primary_param = "HbA1c"
         if primary_param not in self.meta_results and self.meta_results:
             primary_param = list(self.meta_results.keys())[0]
 
-        # Scan outcomes for baseline vs change correlation
-        baseline_vals = []
-        change_vals = []
-        for _, r in self.outcomes_df.iterrows():
-            bm = r.get("baseline_mean")
-            ch = r.get("change_from_baseline")
-            if bm is not None and ch is not None:
-                try:
-                    f_bm = float(bm)
-                    f_ch = float(ch)
-                    if not (math.isnan(f_bm) or math.isnan(f_ch)):
-                        baseline_vals.append(f_bm)
-                        change_vals.append(f_ch)
-                except Exception:
-                    pass
-
-        if len(baseline_vals) >= 2:
-            try:
-                corr = float(np.corrcoef(baseline_vals, change_vals)[0, 1])
-            except Exception:
-                corr = -0.68
-        else:
-            corr = -0.72
-
-        median_base = float(np.median(baseline_vals)) if baseline_vals else 8.5
-        severity_label = f"Baseline {primary_param} ≥ {median_base:.1f}"
+        severity_label = f"Elevated Baseline {primary_param}"
 
         finding = (
-            f"Patients presenting with elevated baseline severity ({severity_label}) experience a 1.54x stronger "
-            f"standardized therapeutic response compared to mild cohorts (correlation r = {corr:.2f}). "
-            f"Synthesized evidence establishes baseline metabolic elevation as the single most potent predictive responder biomarker."
+            f"Exploratory Hypothesis: Directly reported patient phenotypes require individual patient-level data "
+            f"(IPD) or pre-specified trial stratification. In aggregate trial results, higher baseline {primary_param} "
+            f"correlates with larger absolute numerical reductions, which reflects statistical regression to the mean "
+            f"and baseline severity rather than a verified distinct genetic or clinical phenotype."
         )
 
         return EmergentDiscovery(
             discovery_type="Hidden Super-Responder",
-            title="🧬 Discovered Super-Responder Clinical Phenotype",
-            headline=f"Super-Responders: {severity_label} with Treatment-Naïve Baseline",
-            quantitative_finding=f"Relative Efficacy Multiplier: 1.54x (r = {corr:.2f}, p = 0.012)",
+            title="🧬 Exploratory Responder Phenotype Hypothesis",
+            headline=f"Responder Hypothesis: {severity_label} (Exploratory / Unvalidated)",
+            quantitative_finding="Status: EXPLORATORY_HYPOTHESIS_UNVALIDATED",
             clinical_rationale=finding,
-            confidence_grade="Moderate-to-High (Cross-Trial Meta-Regression)"
+            confidence_grade="Exploratory Hypothesis (Aggregate Trial Limitations)"
         )
 
     def _detect_biomarker_coupling(self) -> Optional[EmergentDiscovery]:
-        """Discovers latent correlations between primary and secondary clinical outcomes."""
+        """Evaluates biomarker relationships with strict protection against ecological fallacy."""
         all_p = list(self.meta_results.keys())
-        p1 = all_p[0] if all_p else "HbA1c"
+        p1 = all_p[0] if all_p else "Fasting Glucose"
         p2 = all_p[1] if len(all_p) > 1 else "Body Weight"
 
-        # Empirical or cross-domain coupling coefficient
-        if "HbA1c" in p1 and "Weight" in p2:
-            slope = 2.45
-            coupling_desc = (
-                f"Multi-trial synthesis reveals an obligate metabolic coupling: every 1.0% drop in {p1} is paired "
-                f"with a mean {slope:.2f} kg reduction in {p2} (r = 0.81, p < 0.001). This cross-system linkage "
-                f"proves a coordinated multi-organ insulin-sensitizing and lipolytic response."
-            )
-        else:
-            slope = 1.85
-            coupling_desc = (
-                f"Pooled trial cross-covariance establishes a strong latent coupling between {p1} and {p2} (r = 0.76). "
-                f"A 1.0 standard unit improvement in {p1} co-predicts a {slope:.2f} unit concurrent improvement in {p2}."
-            )
+        coupling_desc = (
+            f"Exploratory Hypothesis: Cross-biomarker correlation between {p1} and {p2} cannot be mathematically "
+            f"established from marginal aggregate trial summaries without patient-level covariance matrices. "
+            f"Reporting a fixed correlation coefficient across group means would commit the ecological fallacy."
+        )
 
         return EmergentDiscovery(
             discovery_type="Latent Biomarker Coupling",
-            title="🕸️ Cross-Biomarker Latent Coupling Cascade",
-            headline=f"Synergistic Coupling: Δ {p1} ⟷ Δ {p2}",
-            quantitative_finding=f"Coupling Ratio: 1.0 unit {p1} ➔ {slope:.2f} units {p2} (r = 0.78)",
+            title="🕸️ Cross-Biomarker Metabolic Relationship Evaluation",
+            headline=f"Biomarker Linkage: {p1} ⟷ {p2} (Exploratory / Unvalidated)",
+            quantitative_finding="Status: EXPLORATORY_HYPOTHESIS_UNVALIDATED",
             clinical_rationale=coupling_desc,
-            confidence_grade="High Confidence (Empirical Covariance)"
+            confidence_grade="Exploratory Hypothesis (Ecological Fallacy Protection)"
         )
 
     # =========================================================================
@@ -633,7 +629,7 @@ class InSilicoDiscoveryEngine:
             n_recommended = max(120, min(800, n_calc))
 
             # NNT calculation
-            nnt = max(2.8, round(1.0 / (abs(combo_eff) * 0.28), 1))
+            nnt = max(2.8, round(1.0 / max(0.001, abs(combo_eff) * 0.28), 1)) if abs(combo_eff) > 1e-6 else 10.0
 
             # Monte Carlo superiority probability vs best real trial
             superiority_prob = self._compute_superiority_probability(combo_eff, base_pooled_se * 1.2, base_pooled_eff)
@@ -707,7 +703,7 @@ class InSilicoDiscoveryEngine:
             sigma = max(0.60, abs(base_pooled_eff) * 0.70)
             n_calc = int(2 * ((1.96 + 1.282) ** 2) * (sigma ** 2) / (delta ** 2)) if delta > 0.05 else 160
             n_recommended = max(100, min(600, n_calc))
-            nnt = max(3.2, round(1.0 / (abs(opt_eff) * 0.25), 1))
+            nnt = max(3.2, round(1.0 / max(0.001, abs(opt_eff) * 0.25), 1)) if abs(opt_eff) > 1e-6 else 12.0
             superiority_prob = self._compute_superiority_probability(opt_eff, base_pooled_se * 1.1, base_pooled_eff)
 
             arm_opt = SynthesizedVirtualArm(
@@ -762,12 +758,13 @@ class InSilicoDiscoveryEngine:
 
 
         self.virtual_trial_metadata = {
-            "protocol_name": protocol_name,
+            "protocol_name": f"{protocol_name} [HYPOTHETICAL_SIMULATION_FRAMEWORK]",
             "primary_endpoint": primary_param,
-            "target_population": "Adult Patients Meeting Super-Responder Inclusion Phenotype",
-            "study_duration": "32–36 Weeks (Optimal Therapeutic Window)",
+            "target_population": "Adult Patients with Target Condition (Hypothetical Protocol Blueprint)",
+            "study_duration": "32–36 Weeks (Hypothetical Simulation Horizon)",
             "total_recruitment_n": sum(a.recommended_sample_size for a in self.virtual_trial_arms),
-            "analytical_framework": "Bayesian Hierarchical Superiority Design with 90% Power"
+            "analytical_framework": "Hypothetical In-Silico Power Simulation (alpha=0.05 two-sided, 90% power, 1:1:1 allocation)",
+            "methodological_status": "HYPOTHETICAL_SIMULATION_FRAMEWORK (Not an empirical clinical trial result)"
         }
 
         return {

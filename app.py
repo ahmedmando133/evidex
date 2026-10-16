@@ -3211,8 +3211,8 @@ def build_app():
     <meta property="og:site_name" content="MANDOROS" />
     <meta property="og:title" content="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis" />
     <meta property="og:description" content="From Raw Trials to Global Clinical Verdicts. Atomic CONSORT/PRISMA Extraction, metafor-Grade REML Meta-Analysis, Cross-Trial SUCRA & In-Silico Virtual Trials." />
-    <meta property="og:image" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_og_preview.png" />
-    <meta property="og:image:secure_url" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_og_preview.png" />
+    <meta property="og:image" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mr_logo_preview.png" />
+    <meta property="og:image:secure_url" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mr_logo_preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -3223,13 +3223,13 @@ def build_app():
     <meta name="twitter:url" content="https://mandoros.onrender.com/" />
     <meta name="twitter:title" content="MANDOROS • Meta-Analysis Network for Data, Outcomes & Research Optimization Synthesis" />
     <meta name="twitter:description" content="From Raw Trials to Global Clinical Verdicts. Atomic CONSORT/PRISMA Extraction, metafor-Grade REML Meta-Analysis, Cross-Trial SUCRA & In-Silico Virtual Trials." />
-    <meta name="twitter:image" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_og_preview.png" />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mr_logo_preview.png" />
     <meta name="twitter:image:alt" content="MANDOROS Biostatistical Evidence Synthesis & Virtual Trial Platform" />
 
     <!-- Favicon & Mobile Touch Icons -->
     <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="128x128" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_favicon.png" />
-    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mandoros_logo_master.png" />
+    <link rel="icon" type="image/png" sizes="128x128" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mr_logo_favicon.png" />
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ahmedmando133/MANDOROS/main/assets/mr_logo_master.png" />
     """
 
     with gr.Blocks(
@@ -3239,8 +3239,20 @@ def build_app():
         head=custom_head_tags
     ) as demo:
         with gr.Column(elem_id="header-container"):
-            gr.HTML(
-                """
+            _mr_logo_path = os.path.join(os.path.dirname(__file__), "assets", "mr_logo.svg")
+            _mr_logo_markup = ""
+            if os.path.exists(_mr_logo_path):
+                with open(_mr_logo_path, "r", encoding="utf-8") as _f:
+                    _raw_svg = _f.read()
+                _raw_svg = re.sub(r'<\?xml[^>]*\?>\s*', '', _raw_svg)
+                _raw_svg = re.sub(r'<!--[^>]*-->\s*', '', _raw_svg)
+                _mr_logo_markup = re.sub(
+                    r'<svg([^>]*)width="1600"\s+height="1600"',
+                    r'<svg\1width="135" height="135" style="filter: drop-shadow(0 0 22px rgba(0, 245, 212, 0.60)) drop-shadow(0 0 38px rgba(244, 63, 94, 0.55)); display: block; margin: 0 auto;"',
+                    _raw_svg
+                )
+
+            _header_html = """
                 <!-- Left Particle Mesh -->
                 <div class="mesh-wave mesh-left">
                   <svg width="240" height="200" viewBox="0 0 240 200" fill="none" opacity="0.32">
@@ -3260,324 +3272,9 @@ def build_app():
                 </div>
 
                 <div class="header-content-inner">
-                  <!-- 3D Ribbon Emblem -->
+                  <!-- Official MR Logo Neon Vector Emblem -->
                   <div class="emblem-wrapper">
-                                        <svg width="120" height="120" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 24px rgba(0, 245, 212, 0.55)) drop-shadow(0 0 40px rgba(168, 85, 247, 0.50));">
-
-                      <defs>
-                        <!-- Master Neon Gradients -->
-                        <linearGradient id="neon_m_grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%"   stop-color="#00F5D4"/>
-                          <stop offset="25%"  stop-color="#00D2FF"/>
-                          <stop offset="55%"  stop-color="#3A86FF"/>
-                          <stop offset="85%"  stop-color="#8338EC"/>
-                          <stop offset="100%" stop-color="#FF007F"/>
-                        </linearGradient>
-
-                        <linearGradient id="neon_left_hook" x1="100%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%"   stop-color="#00D2FF"/>
-                          <stop offset="50%"  stop-color="#00F5D4"/>
-                          <stop offset="100%" stop-color="#7000FF"/>
-                        </linearGradient>
-
-                        <linearGradient id="neon_right_hook" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%"   stop-color="#8338EC"/>
-                          <stop offset="50%"  stop-color="#FF007F"/>
-                          <stop offset="100%" stop-color="#00F5D4"/>
-                        </linearGradient>
-
-                        <linearGradient id="data_row_grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%"   stop-color="#00F5D4" stop-opacity="0.9"/>
-                          <stop offset="50%"  stop-color="#38BDF8" stop-opacity="0.95"/>
-                          <stop offset="100%" stop-color="#C084FC" stop-opacity="0.9"/>
-                        </linearGradient>
-
-                        <!-- Deep Ambient Glow Filter -->
-                        <filter id="glow_heavy" x="-50%" y="-50%" width="200%" height="200%">
-                          <feGaussianBlur stdDeviation="16" result="blur1"/>
-                          <feGaussianBlur stdDeviation="28" result="blur2"/>
-                          <feMerge>
-                            <feMergeNode in="blur2"/>
-                            <feMergeNode in="blur1"/>
-                            <feMergeNode in="SourceGraphic"/>
-                          </feMerge>
-                        </filter>
-
-                        <!-- Sharp Intense Core Glow Filter -->
-                        <filter id="glow_core" x="-30%" y="-30%" width="160%" height="160%">
-                          <feGaussianBlur stdDeviation="5" result="blur"/>
-                          <feMerge>
-                            <feMergeNode in="blur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                          </feMerge>
-                        </filter>
-
-                        <!-- Hook Tip Micro Flare Filter -->
-                        <filter id="hook_flare" x="-80%" y="-80%" width="260%" height="260%">
-                          <feGaussianBlur stdDeviation="6" result="blur"/>
-                          <feMerge>
-                            <feMergeNode in="blur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                          </feMerge>
-                        </filter>
-                      </defs>
-
-                      <!-- =====================================================================
-                           ZERO BOUNDING BOX: 100% TRANSPARENT FLOATING VECTOR
-                           NO background rect, NO borders, NO container frames.
-                           ===================================================================== -->
-
-                      <!-- =====================================================================
-                           LAYER 1: DEEP AMBIENT NEON GLOW AURAS (Blurred Backdrops)
-                           ===================================================================== -->
-                      <g opacity="0.45" filter="url(#glow_heavy)">
-                        <!-- Ambient M Spine -->
-                        <path d="M 116 300 L 116 110 L 256 250 L 396 110 L 396 300"
-                              stroke="url(#neon_m_grad)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-
-                        <!-- Ambient Left Hooks Aura -->
-                        <path d="M 116 300 C 116 380, 40 370, 40 435 C 40 480, 95 490, 105 440"
-                              stroke="#00F5D4" stroke-width="26" stroke-linecap="round" fill="none"/>
-                        <path d="M 116 300 C 116 390, 120 440, 155 465 C 185 485, 205 445, 185 415"
-                              stroke="#00D2FF" stroke-width="22" stroke-linecap="round" fill="none"/>
-
-                        <!-- Ambient Right Hooks Aura -->
-                        <path d="M 396 300 C 396 380, 472 370, 472 435 C 472 480, 417 490, 407 440"
-                              stroke="#FF007F" stroke-width="26" stroke-linecap="round" fill="none"/>
-                        <path d="M 396 300 C 396 390, 392 440, 357 465 C 327 485, 307 445, 327 415"
-                              stroke="#8338EC" stroke-width="22" stroke-linecap="round" fill="none"/>
-                      </g>
-
-                      <!-- =====================================================================
-                           LAYER 2: ACTIVELY EXTRACTED DATA ROWS & EXTRACTION VECTOR RAYS
-                           Visualizes the clinical papers' raw data rows being snagged and
-                           pulled vertically upward into the MANDOROS engine.
-                           ===================================================================== -->
-                      <g opacity="0.85">
-                        <!-- Extracted Row 1 (Top Level Tier - being pulled up) -->
-                        <g filter="url(#glow_core)">
-                          <!-- Segmented Clinical Data Row Units -->
-                          <rect x="75" y="420" width="45" height="7" rx="3.5" fill="#00F5D4" opacity="0.9"/>
-                          <rect x="130" y="416" width="60" height="7" rx="3.5" fill="#38BDF8" opacity="0.85"/>
-                          <rect x="200" y="412" width="112" height="7" rx="3.5" fill="url(#data_row_grad)" opacity="0.75"/>
-                          <rect x="322" y="416" width="60" height="7" rx="3.5" fill="#C084FC" opacity="0.85"/>
-                          <rect x="392" y="420" width="45" height="7" rx="3.5" fill="#FF007F" opacity="0.9"/>
-                        </g>
-
-                        <!-- Extracted Row 2 (Mid Level Deep Retrieval Tier) -->
-                        <g filter="url(#glow_core)">
-                          <rect x="55" y="455" width="55" height="8" rx="4" fill="#00F5D4" opacity="0.95"/>
-                          <rect x="120" y="452" width="75" height="8" rx="4" fill="#00D2FF" opacity="0.9"/>
-                          <rect x="205" y="448" width="102" height="8" rx="4" fill="#818CF8" opacity="0.8"/>
-                          <rect x="317" y="452" width="75" height="8" rx="4" fill="#C084FC" opacity="0.9"/>
-                          <rect x="402" y="455" width="55" height="8" rx="4" fill="#FF007F" opacity="0.95"/>
-                        </g>
-
-                        <!-- Extracted Row 3 (Bottom Baseline Deep Hook Tier) -->
-                        <g filter="url(#glow_core)" opacity="0.75">
-                          <rect x="85" y="488" width="65" height="6" rx="3" fill="#00F5D4"/>
-                          <rect x="160" y="485" width="80" height="6" rx="3" fill="#38BDF8"/>
-                          <rect x="250" y="482" width="90" height="6" rx="3" fill="#A855F7"/>
-                          <rect x="350" y="488" width="75" height="6" rx="3" fill="#FF007F"/>
-                        </g>
-
-                        <!-- Upward Extraction Tension Rays (Laser pull lines showing vertical lift) -->
-                        <g stroke-linecap="round" opacity="0.8">
-                          <line x1="88" y1="455" x2="88" y2="425" stroke="#00F5D4" stroke-width="2.5" stroke-dasharray="3 3"/>
-                          <line x1="172" y1="465" x2="172" y2="425" stroke="#38BDF8" stroke-width="2.5" stroke-dasharray="3 3"/>
-                          <line x1="256" y1="448" x2="256" y2="340" stroke="#818CF8" stroke-width="2.5" stroke-dasharray="4 4"/>
-                          <line x1="340" y1="465" x2="340" y2="425" stroke="#C084FC" stroke-width="2.5" stroke-dasharray="3 3"/>
-                          <line x1="424" y1="455" x2="424" y2="425" stroke="#FF007F" stroke-width="2.5" stroke-dasharray="3 3"/>
-
-                          <!-- Upward Extraction Energy Chevrons (lifting motion indicators) -->
-                          <path d="M 83 410 L 88 403 L 93 410" stroke="#00F5D4" stroke-width="2" fill="none"/>
-                          <path d="M 167 405 L 172 398 L 177 405" stroke="#38BDF8" stroke-width="2" fill="none"/>
-                          <path d="M 251 332 L 256 324 L 261 332" stroke="#818CF8" stroke-width="2.5" fill="none"/>
-                          <path d="M 335 405 L 340 398 L 345 405" stroke="#C084FC" stroke-width="2" fill="none"/>
-                          <path d="M 419 410 L 424 403 L 429 410" stroke="#FF007F" stroke-width="2" fill="none"/>
-                        </g>
-                      </g>
-
-                      <!-- =====================================================================
-                           LAYER 3: MAIN M ARCHITECTURAL BODY & VERTICES
-                           High-precision, bold cyber-medical typography
-                           ===================================================================== -->
-                      <!-- Main M Core Path -->
-                      <path d="M 116 300 L 116 110 L 256 250 L 396 110 L 396 300"
-                            stroke="url(#neon_m_grad)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"
-                            fill="none" filter="url(#glow_core)"/>
-
-                      <!-- White-hot Lit Plasma Filament (Spine of M) -->
-                      <path d="M 116 295 L 116 112 L 256 248 L 396 112 L 396 295"
-                            stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"
-                            fill="none" opacity="0.85"/>
-
-                      <!-- Top Terminal Finial Wings (Precision Instrument Styling) -->
-                      <path d="M 116 110 Q 95 90 75 105" stroke="#00F5D4" stroke-width="12" stroke-linecap="round" fill="none"/>
-                      <path d="M 116 110 Q 95 90 75 105" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.9"/>
-                      <path d="M 396 110 Q 417 90 437 105" stroke="#FF007F" stroke-width="12" stroke-linecap="round" fill="none"/>
-                      <path d="M 396 110 Q 417 90 437 105" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.9"/>
-
-                      <!-- Central Apex (V-Valley) Harpoon Stylus & Dual Micro-Hooks -->
-                      <g filter="url(#glow_core)">
-                        <!-- Central Harpoon Shaft -->
-                        <path d="M 256 250 L 256 345" stroke="#38BDF8" stroke-width="14" stroke-linecap="round"/>
-                        <path d="M 256 250 L 256 345" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
-                        <!-- Central Harpoon Spearhead Tip -->
-                        <polygon points="256,368 244,342 268,342" fill="#00F5D4"/>
-                        <polygon points="256,365 248,345 264,345" fill="#FFFFFF"/>
-                        <!-- Dual Central Micro-Hooks (dipping outward from central shaft) -->
-                        <path d="M 256 320 C 235 320, 222 342, 228 358 C 232 368, 246 364, 248 352"
-                              stroke="#00F5D4" stroke-width="6" stroke-linecap="round" fill="none"/>
-                        <path d="M 256 320 C 277 320, 290 342, 284 358 C 280 368, 266 364, 264 352"
-                              stroke="#C084FC" stroke-width="6" stroke-linecap="round" fill="none"/>
-                        <!-- Central Node Core -->
-                        <circle cx="256" cy="250" r="14" fill="#38BDF8" filter="url(#hook_flare)"/>
-                        <circle cx="256" cy="250" r="6" fill="#FFFFFF"/>
-                      </g>
-
-                      <!-- =====================================================================
-                           LAYER 4: MULTIPLE PROMINENT CLINICAL EXTRACTION HOOKS AT BASE
-                           Extending directly from bottom terminals, dipping down and out,
-                           unmistakably shaped like surgical retrieval/extraction hooks.
-                           ===================================================================== -->
-
-                      <!-- -------------------------------------------------------------------
-                           LEFT TERMINAL: TRIPLE PROMINENT EXTRACTION HOOK CLUSTERS
-                           ------------------------------------------------------------------- -->
-                      <g id="left_extraction_hooks_cluster" filter="url(#glow_core)">
-                        <!-- HOOK L1: Major Primary Outer Extraction Hook (Deep Claw / Anchor) -->
-                        <!-- Large, heavy-gauge sweeping J-hook curving down to y=472, outward to x=32, up to x=72, y=418 -->
-                        <path d="M 116 290
-                                 C 116 375, 42 360, 36 430
-                                 C 30 478, 86 492, 102 448
-                                 C 106 438, 96 428, 86 434"
-                              stroke="url(#neon_left_hook)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        <!-- L1 White-Hot Inner Core -->
-                        <path d="M 116 290
-                                 C 116 375, 42 360, 36 430
-                                 C 30 478, 86 492, 102 448
-                                 C 106 438, 96 428, 86 434"
-                              stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9"/>
-                        <!-- L1 Razor Extraction Barb Tip -->
-                        <polygon points="104,444 82,422 108,426" fill="#00F5D4"/>
-                        <polygon points="102,442 88,426 104,428" fill="#FFFFFF"/>
-                        <circle cx="92" cy="426" r="6" fill="#00F5D4" filter="url(#hook_flare)"/>
-                        <circle cx="92" cy="426" r="2.5" fill="#FFFFFF"/>
-
-                        <!-- HOOK L2: Secondary Mid-Plunge Extraction Hook (Direct Downward Snagger) -->
-                        <!-- Extends straight down through x=116, y=390, swooping outward to x=145, y=462, curling up to x=135, y=435 -->
-                        <path d="M 116 300
-                                 C 116 385, 100 445, 126 476
-                                 C 142 494, 168 472, 156 442
-                                 C 152 432, 140 430, 138 440"
-                              stroke="#00D2FF" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        <!-- L2 White Core -->
-                        <path d="M 116 300
-                                 C 116 385, 100 445, 126 476
-                                 C 142 494, 168 472, 156 442"
-                              stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.9"/>
-                        <!-- L2 Barb Tip -->
-                        <polygon points="156,438 140,420 162,424" fill="#00E5FF"/>
-                        <circle cx="150" cy="426" r="5" fill="#00D2FF" filter="url(#hook_flare)"/>
-                        <circle cx="150" cy="426" r="2" fill="#FFFFFF"/>
-
-                        <!-- HOOK L3: Tertiary Inward Medial Extraction Hook (Inner Swivel Talon) -->
-                        <!-- Branches inward toward center: x=116, y=320 -> curves to x=175, y=420 -> hooks up to x=195, y=395 -->
-                        <path d="M 116 320
-                                 C 125 365, 160 380, 178 418
-                                 C 192 448, 222 432, 206 400
-                                 C 200 390, 188 392, 186 400"
-                              stroke="#38BDF8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        <!-- L3 White Core -->
-                        <path d="M 116 320
-                                 C 125 365, 160 380, 178 418
-                                 C 192 448, 222 432, 206 400"
-                              stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85"/>
-                        <!-- L3 Barb Tip -->
-                        <polygon points="206,396 195,378 214,384" fill="#38BDF8"/>
-                        <circle cx="202" cy="384" r="4.5" fill="#38BDF8" filter="url(#hook_flare)"/>
-                        <circle cx="202" cy="384" r="1.8" fill="#FFFFFF"/>
-                      </g>
-
-                      <!-- -------------------------------------------------------------------
-                           RIGHT TERMINAL: TRIPLE PROMINENT EXTRACTION HOOK CLUSTERS
-                           Symmetrically mirrored with electric violet/magenta neon energy
-                           ------------------------------------------------------------------- -->
-                      <g id="right_extraction_hooks_cluster" filter="url(#glow_core)">
-                        <!-- HOOK R1: Major Primary Outer Extraction Hook (Deep Claw / Anchor) -->
-                        <!-- Large, heavy-gauge sweeping J-hook curving down to y=472, outward to x=480, up to x=440, y=418 -->
-                        <path d="M 396 290
-                                 C 396 375, 470 360, 476 430
-                                 C 482 478, 426 492, 410 448
-                                 C 406 438, 416 428, 426 434"
-                              stroke="url(#neon_right_hook)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        <!-- R1 White-Hot Inner Core -->
-                        <path d="M 396 290
-                                 C 396 375, 470 360, 476 430
-                                 C 482 478, 426 492, 410 448
-                                 C 406 438, 416 428, 426 434"
-                              stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9"/>
-                        <!-- R1 Razor Extraction Barb Tip -->
-                        <polygon points="408,444 430,422 404,426" fill="#FF007F"/>
-                        <polygon points="410,442 424,426 408,428" fill="#FFFFFF"/>
-                        <circle cx="420" cy="426" r="6" fill="#FF007F" filter="url(#hook_flare)"/>
-                        <circle cx="420" cy="426" r="2.5" fill="#FFFFFF"/>
-
-                        <!-- HOOK R2: Secondary Mid-Plunge Extraction Hook (Direct Downward Snagger) -->
-                        <!-- Extends straight down through x=396, swooping outward to x=367, y=462, curling up to x=377, y=435 -->
-                        <path d="M 396 300
-                                 C 396 385, 412 445, 386 476
-                                 C 370 494, 344 472, 356 442
-                                 C 360 432, 372 430, 374 440"
-                              stroke="#C084FC" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        <!-- R2 White Core -->
-                        <path d="M 396 300
-                                 C 396 385, 412 445, 386 476
-                                 C 370 494, 344 472, 356 442"
-                              stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.9"/>
-                        <!-- R2 Barb Tip -->
-                        <polygon points="356,438 372,420 350,424" fill="#D946EF"/>
-                        <circle cx="362" cy="426" r="5" fill="#C084FC" filter="url(#hook_flare)"/>
-                        <circle cx="362" cy="426" r="2" fill="#FFFFFF"/>
-
-                        <!-- HOOK R3: Tertiary Inward Medial Extraction Hook (Inner Swivel Talon) -->
-                        <!-- Branches inward toward center: x=396, y=320 -> curves to x=337, y=420 -> hooks up to x=317, y=395 -->
-                        <path d="M 396 320
-                                 C 387 365, 352 380, 334 418
-                                 C 320 448, 290 432, 306 400
-                                 C 312 390, 324 392, 326 400"
-                              stroke="#818CF8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        <!-- R3 White Core -->
-                        <path d="M 396 320
-                                 C 387 365, 352 380, 334 418
-                                 C 320 448, 290 432, 306 400"
-                              stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85"/>
-                        <!-- R3 Barb Tip -->
-                        <polygon points="306,396 317,378 298,384" fill="#818CF8"/>
-                        <circle cx="310" cy="384" r="4.5" fill="#818CF8" filter="url(#hook_flare)"/>
-                        <circle cx="310" cy="384" r="1.8" fill="#FFFFFF"/>
-                      </g>
-
-                      <!-- =====================================================================
-                           LAYER 5: ACTIVE EXTRACTION SPARKS & ENERGY DISCHARGE NODES
-                           Showing real-time data capture at the extraction interface
-                           ===================================================================== -->
-                      <g filter="url(#hook_flare)" opacity="0.95">
-                        <!-- Left Hook Contact Points -->
-                        <circle cx="68" cy="455" r="3" fill="#FFFFFF"/>
-                        <circle cx="126" cy="476" r="3" fill="#FFFFFF"/>
-                        <circle cx="178" cy="418" r="2.5" fill="#FFFFFF"/>
-
-                        <!-- Right Hook Contact Points -->
-                        <circle cx="444" cy="455" r="3" fill="#FFFFFF"/>
-                        <circle cx="386" cy="476" r="3" fill="#FFFFFF"/>
-                        <circle cx="334" cy="418" r="2.5" fill="#FFFFFF"/>
-
-                        <!-- Central Harpoon Contact Point -->
-                        <circle cx="256" cy="368" r="4" fill="#FFFFFF"/>
-                      </g>
-                    </svg>
+                    <!-- MR_LOGO_EMBLEM_PLACEHOLDER -->
                   </div>
 
                   <!-- Geometric Metallic Main Title -->
@@ -3796,7 +3493,7 @@ def build_app():
                   </div>
                 </div>
                 """
-            )
+            gr.HTML(_header_html.replace("<!-- MR_LOGO_EMBLEM_PLACEHOLDER -->", _mr_logo_markup))
 
         # Pre-load Rich Academic Methodological Showcases so UI has 0% empty space and zero 1|2|3 tables on startup
         p1_summary, p1_master_df, p1_matrix_df, p1_outcomes_df, p1_eligibility_df = get_default_single_study_preview()
